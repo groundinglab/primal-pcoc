@@ -227,7 +227,10 @@ private fun ParsingInputTextField(
 
 private fun String.isValidScanInput(scanMode: ScanCodeContract.ScanMode): Boolean {
     return when (scanMode) {
-        ScanCodeContract.ScanMode.Anything -> QrCodeDataType.from(this) != null || isValidPromoCode()
+        ScanCodeContract.ScanMode.Anything -> {
+            val type = QrCodeDataType.from(this)
+            (type != null && type != QrCodeDataType.TIP_HASH) || isValidPromoCode()
+        }
         ScanCodeContract.ScanMode.RemoteLogin -> QrCodeDataType.from(this) == QrCodeDataType.NOSTR_CONNECT
     }
 }

@@ -38,6 +38,7 @@ enum class QrCodeDataType(val validator: (String) -> Boolean) {
     NWC_URL(validator = { it.isNwcUrl() }),
     NOSTR_CONNECT(validator = { it.isNostrConnectUrl() }),
     PROMO_CODE(validator = { it.isPromoCodeUrl() }),
+    TIP_HASH(validator = { TipHashQr.parse(it) != null }),
     ;
 
     companion object {

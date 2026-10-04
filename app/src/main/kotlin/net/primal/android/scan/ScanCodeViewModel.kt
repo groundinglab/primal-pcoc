@@ -177,6 +177,8 @@ class ScanCodeViewModel @Inject constructor(
                 getPromoCodeDetails(code.getPromoCodeFromUrl())
             }
 
+            QrCodeDataType.TIP_HASH -> Unit
+
             null -> processUnknownCode(code)
 
             else -> setState { copy(showErrorBadge = true) }
