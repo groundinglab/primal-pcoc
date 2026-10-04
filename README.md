@@ -1,3 +1,16 @@
+# primal-pcoc (Groundinglab)
+
+> **This is a Groundinglab fork of [PrimalHQ/primal-android-app](https://github.com/PrimalHQ/primal-android-app)** — Primal’s Android Nostr client — for integrating **PCOC** (cost-backed admission / hike objects) as a proof of concept.
+>
+> - Upstream project: [github.com/PrimalHQ/primal-android-app](https://github.com/PrimalHQ/primal-android-app)
+> - Upstream product: [primal.net](https://primal.net)
+> - License: MIT — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md)
+> - PCOC lab monorepo (separate): [groundinglab/pcoc](https://github.com/groundinglab/pcoc)
+>
+> This fork is **not** an official Primal release. Do not confuse it with builds from Primal Systems Inc.
+
+---
+
 <!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
 <a name="readme-top"></a>
 <!--
