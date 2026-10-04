@@ -6,7 +6,7 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook / VivoBook produce). Bari is the plant helper and does not produce that file. Tonight does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire and the sign-in read (`hike::yielded_public_key`) are locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The reader name is not an ask, and the `public_key` checks are not blocked on a decoder. UI placement is the remaining Christian pick: it does not block the SPEC, and it blocks the on-device run until picked.
+**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook / VivoBook produce). Bari is the plant helper and does not produce that file. Tonight does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire and the sign-in read (`hike::yielded_public_key`) are locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The reader name is not an ask, and the `public_key` checks are not blocked on a decoder. UI home is locked: a named Groundinglab row on `SettingsHomeScreen` (`PrimalSettingsSection`), always visible. Not `DeveloperToolsScreen`. The centre stays Wallet.
 
 **Later** (in-app produce, local verify, screen-off tip observe, Option B admit) stay behind their own asks. In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
@@ -26,13 +26,13 @@ Use the existing path in [FEATURES-v0.1.md](FEATURES-v0.1.md): bech32 nsec → `
 
 ### 2. Tonight — import and associate
 
-After the UI-placement ask: Android file picker only, then bind that CBOR file to the active account. The sign-in read is `hike::yielded_public_key` (`reference/hike/src/object.rs`): the 32-byte `public_key` when the first CBOR item has that field. Compare the hex of those 32 bytes to `ActiveAccountStore.activeUserId()`. `object_public_key` is not this read. Do not hand-roll a CBOR layout. Association is import, not a register step. A hex mismatch withholds sign-in. This phase does not add a produce artifact and does not wait on the Bari GO. It does wait on a real live object file (pepebook / VivoBook) and on an Android binding for `hike::yielded_public_key`. The reader name is locked.
+On the named Groundinglab row of `SettingsHomeScreen` (`PrimalSettingsSection`), always visible: Android file picker only, then bind that CBOR file to the active account. Not `DeveloperToolsScreen`. The sign-in read is `hike::yielded_public_key` (`reference/hike/src/object.rs`): the 32-byte `public_key` when the first CBOR item has that field. Compare the hex of those 32 bytes to `ActiveAccountStore.activeUserId()`. `object_public_key` is not this read. Do not hand-roll a CBOR layout. Association is import, not a register step. A hex mismatch withholds sign-in. This phase does not add a produce artifact and does not wait on the Bari GO. It does wait on a real live object file (pepebook / VivoBook) and on an Android binding for `hike::yielded_public_key`. The reader name is locked.
 
 Build gate: `./gradlew :app:assembleAospDebug` (see the baseline notes in [CUT-POINTS.md](CUT-POINTS.md)).
 
 ### 3. Tonight — live sign-in
 
-On the same surface as phase 2: scan the tip-hash QR, BIP-340-sign the display-order hash bytes with the producer nsec, POST the locked JSON to `https://admission.pcoc.app/v1/sign-in`, show `decision`. The app may call the gate itself. Do not add a website↔phone sync. Do not call `/v1/challenge` or `/v1/admit`. The centre stays Wallet.
+On that same Groundinglab settings row: scan the tip-hash QR, BIP-340-sign the display-order hash bytes with the producer nsec, POST the locked JSON to `https://admission.pcoc.app/v1/sign-in`, show `decision`. The app may call the gate itself. Do not add a website↔phone sync. Do not call `/v1/challenge` or `/v1/admit`. The centre stays Wallet.
 
 ### 4. Later — Groundinglab badge
 
@@ -82,7 +82,7 @@ Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s 
 
 ## Ask Christian
 
-The remaining Christian pick in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6 is where Import and Sign-in live. It does not block the SPEC. It blocks the on-device run until picked. `hike::yielded_public_key` is locked, so `public_key` checks are not waiting on a decoder name. Do not invent a UI home or a CBOR layout.
+Import and Sign-in UI home is closed in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6: a named Groundinglab row on `SettingsHomeScreen` (`PrimalSettingsSection`), always visible. Not Developer Tools. `hike::yielded_public_key` is locked. Do not hand-roll a CBOR layout. Do not retarget Wallet.
 
 Later, still stop rather than invent:
 
