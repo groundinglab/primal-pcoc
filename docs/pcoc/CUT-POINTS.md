@@ -4,17 +4,17 @@ Planning map for the Groundinglab fork of Primal Android. This document names fi
 
 PCOC (cost-backed hike objects) lives in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This repository consumes that work later as a dependency. It does not host the protocol.
 
-Terms used below, unchanged: **leg**, **leg result**, **STAGES 18**. Bitcoin tip paces a leg. First-ship intent is parked until the Bari waypoint-anchoring GO. Assume the **live** profile. TEST stays paused: do not add a profile switch in this app.
+Terms used below, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation. First-ship intent is parked until the Bari waypoint-anchoring GO. Assume the **live** profile. TEST stays paused: do not add a profile switch in this app.
 
 Issue [#87](https://github.com/groundinglab/pcoc/issues/87) on `groundinglab/pcoc` was not readable from this environment (HTTP 404). The locks below are the ones given for this plan. Confirm them against the issue before any code phase in [DEV-PLAN.md](DEV-PLAN.md).
 
 ## Locks carried into the map
 
 - In-app produce. Finishing produce associates the object. There is no separate register step.
-- An empty centre button starts produce. After association it becomes admit.
-- Verification is local. The verify screen calls the reference verifier. The admit gate does not own a second verifier.
-- A leg keeps observing the Bitcoin tip with the screen off. The tip is a public sequencer tick. The app does not keep a header archive.
-- Admit is Option B and lab-only until the GO. The admit wire and any signature stay unspecified here.
+- The centre item is Wallet. Do not retarget it. Produce-on-centre and admit-on-centre are Ask Christian only. Until that answer, the centre stays Wallet.
+- No verify route in this tree. When Christian names the surface, that surface calls the reference verifier. The admit gate does not own a second verifier. Until the ask list answers, do not add a verify screen.
+- No client in this tree reads the public tip. The tip is a public sequencer tick, not an archive the app stores. `PrimalNwcService` is a foreground-service pattern only. Do not bind a start or stop to a leg.
+- Admit is Option B and lab-only until the GO. The lab surface is `DeveloperToolsScreen`, or it stays unnamed. The centre does not switch to admit. The admit wire and any signature stay unspecified here.
 - No invented signature, and no invented Rust bridge.
 
 ## 1. Architecture skim
@@ -65,11 +65,11 @@ Three foreground services are declared in `app/src/main/AndroidManifest.xml`:
 
 - `PrimalMediaSessionService` — `foregroundServiceType="mediaPlayback"`
 - `PrimalRemoteSignerService` — `specialUse` (remote signer)
-- `PrimalNwcService` — `specialUse` (NWC). `PrimalNwcService.start` calls `context.startForegroundService`.
+- `PrimalNwcService` — `specialUse` (NWC). `PrimalNwcService.start` calls `context.startForegroundService`. That start belongs to NWC. It is not a hike lifecycle.
 
 `WalletSessionBridge` keeps the wallet session aligned with `ActiveAccountStore.activeUserId` inside the process. It is not a screen-off observer.
 
-There is no `WorkManager` usage, no wake-lock header loop, and no Bitcoin block-header client. `PrimalFirebaseMessagingService` exists only under `app/src/google/`. The `aosp` baseline does not use it. Screen-off tip observation cannot depend on FCM.
+There is no `WorkManager` usage and no client that reads the public tip. `PrimalFirebaseMessagingService` exists only under `app/src/google/`. The `aosp` baseline does not use it. A later tip client on `aosp` cannot depend on FCM.
 
 ### Network modules
 
@@ -95,15 +95,13 @@ Wallet chain lookups go through `MempoolApiService` (`data/wallet/repository/...
 
 **Internal signer is a different key.** `CredentialsStore.getOrCreateInternalSignerCredentials` generates an `InternalSigner` credential when none is stored. Callers are Nostr Connect and the remote signer (`PrimalRemoteSignerService`, `NostrConnectViewModel`, `PermissionsViewModel`, and the google-flavor push handlers). That key is not the hike key.
 
-### Centre button — produce, then admit
+### Centre button
 
 The centre slot is `PrimalTopLevelDestination.Wallet` inside `PrimalNavigationBar` / `PrimalNavigationBarItem`. The click handler is the `onClick` lambda in `PrimalNavigationBar` (change destination, or `onActiveDestinationClick` when the destination is already active). Wiring upward is `MainScreen.onTabChanged` and `MainScreen.onActiveDestinationClick`.
 
-Today that slot opens the wallet dashboard (`MainScreenContent` → `WalletDashboardContent`). There is no produce state and no admit state on the button.
+That slot opens the wallet dashboard (`MainScreenContent` → `WalletDashboardContent`). It has no produce state and no admit state.
 
-Later, the empty state of this control starts produce. When produce finishes, the object is associated, and the same control becomes admit. Association is the end of produce. Do not add a register function.
-
-Replacing Wallet’s navigation is a product collision. See the ask list in [DEV-PLAN.md](DEV-PLAN.md) before changing `PrimalTopLevelDestination` or `onTabChanged`.
+Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged`, or `onActiveDestinationClick` to produce or admit. Admit-on-centre is Ask Christian only ([DEV-PLAN.md](DEV-PLAN.md)). Until that answer, the centre stays Wallet. Lab admit stays on `DeveloperToolsScreen`, or unnamed. Finishing produce associates the object. That association does not move admit onto the centre, and it does not add a register function.
 
 ### In-app produce — invoke path
 
@@ -117,32 +115,33 @@ Checked and absent:
 
 The JNI that does exist is `fr.acinq.secp256k1` behind `CryptoUtils.sign` / `CryptoUtils.verify` for Nostr events (`domain/nostr/.../CryptoUtils.kt`, `NostrUnsignedEvent.signOrThrow`). Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither is a produce call.
 
-The future call site is the empty centre control, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
+No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
 
-`STAGES 18` stays in pcoc. This app does not reimplement the stage table. The UI later shows a leg and a leg result once sample objects define those fields.
+`STAGES 18` stays in pcoc. This app does not reimplement the stage table. A leg is 1,000,000 steps. The UI later shows a leg and a leg result once sample objects define those fields.
 
-### Local verify UI
+### Local verify
 
-There is no PCOC verify composable and no verify route.
+There is no PCOC verify composable and no verify route. Leave that absence. Do not add a `NavHost` destination for verify.
 
-Existing verifiers stay what they are:
+The tip client is also absent. Which client reads the public tip stays Ask Christian. Do not fill a header client, and do not describe verify inputs as an object plus headers held by the app. The tip is a public sequencer tick. The app does not keep a header archive.
 
-- `NostrNotary.verifySignature` checks a Nostr event id against `event.sig` and `event.pubKey`.
-- `Nip05VerificationService` (provided as `LocalNip05VerificationService` from `MainActivity`) checks an internet identifier.
+`NostrNotary.verifySignature` checks a Nostr event id against `event.sig` and `event.pubKey`. `Nip05VerificationService` (provided as `LocalNip05VerificationService` from `MainActivity`) checks an internet identifier. Neither is the reference verifier.
 
-A local verify screen is a new destination on the `NavHost` in `PrimalAppNavigation`, reached from the associated object. That screen calls the reference verifier. It passes the object and the current public tip (the sequencer tick). It does not keep a header archive, and it does not implement a second verifier. The admit gate does not call this verifier. The screen does not send a verify request through `SocketModule`, `NetworkingModule`, or `MempoolApiService`.
+When Christian names a verify surface, that surface calls the reference verifier. The admit gate does not own a second verifier and does not call verify. Until the ask list answers, the verify surface stays unfilled.
 
 ### Screen-off tip observe
 
-There is no observer of the public tip.
+There is no observer of the public tip, and no header client. Leave both absent until Ask Christian names the client.
 
-The keep-alive pattern to copy, once a tip client is named, is `PrimalNwcService`:
+`PrimalNwcService` is a pattern for a foreground service, and only that:
 
 - Manifest: `android:foregroundServiceType="specialUse"` and `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`.
 - Permissions already present: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`.
-- Start: `PrimalNwcService.start` → `startForegroundService` → `onStartCommand` → `startForeground`.
+- What the NWC service does today: `PrimalNwcService.start` → `startForegroundService` → `onStartCommand` → `startForeground`.
 
-The service starts when the leg begins and stops when the leg result is in. While the leg is open it keeps observing the public tip with the screen off. It does not store a header archive. It is not `WalletSessionBridge`, not `keepAliveSocketsHttpClient`, and not `MempoolApiService`.
+That start and stop is NWC’s lifecycle. It is not the hike. Do not invent a service that starts when produce begins, when a leg begins, or when a leg result is in. Do not assign start or stop to a leg. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
+
+The app does not keep a header archive. The missing client is not `WalletSessionBridge`, not `keepAliveSocketsHttpClient`, and not `MempoolApiService`.
 
 `MempoolApiService.getUnconfirmedTransactions` / `getTransaction` / `lookupTransaction` stay wallet deposit lookups.
 
@@ -164,11 +163,11 @@ Changing `applicationId` would fork the install identity and the signer authorit
 
 The admit gate withholds admit unless `ActiveAccountStore.activeUserId()` matches the pubkey produce associated with the object. That match is the whole gate. The gate does not call the reference verifier, and it does not own a verifier.
 
-`activeUserId()` is the hex pubkey already stored for the logged-in account. `CredentialsStore.findOrThrow` still loads `Credential.nsec` for produce when `type == PrivateKey`. `isExternalSignerCredential` / `isNpubCredential` mark sessions whose `nsec` is null. `NostrNotary.signNostrEvent` still signs Nostr events, including the Amber branch. None of those calls are the admit gate.
+`activeUserId()` is the hex pubkey already stored for the logged-in account. `CredentialsStore.findOrThrow` still loads `Credential.nsec` for produce when `type == PrivateKey`. `isExternalSignerCredential` / `isNpubCredential` mark sessions whose `nsec` is null. `NostrNotary.signNostrEvent` still signs Nostr events, including the Amber branch. None of those calls are the admit gate, and none of them are verify.
 
-The object’s associated-pubkey field is not in this repo. Until it is named, the centre control does not switch to admit. `NostrNotary.signNostrEvent` and `CryptoUtils.sign` stay Nostr event signing.
+The object’s associated-pubkey field is not in this repo. Naming it does not move admit onto the centre. The centre stays Wallet. Admit-on-centre is Ask Christian only. `NostrNotary.signNostrEvent` and `CryptoUtils.sign` stay Nostr event signing.
 
-Option B admit, when it is eventually shown, is lab-only. The existing lab surface is `DeveloperToolsScreen` on route `developer_tools` (`SettingsNavigation.kt`, opened from `SettingsHomeScreen` when developer tools are enabled). Shipping admit on the centre button waits for the GO and for the wire.
+Option B admit, when it is eventually shown, is lab-only. The existing lab surface is `DeveloperToolsScreen` on route `developer_tools` (`SettingsNavigation.kt`, opened from `SettingsHomeScreen` when developer tools are enabled), or the surface stays unnamed. The centre does not switch to admit.
 
 ## 3. Build baseline
 
@@ -205,7 +204,7 @@ Recorded so a later change does not fill them in from Primal primitives:
 - Produce function and Rust/UniFFI bridge.
 - Register step after produce.
 - Admit request bytes and any admit signature.
-- A client that observes the public Bitcoin tip with the screen off. The app does not keep a header archive.
-- PCOC verify route.
+- A client that reads the public Bitcoin tip. The app does not keep a header archive. No start/stop bound to a leg. `PrimalNwcService` stays the NWC service.
+- PCOC verify route. Do not add one until Christian names the surface.
 - Live/TEST profile switch (`TEST` paused; assume live).
 - `STAGES 18` implementation (stays in pcoc).
