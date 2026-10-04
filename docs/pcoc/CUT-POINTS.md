@@ -12,8 +12,8 @@ Issue [#87](https://github.com/groundinglab/pcoc/issues/87) on `groundinglab/pco
 
 - In-app produce. Finishing produce associates the object. There is no separate register step.
 - An empty centre button starts produce. After association it becomes admit.
-- Verification is local.
-- A walk keeps observing Bitcoin headers with the screen off.
+- Verification is local. The verify screen calls the reference verifier. The admit gate does not own a second verifier.
+- A leg keeps observing the Bitcoin tip with the screen off. The tip is a public sequencer tick. The app does not keep a header archive.
 - Admit is Option B and lab-only until the GO. The admit wire and any signature stay unspecified here.
 - No invented signature, and no invented Rust bridge.
 
@@ -130,19 +130,19 @@ Existing verifiers stay what they are:
 - `NostrNotary.verifySignature` checks a Nostr event id against `event.sig` and `event.pubKey`.
 - `Nip05VerificationService` (provided as `LocalNip05VerificationService` from `MainActivity`) checks an internet identifier.
 
-A local verify screen is a new destination on the `NavHost` in `PrimalAppNavigation`, reached from the associated object. It runs on device against the object and headers the walk has observed. It does not call `SocketModule`, `NetworkingModule`, or `MempoolApiService`.
+A local verify screen is a new destination on the `NavHost` in `PrimalAppNavigation`, reached from the associated object. That screen calls the reference verifier. It passes the object and the current public tip (the sequencer tick). It does not keep a header archive, and it does not implement a second verifier. The admit gate does not call this verifier. The screen does not send a verify request through `SocketModule`, `NetworkingModule`, or `MempoolApiService`.
 
 ### Screen-off tip observe
 
-There is no header observer.
+There is no observer of the public tip.
 
-The keep-alive pattern to copy, once a header source exists, is `PrimalNwcService`:
+The keep-alive pattern to copy, once a tip client is named, is `PrimalNwcService`:
 
 - Manifest: `android:foregroundServiceType="specialUse"` and `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`.
 - Permissions already present: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`.
 - Start: `PrimalNwcService.start` → `startForegroundService` → `onStartCommand` → `startForeground`.
 
-A walk starts that future service when produce (or the leg) begins and stops it when the leg ends. The service must keep running with the screen off. It is not `WalletSessionBridge`, not `keepAliveSocketsHttpClient`, and not `MempoolApiService`.
+The service starts when the leg begins and stops when the leg result is in. While the leg is open it keeps observing the public tip with the screen off. It does not store a header archive. It is not `WalletSessionBridge`, not `keepAliveSocketsHttpClient`, and not `MempoolApiService`.
 
 `MempoolApiService.getUnconfirmedTransactions` / `getTransaction` / `lookupTransaction` stay wallet deposit lookups.
 
@@ -162,15 +162,9 @@ Changing `applicationId` would fork the install identity and the signer authorit
 
 ### Withhold admit on a foreign key
 
-Admit is allowed only when the active account key is the key that produce associated with the object.
+The admit gate withholds admit unless `ActiveAccountStore.activeUserId()` matches the pubkey produce associated with the object. That match is the whole gate. The gate does not call the reference verifier, and it does not own a verifier.
 
-Inputs that already exist:
-
-- Active pubkey: `ActiveAccountStore.activeUserId()` (hex).
-- Account secret: `CredentialsStore.findOrThrow` → `Credential.nsec`, and only when `type == PrivateKey`.
-- External and npub-only sessions: `isExternalSignerCredential` / `isNpubCredential`, `nsec == null`. `NostrNotary.signNostrEvent` already branches to Amber in the external case. That branch signs Nostr events. It is not admit.
-
-Withhold admit when any of these is true: the object’s associated pubkey differs from `activeUserId`, `nsec` is null, the credential is `ExternalSigner` or `PublicKey`, or the only local secret is the `InternalSigner` from `getOrCreateInternalSignerCredentials`.
+`activeUserId()` is the hex pubkey already stored for the logged-in account. `CredentialsStore.findOrThrow` still loads `Credential.nsec` for produce when `type == PrivateKey`. `isExternalSignerCredential` / `isNpubCredential` mark sessions whose `nsec` is null. `NostrNotary.signNostrEvent` still signs Nostr events, including the Amber branch. None of those calls are the admit gate.
 
 The object’s associated-pubkey field is not in this repo. Until it is named, the centre control does not switch to admit. `NostrNotary.signNostrEvent` and `CryptoUtils.sign` stay Nostr event signing.
 
@@ -211,7 +205,7 @@ Recorded so a later change does not fill them in from Primal primitives:
 - Produce function and Rust/UniFFI bridge.
 - Register step after produce.
 - Admit request bytes and any admit signature.
-- Bitcoin header client and screen-off observer.
+- A client that observes the public Bitcoin tip with the screen off. The app does not keep a header archive.
 - PCOC verify route.
 - Live/TEST profile switch (`TEST` paused; assume live).
 - `STAGES 18` implementation (stays in pcoc).

@@ -58,21 +58,23 @@ If the artifact is not published, this phase does not start. A stub that returns
 
 ### 5. Local verify
 
-A new `NavHost` destination, opened from the associated object, that checks the object on device. Inputs are the sample object and headers the walk has stored. No verify request on `SocketModule`, `NetworkingModule`, or `MempoolApiService`.
+A new `NavHost` destination, opened from the associated object, calls the reference verifier. The screen does not own a verifier. An admission gate does not own a second verifier.
 
-`NostrNotary.verifySignature` and `Nip05VerificationService` stay on their current screens.
+The call uses the sample object and the current public tip, the sequencer tick. The tip is not an archive the app stores. No verify request on `SocketModule`, `NetworkingModule`, or `MempoolApiService`.
 
-### 6. Screen-off header observe
+`NostrNotary.verifySignature` and `Nip05VerificationService` stay on their current screens. They are not the reference verifier.
 
-A foreground service patterned on `PrimalNwcService.start` / `onStartCommand` / `startForeground`, `foregroundServiceType="specialUse"`, started for the walk and stopped when the leg ends. It must keep observing with the screen off on an `aosp` build, so it does not use `PrimalFirebaseMessagingService`.
+### 6. Screen-off tip observe
 
-The header source is whatever Christian names (ask list). `MempoolApiService` stays the wallet deposit client. `libs.bitcoinj.core` being on the classpath is not an observe path.
+A foreground service patterned on `PrimalNwcService.start` / `onStartCommand` / `startForeground`, `foregroundServiceType="specialUse"`, started when the leg begins and stopped when the leg result is in. For the open leg it keeps observing the public tip with the screen off on an `aosp` build, so it does not use `PrimalFirebaseMessagingService`. It does not store a header archive.
+
+The tip client is whatever Christian names (ask list). `MempoolApiService` stays the wallet deposit client. `libs.bitcoinj.core` being on the classpath is not an observe path.
 
 ### 7. Admit, lab-only, after the wire exists
 
 Last. Option B. Lab-only until a later GO that explicitly ships admit.
 
-Surface: `DeveloperToolsScreen` (`developer_tools`), not the centre button, until that later GO. The centre control shows admit only when phase 2’s helper matches the object’s associated pubkey. Every foreign-key case in [CUT-POINTS.md](CUT-POINTS.md) keeps admit withheld.
+Surface: `DeveloperToolsScreen` (`developer_tools`), not the centre button, until that later GO. The gate shows admit only when `ActiveAccountStore.activeUserId()` matches the object’s associated pubkey, and withholds admit on a mismatch. That match is the whole gate. Phase 7 does not call the reference verifier.
 
 This phase starts only after the admit wire is specified. It does not define bytes, and it does not define a signature. `NostrNotary.signNostrEvent` and `CryptoUtils.sign` remain Nostr event signing.
 
@@ -83,7 +85,7 @@ Stop on these. Do not invent an answer in code or in a follow-up design doc.
 1. **Admit wire and signature.** What are Option B’s bytes, and is there a signature at all? No scheme will be proposed from this repo. Phase 7 waits.
 2. **Produce artifact.** Which Android-callable coordinates and symbols does `groundinglab/pcoc` expose (Maven/AAR, package, function names)? This tree has no Rust bridge and will not grow one to fill the gap. Phase 4 waits.
 3. **Association record.** When produce finishes, which field is the object id and which field is the associated pubkey? Foreign-key withhold compares that pubkey to `ActiveAccountStore.activeUserId()`. Phase 3’s admit label and phase 7 wait on this.
-4. **Header source.** Which client and which payload does screen-off observation use? Phase 6 waits. mempool.space transaction lookup is the wallet path and is not the proposal.
+4. **Tip client.** Which client reads the public tip (the sequencer tick) for the open leg while the screen is off? Phase 6 waits. The app does not keep a header archive. mempool.space transaction lookup is the wallet path and is not the proposal.
 5. **Centre control versus Wallet.** `PrimalTopLevelDestination` order is Feeds, Reads, Wallet, Alerts, Explore. Wallet is the centre item and currently opens `WalletDashboardContent`. Does PCOC replace that item, or is the centre control a new destination? Phase 3 waits.
 6. **Badge scope.** Is the Groundinglab mark the launcher label (`app_name`), the settings version row (`VersionListItem`), or both? Does `applicationId` stay `net.primal.android`? Phase 1 waits.
 7. **Sample object shape.** Where do the sample objects live, and which fields are the leg and the leg result the UI must show? Confirm the app does not copy STAGES 18.
