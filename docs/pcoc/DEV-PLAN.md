@@ -6,7 +6,7 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook, VivoBook, or a Bari run). It does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire is locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). UI placement and the CBOR `public_key` decoder are the tonight asks there.
+**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook / VivoBook produce). Bari is the plant helper and does not produce that file. Tonight does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire and the sign-in read (`hike::yielded_public_key`) are locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). UI placement, and how Android calls that Rust function, are the tonight asks there. The reader name is not an ask.
 
 **Later** (in-app produce, local verify, screen-off tip observe, Option B admit) stay behind their own asks. In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
@@ -22,11 +22,11 @@ Add `docs/pcoc/CUT-POINTS.md`, `docs/pcoc/DEV-PLAN.md`, `docs/pcoc/FEATURES-v0.1
 
 ### 1. Tonight — producer nsec login
 
-Use the existing path in [FEATURES-v0.1.md](FEATURES-v0.1.md): bech32 nsec → `LoginHandler` / `CredentialsStore.saveNsec` → `ActiveAccountStore.activeUserId()` equals the object `public_key`. No new key store. No `InternalSigner`.
+Use the existing path in [FEATURES-v0.1.md](FEATURES-v0.1.md): bech32 nsec → `LoginHandler` / `CredentialsStore.saveNsec` → `ActiveAccountStore.activeUserId()` is the hex pubkey of that nsec. Login can succeed before the object is compared. No new key store. No `InternalSigner`.
 
 ### 2. Tonight — import and associate
 
-After the UI-placement ask: Android file picker only, then bind that CBOR file to the active account. Association is import, not a register step. Mismatch on `public_key` withholds sign-in. This phase does not add a produce artifact and does not wait on the Bari GO. It does wait on a real live object file and on a named pcoc decoder for `public_key` (ask in the SPEC).
+After the UI-placement ask: Android file picker only, then bind that CBOR file to the active account. The sign-in read is `hike::yielded_public_key` (`reference/hike/src/object.rs`): the 32-byte `public_key` when the first CBOR item has that field. Compare the hex of those 32 bytes to `ActiveAccountStore.activeUserId()`. `object_public_key` is not this read. Do not hand-roll a CBOR layout. Association is import, not a register step. A hex mismatch withholds sign-in. This phase does not add a produce artifact and does not wait on the Bari GO. It does wait on a real live object file (pepebook / VivoBook) and on an Android binding for `hike::yielded_public_key`. The reader name is locked.
 
 Build gate: `./gradlew :app:assembleAospDebug` (see the baseline notes in [CUT-POINTS.md](CUT-POINTS.md)).
 
@@ -78,17 +78,17 @@ Not tonight. `/v1/challenge` and `/v1/admit` stay lab-only until that GO. Tonigh
 
 The lab surface is `DeveloperToolsScreen` (`developer_tools`), or it stays unnamed. The centre stays Wallet. This phase does not switch the centre to admit. Admit-on-centre remains Ask Christian only.
 
-Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s associated pubkey and does not call the reference verifier. This phase starts only after the Option B wire is specified. It does not define bytes, and it does not define a signature. `NostrNotary.signNostrEvent` and `CryptoUtils.sign` remain Nostr event signing. The tonight BIP-340 sign is the tip-hash bytes, not an Option B payload.
+Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s associated pubkey and does not call the reference verifier. This phase starts only after the Option B wire is specified. It does not define bytes, and it does not define a signature. Nostr event signing stays on `NostrNotary.signNostrEvent` and `signOrThrow`. Tonight’s tip-hash BIP-340 may use `CryptoUtils.sign` on the 32-byte tip hash. That call is not an Option B payload and not a Nostr event.
 
 ## Ask Christian
 
-Tonight blockers are only the two in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6: where Import and Sign-in live, and which pcoc decoder reads `public_key`. Stop on those. Do not invent an answer in code.
+Tonight blockers in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6: where Import and Sign-in live, and how Android calls `hike::yielded_public_key`. The reader name is locked. Stop on those. Do not invent an answer in code.
 
 Later, still stop rather than invent:
 
 1. **Option B wire and signature.** What are Option B’s bytes, and is there a signature at all? Phase 9 waits. Tonight’s sign-in body stays the two fields in the SPEC.
 2. **Produce artifact.** Which Android-callable coordinates and symbols does `groundinglab/pcoc` expose? This tree has no Rust bridge. Phase 6 waits. This does not block phases 1–3.
-3. **Produce association record.** When in-app produce finishes, which field is the object id and which field is the associated pubkey? Phase 9 waits on this. Naming it does not move admit onto the centre. Tonight’s import uses the object `public_key` from the decoder ask, not this produce record.
+3. **Produce association record.** When in-app produce finishes, which field is the object id and which field is the associated pubkey? Phase 9 waits on this. Naming it does not move admit onto the centre. Tonight’s import uses `hike::yielded_public_key`, not this produce record and not `object_public_key`.
 4. **Tip client.** Which client reads the public tip? Phase 8 waits. Do not bind start or stop to a leg. The app does not keep a header archive. The same answer blocks phase 7. mempool.space transaction lookup is the wallet path.
 5. **Centre versus Wallet, including produce-on-centre and admit-on-centre.** Wallet stays the centre item (`WalletDashboardContent`). Do not retarget it. Phases 5 and 6 wait. Tonight’s UI is the settings ask in the SPEC, not this one.
 6. **Badge scope.** Launcher label (`app_name`), settings version row (`VersionListItem`), or both? Does `applicationId` stay `net.primal.android`? Phase 4 waits. Not a tonight blocker.

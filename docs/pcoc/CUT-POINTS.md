@@ -113,7 +113,7 @@ Checked and absent:
 - No Rust crate, UniFFI, or JNI bridge for hike objects.
 - No `leg` / `leg result` types.
 
-The JNI that does exist is `fr.acinq.secp256k1` behind `CryptoUtils.sign` / `CryptoUtils.verify` for Nostr events (`domain/nostr/.../CryptoUtils.kt`, `NostrUnsignedEvent.signOrThrow`). Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither is a produce call.
+The JNI that does exist is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Tonight’s tip-hash sign-in may call it on the 32-byte tip-hash. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for sign-in. `CryptoUtils.verify` checks a Nostr event signature. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.
 
 No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
 
@@ -165,7 +165,7 @@ The admit gate withholds admit unless `ActiveAccountStore.activeUserId()` matche
 
 `activeUserId()` is the hex pubkey already stored for the logged-in account. `CredentialsStore.findOrThrow` still loads `Credential.nsec` for produce when `type == PrivateKey`. `isExternalSignerCredential` / `isNpubCredential` mark sessions whose `nsec` is null. `NostrNotary.signNostrEvent` still signs Nostr events, including the Amber branch. None of those calls are the admit gate, and none of them are verify.
 
-The object’s associated-pubkey field is not in this repo. Naming it does not move admit onto the centre. The centre stays Wallet. Admit-on-centre is Ask Christian only. `NostrNotary.signNostrEvent` and `CryptoUtils.sign` stay Nostr event signing.
+The object’s associated-pubkey field for Option B is not in this repo. Naming it does not move admit onto the centre. The centre stays Wallet. Admit-on-centre is Ask Christian only. Nostr event signing stays on `NostrNotary.signNostrEvent` and `signOrThrow`. Tonight’s tip-hash BIP-340 may use `CryptoUtils.sign` on the 32-byte tip hash. That use is not Option B and not a Nostr event.
 
 Option B admit, when it is eventually shown, is lab-only. The existing lab surface is `DeveloperToolsScreen` on route `developer_tools` (`SettingsNavigation.kt`, opened from `SettingsHomeScreen` when developer tools are enabled), or the surface stays unnamed. The centre does not switch to admit.
 
