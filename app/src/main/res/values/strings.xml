@@ -949,6 +949,26 @@
 
     <string name="settings_title">Settings</string>
 
+    <string name="settings_groundinglab_title">Groundinglab</string>
+    <string name="settings_groundinglab_intro">Import a live PCOC object, scan the website tip hash, and sign in with this account.</string>
+    <string name="settings_groundinglab_import">Import PCOC file</string>
+    <string name="settings_groundinglab_object_ready">Object ready · %1$d bytes</string>
+    <string name="settings_groundinglab_object_missing">No object imported</string>
+    <string name="settings_groundinglab_scan">Scan tip hash</string>
+    <string name="settings_groundinglab_scan_title">Scan tip hash</string>
+    <string name="settings_groundinglab_scan_hint">Point the camera at the website tip-hash QR. A height shown with it is not the signed message.</string>
+    <string name="settings_groundinglab_tip_hash">Tip hash · %1$s</string>
+    <string name="settings_groundinglab_tip_hash_missing">No tip hash scanned</string>
+    <string name="settings_groundinglab_sign_in">Sign in</string>
+    <string name="settings_groundinglab_decision_label">Decision</string>
+    <string name="settings_groundinglab_error_empty_file">That file is empty.</string>
+    <string name="settings_groundinglab_error_read">Could not read that file.</string>
+    <string name="settings_groundinglab_error_not_tip_hash">That QR is not a tip hash. Height is not signed.</string>
+    <string name="settings_groundinglab_error_producer_key">Sign-in needs the producer nsec on this account.</string>
+    <string name="settings_groundinglab_error_empty_body">The gate returned an empty body.</string>
+    <string name="settings_groundinglab_error_missing_decision">The gate response has no decision.</string>
+    <string name="settings_groundinglab_error_transport">Could not reach the admission gate.</string>
+
     <string name="settings_account_title">Account</string>
     <string name="settings_account_copy_public_key">Copy public key</string>
     <string name="settings_account_public_key_hint">Anyone on Nostr can find you via your public key. Feel free to share anywhere.</string>

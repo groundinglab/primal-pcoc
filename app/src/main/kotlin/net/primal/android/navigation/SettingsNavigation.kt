@@ -42,6 +42,8 @@ import net.primal.android.settings.developer.DeveloperToolsScreen
 import net.primal.android.settings.developer.DeveloperToolsViewModel
 import net.primal.android.settings.developer.datainspector.DataInspectorScreen
 import net.primal.android.settings.developer.datainspector.DataInspectorViewModel
+import net.primal.android.settings.groundinglab.GroundinglabScreen
+import net.primal.android.settings.groundinglab.GroundinglabViewModel
 import net.primal.android.settings.home.PrimalSettingsSection
 import net.primal.android.settings.home.SettingsHomeScreen
 import net.primal.android.settings.home.SettingsHomeViewModel
@@ -81,6 +83,7 @@ private fun NavController.navigateToMutedAccounts() = navigate(route = "muted_ac
 private fun NavController.navigateToMediaUploads() = navigate(route = "media_uploads_settings")
 fun NavController.navigateToConnectedApps() = navigate(route = "connected_apps")
 private fun NavController.navigateToDeveloperTools() = navigate(route = "developer_tools")
+private fun NavController.navigateToGroundinglab() = navigate(route = "groundinglab")
 private fun NavController.navigateToDataInspector() = navigate(route = "developer_tools_data_inspector")
 
 private fun NavController.navigateToRemoteSessionDetails(sessionId: String) =
@@ -137,6 +140,7 @@ fun NavGraphBuilder.settingsNavigation(route: String, navController: NavControll
                     PrimalSettingsSection.MutedAccounts -> navController.navigateToMutedAccounts()
                     PrimalSettingsSection.MediaUploads -> navController.navigateToMediaUploads()
                     PrimalSettingsSection.ConnectedApps -> navController.navigateToConnectedApps()
+                    PrimalSettingsSection.Groundinglab -> navController.navigateToGroundinglab()
                 }
             },
             onDeveloperToolsClick = { navController.navigateToDeveloperTools() },
@@ -179,6 +183,7 @@ fun NavGraphBuilder.settingsNavigation(route: String, navController: NavControll
         zaps(route = "zaps_settings", navController = navController)
         connectedApps(route = "connected_apps", navController = navController)
         developerTools(route = "developer_tools", navController = navController)
+        groundinglab(route = "groundinglab", navController = navController)
         dataInspector(route = "developer_tools_data_inspector", navController = navController)
         connectedRemoteAppDetails(
             route = "connected_apps/remote/{$REMOTE_LOGIN_CLIENT_PUBKEY}",
@@ -529,6 +534,22 @@ private fun NavGraphBuilder.connectedApps(route: String, navController: NavContr
             onClose = { navController.navigateUp() },
             onConnectedAppClick = { clientPubKey -> navController.navigateToConnectedAppDetails(clientPubKey) },
             onLocalAppClick = { identifier -> navController.navigateToLocalAppDetails(identifier) },
+        )
+    }
+
+private fun NavGraphBuilder.groundinglab(route: String, navController: NavController) =
+    composable(
+        route = route,
+        enterTransition = { primalSlideInHorizontallyFromEnd },
+        exitTransition = { primalScaleOut },
+        popEnterTransition = { primalScaleIn },
+        popExitTransition = { primalSlideOutHorizontallyToEnd },
+    ) {
+        val viewModel = hiltViewModel<GroundinglabViewModel>()
+        LockToOrientationPortrait()
+        GroundinglabScreen(
+            viewModel = viewModel,
+            onClose = { navController.navigateUp() },
         )
     }
 
