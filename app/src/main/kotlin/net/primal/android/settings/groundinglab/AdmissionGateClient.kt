@@ -42,7 +42,7 @@ class AdmissionGateClient(
                 val body = response.body?.string().orEmpty()
                 when {
                     body.isBlank() -> AdmissionSignInResult.EmptyBody
-                    else -> SignInPayload.parseDecision(body)?.let(AdmissionSignInResult::Decision)
+                    else -> SignInPayload.parseDecision(body)?.let { AdmissionSignInResult.Decision(it) }
                         ?: AdmissionSignInResult.MissingDecision
                 }
             }
