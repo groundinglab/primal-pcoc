@@ -6,11 +6,11 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook / VivoBook produce). Bari is the plant helper and does not produce that file. Tonight does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire and the sign-in read (`hike::yielded_public_key`) are locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). UI placement, and how Android calls that Rust function, are the tonight asks there. The reader name is not an ask.
+**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook / VivoBook produce). Bari is the plant helper and does not produce that file. Tonight does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire and the sign-in read (`hike::yielded_public_key`) are locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The reader name is not an ask, and the `public_key` checks are not blocked on a decoder. UI placement is the remaining Christian pick: it does not block the SPEC, and it blocks the on-device run until picked.
 
 **Later** (in-app produce, local verify, screen-off tip observe, Option B admit) stay behind their own asks. In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
-Issue #87 was not readable here (HTTP 404). If the issue contradicts a lock in [FEATURES-v0.1.md](FEATURES-v0.1.md) or [CUT-POINTS.md](CUT-POINTS.md), the issue wins and this plan is updated before code. The 2026-10-04 sign-in lock is the wire until those READMEs are readable here.
+Issue #87 was not readable here (HTTP 404). If the issue contradicts a later-phase lock, the issue wins and this plan is updated before that code. The tonight POST fields match the Sign-in sections of `services/admission-gate/README.md` and `apps/www/sign-in/README.md` on `groundinglab/pcoc` `main`.
 
 ## Ordered phases
 
@@ -82,7 +82,7 @@ Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s 
 
 ## Ask Christian
 
-Tonight blockers in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6: where Import and Sign-in live, and how Android calls `hike::yielded_public_key`. The reader name is locked. Stop on those. Do not invent an answer in code.
+The remaining Christian pick in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6 is where Import and Sign-in live. It does not block the SPEC. It blocks the on-device run until picked. `hike::yielded_public_key` is locked, so `public_key` checks are not waiting on a decoder name. Do not invent a UI home or a CBOR layout.
 
 Later, still stop rather than invent:
 
