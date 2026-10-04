@@ -138,8 +138,14 @@
     <string name="drawer_destination_bookmarks">Bookmarks</string>
     <string name="drawer_destination_scan_code">Scan Code</string>
     <string name="drawer_destination_remote_login">Remote Login</string>
+    <string name="drawer_destination_pcoc">PCOC</string>
     <string name="drawer_destination_settings">Settings</string>
     <string name="drawer_destination_sign_out">Sign Out</string>
+    <string name="pcoc_title">PCOC</string>
+    <string name="pcoc_import">Import a PCOC</string>
+    <string name="pcoc_verified">Verified</string>
+    <string name="pcoc_produce">Produce a PCOC</string>
+    <string name="pcoc_open_qr_scanner">Open QR scanner</string>
     <string name="drawer_followers_suffix">Followers</string>
     <string name="drawer_following_suffix">Following</string>
     <string name="overlay_action_close">Close</string>

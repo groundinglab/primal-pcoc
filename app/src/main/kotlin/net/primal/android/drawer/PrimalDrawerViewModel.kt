@@ -95,6 +95,7 @@ class PrimalDrawerViewModel @Inject constructor(
             DrawerScreenDestination.Bookmarks(userId = userId),
             DrawerScreenDestination.RemoteLogin,
             DrawerScreenDestination.ScanCode,
+            DrawerScreenDestination.Pcoc,
             DrawerScreenDestination.Settings,
             DrawerScreenDestination.SignOut(userId = userId),
         )
