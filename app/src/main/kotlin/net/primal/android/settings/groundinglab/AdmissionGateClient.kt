@@ -37,18 +37,20 @@ class AdmissionGateClient(
             .url(signInUrl)
             .post(json.toByteArray(Charsets.UTF_8).toRequestBody(JSON))
             .build()
-        return try {
+        val body = try {
             http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                when {
-                    body.isBlank() -> AdmissionSignInResult.EmptyBody
-                    else -> SignInPayload.parseDecision(body)?.let { AdmissionSignInResult.Decision(it) }
-                        ?: AdmissionSignInResult.MissingDecision
-                }
+                response.body?.string().orEmpty()
             }
         } catch (_: IOException) {
-            AdmissionSignInResult.TransportFailure
+            null
         }
+        return if (body == null) AdmissionSignInResult.TransportFailure else decisionFrom(body)
+    }
+
+    private fun decisionFrom(body: String): AdmissionSignInResult {
+        if (body.isBlank()) return AdmissionSignInResult.EmptyBody
+        return SignInPayload.parseDecision(body)?.let { AdmissionSignInResult.Decision(it) }
+            ?: AdmissionSignInResult.MissingDecision
     }
 
     companion object {

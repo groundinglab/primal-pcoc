@@ -25,15 +25,15 @@ class TipHashQrTest {
     @Test
     fun parse_extractsHashAndIgnoresHeight() {
         TipHashQr.parse("height 840000\n$displayOrderHash") shouldBe displayOrderHash
-        TipHashQr.parse("840000") shouldBeNull()
-        TipHashQr.parse("height: 840000") shouldBeNull()
+        TipHashQr.parse("840000").shouldBeNull()
+        TipHashQr.parse("height: 840000").shouldBeNull()
     }
 
     @Test
     fun parse_rejectsAmbiguousOrShortPayloads() {
-        TipHashQr.parse("abcd") shouldBeNull()
-        TipHashQr.parse("$displayOrderHash $displayOrderHash") shouldBeNull()
-        TipHashQr.parse("") shouldBeNull()
+        TipHashQr.parse("abcd").shouldBeNull()
+        TipHashQr.parse("$displayOrderHash $displayOrderHash").shouldBeNull()
+        TipHashQr.parse("").shouldBeNull()
     }
 
     @Test

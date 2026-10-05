@@ -257,12 +257,19 @@ private fun SignInError.message(): String {
     }
 }
 
+private const val PREVIEW_OBJECT_BYTES = 128
+private const val PREVIEW_TIP_HASH_HEX_LENGTH = 32
+
 @Preview
 @Composable
 private fun PreviewGroundinglabReady() {
     PrimalPreview(primalTheme = PrimalTheme.Ice) {
         GroundinglabScreen(
-            state = UiState(objectByteCount = 128, tipHash = "ab".repeat(32), decision = SignInPayload.ACCEPT),
+            state = UiState(
+                objectByteCount = PREVIEW_OBJECT_BYTES,
+                tipHash = "ab".repeat(PREVIEW_TIP_HASH_HEX_LENGTH),
+                decision = SignInPayload.ACCEPT,
+            ),
             onClose = {},
             eventPublisher = {},
         )

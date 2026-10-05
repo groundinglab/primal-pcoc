@@ -16,8 +16,8 @@ private const val SCHNORR_SIGNATURE_SIZE = 64
  * Producer nsec only. npub-only, external signer, and the internal signer are not this key.
  */
 fun Credential.producerPrivateKeyOrNull(): ByteArray? {
-    if (type != CredentialType.PrivateKey) return null
-    val encoded = nsec ?: return null
+    val encoded = nsec
+    if (type != CredentialType.PrivateKey || encoded == null) return null
     return runCatching { encoded.bechToBytesOrThrow(hrp = "nsec") }
         .getOrNull()
         ?.takeIf { it.size == PRIVATE_KEY_SIZE }
