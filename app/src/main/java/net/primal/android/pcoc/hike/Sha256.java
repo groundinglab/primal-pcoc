@@ -3,6 +3,7 @@ package net.primal.android.pcoc.hike;
 /**
  * Reused SHA-256 state. {@code update} and {@code digest} do not allocate.
  * One instance per seal loop; constructing a digest per seal is the slow port.
+ * Checkpoint preimages are hashed by {@link CheckpointHash}, not here.
  */
 final class Sha256 {
 
