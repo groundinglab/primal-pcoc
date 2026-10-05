@@ -23,9 +23,15 @@ public final class LiveIndex implements IndexSource {
     public static final int READ_TIMEOUT_SECONDS = 30;
 
     private final okhttp3.Call.Factory http;
+    private final VerifyFlight flight;
 
     public LiveIndex(okhttp3.Call.Factory http) {
+        this(http, null);
+    }
+
+    public LiveIndex(okhttp3.Call.Factory http, VerifyFlight flight) {
         this.http = http;
+        this.flight = flight;
     }
 
     public static OkHttpClient newClient() {
@@ -41,14 +47,21 @@ public final class LiveIndex implements IndexSource {
     }
 
     @Override
-    public String read(long height) throws IndexUnreachable {
+    public String read(long height) throws IndexUnreachable, HikeUnfinished {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new HikeUnfinished();
+        }
         String url = LIVE_INDEX_URL + "/index/" + Long.toUnsignedString(height);
         Request request = new Request.Builder()
             .url(url)
             .header("User-Agent", USER_AGENT)
             .get()
             .build();
-        try (Response response = http.newCall(request).execute()) {
+        okhttp3.Call call = http.newCall(request);
+        if (flight != null) {
+            flight.bind(call);
+        }
+        try (Response response = call.execute()) {
             if (response.code() != 200 || response.priorResponse() != null || response.body() == null) {
                 return null;
             }
@@ -66,7 +79,14 @@ public final class LiveIndex implements IndexSource {
         } catch (CharacterCodingException notUtf8) {
             return null;
         } catch (IOException failed) {
+            if (call.isCanceled() || Thread.currentThread().isInterrupted()) {
+                throw new HikeUnfinished();
+            }
             throw new IndexUnreachable();
+        } finally {
+            if (flight != null) {
+                flight.unbind(call);
+            }
         }
     }
 }

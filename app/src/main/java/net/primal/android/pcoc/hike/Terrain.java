@@ -1,6 +1,9 @@
 package net.primal.android.pcoc.hike;
 
-/** Section 10. Fill stays on the calling thread. The terrain is not shrunk. */
+/**
+ * Section 10. The fill stays on the calling thread. The room is not shrunk.
+ * Words stay in a {@code long[]} so the fill does not touch one byte at a time.
+ */
 final class Terrain {
 
     private Terrain() {
@@ -40,52 +43,59 @@ final class Terrain {
         return (int) Long.remainderUnsigned(mixed >>> 32, slot & 0xffffffffL);
     }
 
-    static long rotl(long word, int bits) {
-        int rotate = bits & 63;
-        if (rotate == 0) {
-            return word;
+    /**
+     * {@code TERRAIN_BYTES} bytes. Throws {@link OutOfMemoryError} rather than shrinking.
+     * The returned room is the only reference to that array.
+     */
+    static TerrainRoom fill(long fillPin) throws HikeUnfinished {
+        long[] words = new long[HikeConst.N_SLOTS * HikeConst.WORDS_PER_SLOT];
+        try {
+            write(words, fillPin);
+            return new TerrainRoom(words);
+        } catch (HikeUnfinished unfinished) {
+            words = null;
+            throw unfinished;
+        } catch (OutOfMemoryError allocation) {
+            words = null;
+            throw allocation;
         }
-        return (word << rotate) | (word >>> (64 - rotate));
     }
 
-    /** {@code TERRAIN_BYTES} bytes. Throws {@link OutOfMemoryError} rather than shrinking. */
-    static byte[] fill(long fillPin) throws HikeUnfinished {
-        byte[] terrain = new byte[HikeConst.TERRAIN_BYTES];
-        long[] words = new long[HikeConst.WORDS_PER_SLOT];
-        int[] parents = new int[3];
+    private static void write(long[] terrain, long fillPin) throws HikeUnfinished {
         for (int slot = 0; slot < HikeConst.N_SLOTS; slot++) {
-            if ((slot & 63) == 0 && Thread.currentThread().isInterrupted()) {
+            if (Thread.currentThread().isInterrupted()) {
                 throw new HikeUnfinished();
             }
-            for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
-                long mixed = fillPin ^ ((long) slot << 32) ^ (long) word ^ HikeConst.WORD_XOR;
-                words[word] = mix64(mixed);
-            }
-            if (slot > 0) {
-                parents[0] = slot - 1;
-                parents[1] = bitrevParent(slot);
-                parents[2] = mulParent(slot);
-                for (int parentNumber = 0; parentNumber < 3; parentNumber++) {
-                    long k = (long) parentNumber + 1L;
-                    long kTerm = k * HikeConst.PARENT_MUL;
-                    int base = parents[parentNumber] * HikeConst.SLOT_BYTES;
-                    for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
-                        long parentWord = Le.u64(terrain, base + (word << 3));
-                        int rotate = (word + (int) k) & 63;
-                        long mixed = words[word] ^ rotl(parentWord, rotate);
-                        words[word] = mix64(mixed ^ kTerm);
-                    }
-                }
-                long slotMix = (long) slot * HikeConst.SLOT_MUL;
-                for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
-                    words[word] = mix64(words[word] ^ slotMix);
-                }
-            }
-            int base = slot * HikeConst.SLOT_BYTES;
-            for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
-                Le.put(terrain, base + (word << 3), words[word]);
-            }
+            fillSlot(terrain, slot, fillPin);
         }
-        return terrain;
+    }
+
+    /** One slot. Called once per slot so the runtime can compile this loop. */
+    private static void fillSlot(long[] terrain, int slot, long fillPin) {
+        int base = slot * HikeConst.WORDS_PER_SLOT;
+        long slotShift = ((long) slot) << 32;
+        for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
+            terrain[base + word] = mix64(fillPin ^ slotShift ^ (long) word ^ HikeConst.WORD_XOR);
+        }
+        if (slot == 0) {
+            return;
+        }
+        mixParent(terrain, base, (slot - 1) * HikeConst.WORDS_PER_SLOT, 1);
+        mixParent(terrain, base, bitrevParent(slot) * HikeConst.WORDS_PER_SLOT, 2);
+        mixParent(terrain, base, mulParent(slot) * HikeConst.WORDS_PER_SLOT, 3);
+        long slotMix = (long) slot * HikeConst.SLOT_MUL;
+        for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
+            terrain[base + word] = mix64(terrain[base + word] ^ slotMix);
+        }
+    }
+
+    private static void mixParent(long[] terrain, int base, int parentBase, int k) {
+        long kTerm = (long) k * HikeConst.PARENT_MUL;
+        for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
+            long parentWord = terrain[parentBase + word];
+            int rotate = (word + k) & 63;
+            long mixed = terrain[base + word] ^ Long.rotateLeft(parentWord, rotate);
+            terrain[base + word] = mix64(mixed ^ kTerm);
+        }
     }
 }

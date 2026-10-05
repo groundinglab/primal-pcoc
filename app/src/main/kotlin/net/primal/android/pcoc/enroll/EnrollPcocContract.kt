@@ -5,6 +5,8 @@ import android.net.Uri
 interface EnrollPcocContract {
     data class UiState(
         val stored: Boolean = false,
+        val fileName: String? = null,
+        val savedAtEpochMs: Long? = null,
         val busy: Boolean = false,
         val confirmClear: Boolean = false,
         val notice: Notice? = null,

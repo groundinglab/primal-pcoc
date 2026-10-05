@@ -2,6 +2,7 @@ package net.primal.android.pcoc.enroll
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,7 +50,18 @@ class EnrollPcocViewModel @Inject constructor(
         viewModelScope.launch {
             activeAccountStore.activeUserId.collect { userId ->
                 val stored = withContext(dispatchers.io()) { store.contains(userId) }
-                setState { copy(stored = stored) }
+                val note = if (stored) withContext(dispatchers.io()) { store.note(userId) } else null
+                setState {
+                    if (busy) {
+                        this
+                    } else {
+                        copy(
+                            stored = stored,
+                            fileName = note?.fileName,
+                            savedAtEpochMs = note?.savedAtEpochMs,
+                        )
+                    }
+                }
             }
         }
     }
@@ -59,7 +71,7 @@ class EnrollPcocViewModel @Inject constructor(
             events.collect { event ->
                 when (event) {
                     is UiEvent.FilePicked -> onFile(event.uri)
-                    UiEvent.RequestClear -> setState { copy(confirmClear = true) }
+                    UiEvent.RequestClear -> if (!_state.value.busy) setState { copy(confirmClear = true) }
                     UiEvent.DismissClear -> setState { copy(confirmClear = false) }
                     UiEvent.ConfirmClear -> confirmClear()
                 }
@@ -68,23 +80,41 @@ class EnrollPcocViewModel @Inject constructor(
     }
 
     private fun onFile(uri: Uri) {
+        if (_state.value.busy) return
+        setState { copy(busy = true, notice = null) }
         viewModelScope.launch {
-            setState { copy(busy = true, notice = null) }
             val userId = activeAccountStore.activeUserId()
             val bytes = withContext(dispatchers.io()) { readObject(uri) }
+            val fileName = withContext(dispatchers.io()) { displayName(uri) }
             val notice = if (bytes == null) {
                 Notice.Unreadable
             } else {
-                withContext(dispatchers.io()) { enrollObject(userId = userId, bytes = bytes) }
+                withContext(dispatchers.io()) {
+                    enrollObject(userId = userId, bytes = bytes, fileName = fileName)
+                }
             }
             val stored = withContext(dispatchers.io()) { store.contains(userId) }
-            setState { copy(busy = false, stored = stored, notice = notice) }
+            val note = if (stored) withContext(dispatchers.io()) { store.note(userId) } else null
+            setState {
+                copy(
+                    busy = false,
+                    stored = stored,
+                    fileName = note?.fileName,
+                    savedAtEpochMs = note?.savedAtEpochMs,
+                    notice = notice,
+                )
+            }
         }
     }
 
-    private fun enrollObject(userId: String, bytes: ByteArray): Notice =
+    private fun enrollObject(userId: String, bytes: ByteArray, fileName: String): Notice =
         try {
-            enroll.enroll(objectBytes = bytes, accountHex = userId).toNotice()
+            enroll.enroll(
+                objectBytes = bytes,
+                accountHex = userId,
+                fileName = fileName,
+                savedAtEpochMs = System.currentTimeMillis(),
+            ).toNotice()
         } catch (error: IOException) {
             Napier.w(error) { "Could not store the PCOC object." }
             Notice.NotStored
@@ -95,8 +125,40 @@ class EnrollPcocViewModel @Inject constructor(
             val userId = activeAccountStore.activeUserId()
             withContext(dispatchers.io()) { enroll.clear(userId) }
             val stored = withContext(dispatchers.io()) { store.contains(userId) }
-            setState { copy(confirmClear = false, stored = stored, notice = Notice.Cleared) }
+            val note = if (stored) withContext(dispatchers.io()) { store.note(userId) } else null
+            setState {
+                copy(
+                    confirmClear = false,
+                    stored = stored,
+                    fileName = note?.fileName,
+                    savedAtEpochMs = note?.savedAtEpochMs,
+                    notice = Notice.Cleared,
+                )
+            }
         }
+    }
+
+    private fun displayName(uri: Uri): String {
+        val raw = try {
+            context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index < 0) null else cursor.getString(index)
+            }
+        } catch (error: SecurityException) {
+            Napier.w(error) { "Unable to read the PCOC file name." }
+            null
+        } catch (error: IllegalArgumentException) {
+            Napier.w(error) { "Unable to read the PCOC file name." }
+            null
+        }
+        return displayFileName(raw)
     }
 
     private fun readObject(uri: Uri): ByteArray? =

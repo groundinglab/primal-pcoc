@@ -25,6 +25,8 @@ File picker only. Not a share sheet and not a deep link.
 
 Enroll stores the picked file. The phone reads those bytes and keeps them as the enrolled object for the signed-in account. It does no local key check. It does not read a public key out of the file. It does not match the file to the account. There is no JNI reader and no native library gate. Storing the file is not a hike verdict.
 
+When a file is saved, the stored state is plain text: “Saved. This PCOC will be checked by the service when you sign in.” The screen also shows the file name and the date saved. It shows no key and no hex.
+
 Clear asks for confirmation, then deletes the stored object bytes only. It does not touch the account or the nsec. Enroll does not store an nsec or a mnemonic.
 
 No enrolled object, or a login without the producer nsec (npub-only, internal signer, or external signer), means Request service admission does not submit. The admission site decides accept or deny.
@@ -43,7 +45,9 @@ The phone shows accept or deny only from that response’s `decision`. Timeout, 
 
 ## 4. Verify any PCOC
 
-Full verify. The door runs section 14, then section 15, as the Java port of `reference/hike`. The work runs off the main thread. The screen shows a spinner and plain stage text: fetching block headers, building terrain, checking legs n of 6. Cancel stops the run. It shows **valid** when section 15 admits and **invalid** when it does not. A fetch that cannot reach the index shows “Couldn't reach the index — try again” and is neither word. Allocation failure or a run that does not finish shows neither word, with a plain message. Measurements stay hidden. Phone wall time is product. **VivoBook bare metal** is the timing acceptance host. Phone time is not that clock.
+Full verify. The door runs section 14, then section 15, as the Java port of `reference/hike`. The work runs off the main thread. Only one run is in flight. The screen shows a spinner and plain stage text: fetching block headers, building terrain, checking legs n of 6. Cancel interrupts that run and releases the terrain room before another run can allocate one. It shows **valid** when section 15 admits and **invalid** when it does not. A fetch that cannot reach the index shows “Couldn't reach the index — try again” and is neither word. Allocation failure or a run that does not finish shows neither word, with a plain message. Measurements stay hidden. Debug logs record elapsed time for headers, terrain, and legs. Phone wall time is product. **VivoBook bare metal** is the timing acceptance host. Phone time is not that clock.
+
+Expected on an A34-class phone: header fetches stay short, and building the 268435456-byte terrain is a few seconds. The six legs are a separate stage. That expectation is not a VivoBook acceptance measurement.
 
 The live index is `https://index.pcoc.app`. The host constant is `index.pcoc.app`. Every index GET sends `User-Agent: pcoc-hike`. There is no phone index setting and no chain-rpc setting. Path-bind is `GET https://index.pcoc.app/index/{block_height}` with `network` equal to `main`. This phone does not GET Bari, and it does not use a test plane, a `test-*` host, or synth.
 
@@ -72,8 +76,8 @@ These stay on the gate and the site. This phone package does not edit them.
 | Feature | Status | Touch points | Pass / fail |
 | --- | --- | --- | --- |
 | Entry | This package | Account drawer tile immediately before Settings. Route `pcoc`. | Pass: Account → PCOC opens the four doors. The centre stays Wallet. |
-| Enroll your PCOC | This package | File picker (`OpenDocument`). `EnrolledPcocStore` keeps the picked object bytes per account hex. | Pass: the picked file is stored for the signed-in account, with no local key check. Clear deletes object bytes only. The admission site decides. Fail: a local public-key read, a match against the account, a JNI or `.so` gate, or storing an nsec or mnemonic. |
-| Verify any PCOC | This package | `VerifyPcocScreen`. Java section 14 then section 15, off the main thread. Live index `https://index.pcoc.app` with `User-Agent: pcoc-hike`. Spinner, stage text, Cancel. | Pass: valid or invalid only after the run finishes. Index fetch failure is a plain retry message, not a verdict. Measurements hidden. VivoBook bare metal is the timing host. Phone wall time is not that clock. Fewer than 6 legs shows invalid. Allocation failure or an unfinished pool of 6 shows neither word. Fail: a shorter procedure, a measurement on screen, a gate POST, Bari, synth, or a `test-*` host. |
+| Enroll your PCOC | This package | File picker (`OpenDocument`). `EnrolledPcocStore` keeps the picked object bytes per account hex, plus the file name and the date saved. | Pass: the picked file is stored for the signed-in account, with no local key check. The stored state says it will be checked by the service when you sign in, and shows the file name and the date saved. No key and no hex. Clear deletes object bytes only. The admission site decides. Fail: a local public-key read, a match against the account, a JNI or `.so` gate, storing an nsec or mnemonic, or copy that reads like the phone already approved the file. |
+| Verify any PCOC | This package | `VerifyPcocScreen`. Java section 14 then section 15, off the main thread, one run at a time. Live index `https://index.pcoc.app` with `User-Agent: pcoc-hike`. Spinner, stage text, Cancel. Terrain is one `long[]` room, released when the run ends. | Pass: valid or invalid only after the run finishes. Index fetch failure is a plain retry message, not a verdict. Cancel interrupts the run and releases the room. Measurements hidden. Debug timing for headers, terrain, and legs. VivoBook bare metal is the timing host. Phone wall time is not that clock. Fewer than 6 legs shows invalid. Allocation failure or an unfinished pool of 6 shows neither word. Fail: a shorter procedure, a measurement on screen, a second room kept after cancel, a gate POST, Bari, synth, or a `test-*` host. |
 | Create a PCOC | Copy shell | `CreatePcocScreen`. | Pass: copy only. Fail: plant, gossip, Bari, a seed list, produce, a created object, or an admission result. |
 | Request service admission | This package | Camera QR after an enrolled object. Confirm sign in, OK or Cancel, no PIN. `AdmissionQr`, `AdmissionSigner` (`CryptoUtils.sign`), `AdmissionSiteClient`. | Pass: the page says to scan the service QR and does not show hash or header text. No enrolled object shows guidance instead of the scanner. The wire is still one HTTPS URL, `h` is 64 hex, BIP-340 over those 32 bytes, POST `{object_b64, signature}` to that URL, accept/deny only from `decision`. Fail: bare-hash QR, phone→gate POST, redirect to another host, nsec in the body, Option B, polling, or timeout/empty/garbage shown as deny. |
 | Wrong login | This package | `Credential.admissionPrivateKeyOrNull` is `CredentialType.PrivateKey` only. | Pass: npub-only, internal signer, and external signer do not submit. |
@@ -81,7 +85,7 @@ These stay on the gate and the site. This phone package does not edit them.
 ## 8. Acceptance
 
 - [ ] Account → PCOC opens Enroll your PCOC, Verify any PCOC, Create a PCOC, and Request service admission.
-- [ ] Enroll uses the file picker only and stores the picked file for the signed-in account. It does no local key check.
+- [ ] Enroll uses the file picker only and stores the picked file for the signed-in account. It does no local key check. The stored state says: Saved. This PCOC will be checked by the service when you sign in. The file name and the date saved are shown. No key and no hex.
 - [ ] Clear confirms, then deletes stored object bytes only.
 - [ ] The admission site decides accept or deny. The phone does not.
 - [ ] No enroll, or npub-only / internal signer (and any login without the producer nsec): Request service admission does not submit.
@@ -91,7 +95,7 @@ These stay on the gate and the site. This phone package does not edit them.
 - [ ] Sign and submit is explicit. The signed message is the 32 bytes of `h` via `CryptoUtils.sign`, not `signOrThrow`.
 - [ ] The POST body is only `{object_b64, signature}` to the exact scanned URL. The phone does not POST the admission gate and does not follow a redirect onto another host.
 - [ ] The phone shows accept or deny only from `decision`. Timeout, empty, or garbage is a failed request, not a denial.
-- [ ] Verify any runs section 14 then section 15 off the main thread, with a spinner, stage text, and Cancel. It shows valid or invalid only after the run finishes. A failed index fetch is neither word. Measurements stay hidden. VivoBook bare metal is the timing acceptance host. Phone wall time is not that clock.
+- [ ] Verify any runs section 14 then section 15 off the main thread, one run at a time, with a spinner, stage text, and Cancel. Cancel interrupts the run and releases the terrain room. It shows valid or invalid only after the run finishes. A failed index fetch is neither word. Allocation failure or a run that does not finish is neither word. Measurements stay hidden. VivoBook bare metal is the timing acceptance host. Phone wall time is not that clock. On an A34-class phone the terrain build is expected to take a few seconds. That is not the VivoBook clock.
 - [ ] Create is copy only. Create does not plant, gossip, call Bari, grow a seed list, or run produce.
 - [ ] The centre tab is still Wallet.
 - [ ] This package does not change the admission gate, the website, Cloudflare, or R2.

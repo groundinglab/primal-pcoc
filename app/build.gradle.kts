@@ -52,8 +52,8 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2728
-val appVersionName = "3.5.31"
+val appVersionCode = 2729
+val appVersionName = "3.5.32"
 
 tasks.register("generateReleaseProperties") {
     doLast {
@@ -242,6 +242,12 @@ android {
         checkTestSources = true
         checkReleaseBuilds = false
         disable.add("LocalContextGetResourceValueCall")
+    }
+
+    testOptions {
+        unitTests.all {
+            it.maxHeapSize = "1536m"
+        }
     }
 
     packaging {

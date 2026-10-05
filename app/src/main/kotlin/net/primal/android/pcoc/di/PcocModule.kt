@@ -13,6 +13,7 @@ import net.primal.android.pcoc.admit.newAdmissionHttpClient
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
 import net.primal.android.pcoc.enroll.FileEnrolledPcocStore
 import net.primal.android.pcoc.hike.LiveIndex
+import net.primal.android.pcoc.hike.VerifyFlight
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -29,7 +30,11 @@ object PcocModule {
 
     @Provides
     @Singleton
-    fun liveIndex(): LiveIndex = LiveIndex(LiveIndex.newClient())
+    fun verifyFlight(): VerifyFlight = VerifyFlight()
+
+    @Provides
+    @Singleton
+    fun liveIndex(flight: VerifyFlight): LiveIndex = LiveIndex(LiveIndex.newClient(), flight)
 
     private const val OBJECT_DIRECTORY = "pcoc-enrolled-objects"
 }

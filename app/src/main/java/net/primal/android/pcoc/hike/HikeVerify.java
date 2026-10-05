@@ -3,10 +3,12 @@ package net.primal.android.pcoc.hike;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Section 14 in order, then section 15 is {@link #admit}. A mismatch does not skip a later record.
@@ -159,52 +161,60 @@ public final class HikeVerify {
         HikeObject.Measured measured = HikeObject.readMeasured(bytes);
         boolean shape = measured != null && measured.shape;
         HikeObject.Hike hike = measured == null ? null : measured.hike;
-        byte[] terrain = null;
-        Checkpoints checkpoints = null;
-        Long[] stageTimes = null;
-        if (hike != null) {
-            note(progress, Note.HEADERS);
-            BeaconPass beacons = beaconRecords(hike, index);
-            boolean digests = anyCheckpoints(hike);
-            boolean waypointInputs = hike.stages.length >= HikeConst.STAGES;
-            if (digests || waypointInputs) {
-                terrain = terrainOf(hike, progress);
+        TerrainRoom terrain = null;
+        try {
+            Checkpoints checkpoints = null;
+            Long[] stageTimes = null;
+            if (hike != null) {
+                long headersStarted = System.nanoTime();
+                note(progress, Note.HEADERS);
+                BeaconPass beacons = beaconRecords(hike, index);
+                StageLog.debug("headers", headersStarted);
+                boolean digests = anyCheckpoints(hike);
+                boolean waypointInputs = hike.stages.length >= HikeConst.STAGES;
+                if (digests || waypointInputs) {
+                    terrain = terrainOf(hike, progress);
+                }
+                boolean[][] digestMatches = digestRecords(hike, terrain);
+                checkpoints = new Checkpoints(
+                    beacons.matches,
+                    digestMatches,
+                    mismatch(beacons.matches, digestMatches)
+                );
+                stageTimes = beacons.times;
             }
-            boolean[][] digestMatches = digestRecords(hike, terrain);
-            checkpoints = new Checkpoints(
-                beacons.matches,
-                digestMatches,
-                mismatch(beacons.matches, digestMatches)
-            );
-            stageTimes = beacons.times;
-        }
-        Waypoints waypoints = null;
-        if (hike != null && hike.stages.length >= HikeConst.STAGES) {
-            if (terrain == null) {
-                terrain = terrainOf(hike, progress);
-            }
-            note(progress, Note.HEADERS);
-            waypoints = waypointRecords(hike, terrain, index);
-        }
-        StoredStage[] stages = hike == null ? null : storedStages(hike, stageTimes);
-        Long pathsIncluded = hike == null ? null : Long.valueOf(countPaths(hike));
-        SixLegs sixLegs;
-        if (hike == null) {
-            sixLegs = new SixLegs(SixKind.NOT_OBTAINED, null, null);
-        } else {
-            Long total = totalLegs(hike);
-            if (total == null) {
-                sixLegs = new SixLegs(SixKind.NOT_OBTAINED, null, null);
-            } else if (Long.compareUnsigned(total.longValue(), HikeConst.REWALK_COUNT) < 0) {
-                sixLegs = new SixLegs(SixKind.COULD_NOT_DRAW, null, null);
-            } else {
+            Waypoints waypoints = null;
+            if (hike != null && hike.stages.length >= HikeConst.STAGES) {
                 if (terrain == null) {
                     terrain = terrainOf(hike, progress);
                 }
-                sixLegs = measureSix(hike, terrain, entropy, progress);
+                note(progress, Note.HEADERS);
+                waypoints = waypointRecords(hike, terrain, index);
+            }
+            StoredStage[] stages = hike == null ? null : storedStages(hike, stageTimes);
+            Long pathsIncluded = hike == null ? null : Long.valueOf(countPaths(hike));
+            SixLegs sixLegs;
+            if (hike == null) {
+                sixLegs = new SixLegs(SixKind.NOT_OBTAINED, null, null);
+            } else {
+                Long total = totalLegs(hike);
+                if (total == null) {
+                    sixLegs = new SixLegs(SixKind.NOT_OBTAINED, null, null);
+                } else if (Long.compareUnsigned(total.longValue(), HikeConst.REWALK_COUNT) < 0) {
+                    sixLegs = new SixLegs(SixKind.COULD_NOT_DRAW, null, null);
+                } else {
+                    if (terrain == null) {
+                        terrain = terrainOf(hike, progress);
+                    }
+                    sixLegs = measureSix(hike, terrain, entropy, progress);
+                }
+            }
+            return new Measurements(shape, checkpoints, waypoints, LegRate.NOT_READ, pathsIncluded, sixLegs, stages);
+        } finally {
+            if (terrain != null) {
+                terrain.release();
             }
         }
-        return new Measurements(shape, checkpoints, waypoints, LegRate.NOT_READ, pathsIncluded, sixLegs, stages);
     }
 
     /** Section 15. An unread leg rate does not fail. An absent path does not fail. */
@@ -246,17 +256,18 @@ public final class HikeVerify {
         return (ThreadPoolExecutor) Executors.newFixedThreadPool(HikeConst.REWALK_THREADS, runnable -> {
             Thread thread = new Thread(runnable, "pcoc-leg");
             thread.setDaemon(true);
+            thread.setPriority(Thread.NORM_PRIORITY);
             return thread;
         });
     }
 
-    static SixLegs measureSix(HikeObject.Hike hike, byte[] terrain, Draw.Entropy entropy) throws HikeUnfinished {
+    static SixLegs measureSix(HikeObject.Hike hike, TerrainRoom terrain, Draw.Entropy entropy) throws HikeUnfinished {
         return measureSix(hike, terrain, entropy, null);
     }
 
     static SixLegs measureSix(
         HikeObject.Hike hike,
-        byte[] terrain,
+        TerrainRoom terrain,
         Draw.Entropy entropy,
         VerifyProgress progress
     ) throws HikeUnfinished {
@@ -273,29 +284,32 @@ public final class HikeVerify {
         } catch (Draw.Unavailable unavailable) {
             return new SixLegs(SixKind.DRAW_NOT_OBTAINED, null, null);
         }
-        boolean[] matches = rewalk(hike, terrain, indices, progress);
+        boolean[] matches = runLegs(hike, terrain, indices, progress);
         return new SixLegs(SixKind.REWALKED, indices, matches);
     }
 
-    private static boolean[] rewalk(
+    private static boolean[] runLegs(
         HikeObject.Hike hike,
-        byte[] terrain,
+        TerrainRoom terrain,
         long[] indices,
         VerifyProgress progress
     ) throws HikeUnfinished {
         ThreadPoolExecutor pool = openPool();
         if (pool.prestartAllCoreThreads() != HikeConst.REWALK_THREADS) {
-            pool.shutdownNow();
+            stopPool(pool);
             throw new HikeUnfinished();
         }
+        long started = System.nanoTime();
         try {
             if (progress != null) {
                 progress.leg(0, indices.length);
             }
+            stopIfCancelled();
             List<Future<Boolean>> futures = new ArrayList<Future<Boolean>>(indices.length);
             for (int i = 0; i < indices.length; i++) {
+                stopIfCancelled();
                 long index = indices[i];
-                futures.add(pool.submit(() -> rewalkOne(hike, terrain, index)));
+                futures.add(pool.submit(() -> oneLeg(hike, terrain, index)));
             }
             boolean[] matches = new boolean[indices.length];
             for (int i = 0; i < futures.size(); i++) {
@@ -309,17 +323,38 @@ public final class HikeVerify {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new HikeUnfinished();
+        } catch (CancellationException cancelled) {
+            Thread.currentThread().interrupt();
+            throw new HikeUnfinished();
         } catch (ExecutionException failed) {
             if (failed.getCause() instanceof OutOfMemoryError) {
                 throw (OutOfMemoryError) failed.getCause();
             }
             throw new HikeUnfinished();
         } finally {
-            pool.shutdownNow();
+            stopPool(pool);
+            StageLog.debug("legs", started);
         }
     }
 
-    private static boolean rewalkOne(HikeObject.Hike hike, byte[] terrain, long index) throws HikeUnfinished {
+    private static void stopPool(ThreadPoolExecutor pool) {
+        pool.shutdownNow();
+        boolean interrupted = Thread.interrupted();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        while (!pool.isTerminated() && System.nanoTime() < deadline) {
+            try {
+                pool.awaitTermination(200, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ignored) {
+                interrupted = true;
+                pool.shutdownNow();
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static boolean oneLeg(HikeObject.Hike hike, TerrainRoom terrain, long index) throws HikeUnfinished {
         int[] place = locate(hike, index);
         HikeObject.Stage stage = hike.stages[place[0]];
         int leg = place[1];
@@ -368,13 +403,14 @@ public final class HikeVerify {
         return new BeaconPass(matches, times);
     }
 
-    private static boolean[][] digestRecords(HikeObject.Hike hike, byte[] terrain) {
+    private static boolean[][] digestRecords(HikeObject.Hike hike, TerrainRoom terrain) throws HikeUnfinished {
         boolean[][] out = new boolean[hike.stages.length][];
         byte[] sample = null;
         byte[] preimage = null;
         Sha256 sha = null;
         byte[] digest = null;
         for (int stageIndex = 0; stageIndex < hike.stages.length; stageIndex++) {
+            stopIfCancelled();
             HikeObject.Stage stage = hike.stages[stageIndex];
             if (stage.checkpoints.length == 0) {
                 out[stageIndex] = new boolean[0];
@@ -388,6 +424,7 @@ public final class HikeVerify {
             }
             boolean[] legs = new boolean[stage.checkpoints.length];
             for (int leg = 0; leg < stage.checkpoints.length; leg++) {
+                stopIfCancelled();
                 byte[] previous = leg == 0 ? HikeConst.ZERO_32 : stage.checkpoints[leg - 1];
                 Bind.copySample(terrain, previous, sample);
                 Bind.fillCheckpointPreimage(preimage, previous, stage.waypoint, sample, stage.legResults[leg]);
@@ -417,14 +454,16 @@ public final class HikeVerify {
         return false;
     }
 
-    private static Waypoints waypointRecords(HikeObject.Hike hike, byte[] terrain, IndexSource index)
+    private static Waypoints waypointRecords(HikeObject.Hike hike, TerrainRoom terrain, IndexSource index)
         throws IndexUnreachable, HikeUnfinished {
         boolean opening = Arrays.equals(hike.stages[0].waypoint, HikeConst.ZERO_32);
         boolean[] differs = new boolean[HikeConst.STAGES - 1];
         Sha256 sha = new Sha256();
         byte[] pair = new byte[64];
         byte[] digest = new byte[32];
+        byte[] slotBytes = new byte[HikeConst.SLOT_BYTES];
         for (int stage = 0; stage < HikeConst.STAGES - 1; stage++) {
+            stopIfCancelled();
             HikeObject.Stage current = hike.stages[stage];
             byte[] successor = Bind.successorWaypoint(
                 terrain,
@@ -433,7 +472,8 @@ public final class HikeVerify {
                 current.checkpoints,
                 sha,
                 pair,
-                digest
+                digest,
+                slotBytes
             );
             differs[stage] = !Arrays.equals(successor, hike.stages[stage + 1].waypoint);
         }
@@ -552,9 +592,14 @@ public final class HikeVerify {
         return false;
     }
 
-    private static byte[] terrainOf(HikeObject.Hike hike, VerifyProgress progress) throws HikeUnfinished {
+    private static TerrainRoom terrainOf(HikeObject.Hike hike, VerifyProgress progress) throws HikeUnfinished {
         note(progress, Note.TERRAIN);
-        return Terrain.fill(Terrain.fillPin(Terrain.productionSeed(hike.publicKey, hike.seedBeacon)));
+        long started = System.nanoTime();
+        try {
+            return Terrain.fill(Terrain.fillPin(Terrain.productionSeed(hike.publicKey, hike.seedBeacon)));
+        } finally {
+            StageLog.debug("terrain", started);
+        }
     }
 
     private static void note(VerifyProgress progress, Note note) {
