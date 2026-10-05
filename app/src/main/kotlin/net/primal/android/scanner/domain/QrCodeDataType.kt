@@ -38,6 +38,7 @@ enum class QrCodeDataType(val validator: (String) -> Boolean) {
     NWC_URL(validator = { it.isNwcUrl() }),
     NOSTR_CONNECT(validator = { it.isNostrConnectUrl() }),
     PROMO_CODE(validator = { it.isPromoCodeUrl() }),
+    PCOC_SERVICE_URL(validator = { it.isPcocServiceQr() }),
     TIP_HASH(validator = { TipHashQr.parse(it) != null }),
     ;
 
@@ -47,3 +48,10 @@ enum class QrCodeDataType(val validator: (String) -> Boolean) {
         }
     }
 }
+
+internal fun String.isPcocServiceQr(): Boolean {
+    val trimmed = trim()
+    return trimmed.startsWith("https://") && SERVICE_HASH_QUERY.containsMatchIn(trimmed)
+}
+
+private val SERVICE_HASH_QUERY = Regex("""[?&]h=""")

@@ -109,11 +109,11 @@ Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged
 
 Checked and absent:
 
-- No `pcoc` package, module, or Gradle dependency.
-- No Rust crate, UniFFI, or JNI bridge for hike objects.
+- Account → PCOC lives in `net.primal.android.pcoc`. Enroll calls `hike::yielded_public_key` through a compile-gated JNI stub (`HikeYieldedPublicKeyJni`). The native library is not in this repo. The stub does not call `object_public_key` and does not invent a hike check.
+- No Rust crate or UniFFI binding is vendored here. Create does not call produce, plant, gossip, or Bari.
 - No `leg` / `leg result` types.
 
-The JNI that does exist is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Tonight’s tip-hash sign-in may call it on the 32-byte tip-hash. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for sign-in. `CryptoUtils.verify` checks a Nostr event signature. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.
+The JNI that does exist for signatures is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Request service admission calls it on the 32 bytes of query `h`. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for admission. `CryptoUtils.verify` checks a Nostr event signature. The phone does not show a local verify result. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.
 
 No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
 
@@ -121,7 +121,7 @@ No produce call site exists. Do not place one on Wallet. Where an in-app produce
 
 ### Local verify
 
-There is no PCOC verify composable and no verify route. Leave that absence. Do not add a `NavHost` destination for verify.
+Account → PCOC includes **Verify any PCOC** as a copy shell (`VerifyPcocScreen`). It is not a verifier and it does not show success. Do not turn that route into a `hike::verify` execution path.
 
 The tip client is also absent. Which client reads the public tip stays Ask Christian. Do not fill a header client, and do not describe verify inputs as an object plus headers held by the app. The tip is a public sequencer tick. The app does not keep a header archive.
 
@@ -152,7 +152,7 @@ The fork still presents as upstream Primal:
 - `R.string.app_name` is `Primal` (`app/src/main/res/values/strings.xml`).
 - `AndroidManifest` `android:label="@string/app_name"`.
 - `applicationId` is `net.primal.android` (`app/build.gradle.kts`). Signer and file-provider authorities are `${applicationId}.*`.
-- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.27`).
+- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.29`).
 - `user/domain/Badges.kt` is `unreadNotificationsCount` and `unreadMessagesCount`. `PrimalNavigationBar` paints a badge only for `PrimalTopLevelDestination.Alerts`. `PrimalDrawer`’s `showPremiumBadge` is Primal Premium.
 
 The badge cut is the visible name and the settings version row: `app_name` and `VersionListItem`. `Badges` and the premium drawer badge stay notification and premium UI.
@@ -165,7 +165,7 @@ The admit gate withholds admit unless `ActiveAccountStore.activeUserId()` matche
 
 `activeUserId()` is the hex pubkey already stored for the logged-in account. `CredentialsStore.findOrThrow` still loads `Credential.nsec` for produce when `type == PrivateKey`. `isExternalSignerCredential` / `isNpubCredential` mark sessions whose `nsec` is null. `NostrNotary.signNostrEvent` still signs Nostr events, including the Amber branch. None of those calls are the admit gate, and none of them are verify.
 
-The object’s associated-pubkey field for Option B is not in this repo. Naming it does not move admit onto the centre. The centre stays Wallet. Admit-on-centre is Ask Christian only. Nostr event signing stays on `NostrNotary.signNostrEvent` and `signOrThrow`. Tonight’s tip-hash BIP-340 may use `CryptoUtils.sign` on the 32-byte tip hash. That use is not Option B and not a Nostr event.
+The object’s associated-pubkey field for Option B is not in this repo. Naming it does not move admit onto the centre. The centre stays Wallet. Admit-on-centre is Ask Christian only. Nostr event signing stays on `NostrNotary.signNostrEvent` and `signOrThrow`. Request service admission uses `CryptoUtils.sign` on the 32 bytes of query `h`. That use is not Option B and not a Nostr event.
 
 Option B admit, when it is eventually shown, is lab-only. The existing lab surface is `DeveloperToolsScreen` on route `developer_tools` (`SettingsNavigation.kt`, opened from `SettingsHomeScreen` when developer tools are enabled), or the surface stays unnamed. The centre does not switch to admit.
 
@@ -187,7 +187,7 @@ Variant facts from `app/build.gradle.kts` and `gradle/libs.versions.toml` (these
 | `applicationId` | `net.primal.android` |
 | compileSdk / targetSdk / minSdk | 37 / 36 / 26 |
 | AGP / Kotlin / JDK | 9.2.1 / 2.4.0 / 21 |
-| Version | `appVersionName` `3.5.27`, `appVersionCode` `2724` |
+| Version | `appVersionName` `3.5.29`, `appVersionCode` `2726` |
 | `google` extras | Play billing, Firebase messaging, ML Kit barcode — not on the `aosp` classpath |
 | `aosp` extra | ZXing (`aospImplementation`) |
 
@@ -201,10 +201,10 @@ This planning environment had JDK 21 and no Android SDK (`ANDROID_HOME` unset). 
 
 Recorded so a later change does not fill them in from Primal primitives:
 
-- Produce function and Rust/UniFFI bridge.
+- Produce function and a vendored Rust/UniFFI produce bridge. The Create door is copy only.
 - Register step after produce.
-- Admit request bytes and any admit signature.
+- Option B admit bytes. Account → Request service admission is the locked `{object_b64, signature}` POST to the scanned HTTPS URL, not Option B and not a phone→gate POST.
 - A client that reads the public Bitcoin tip. The app does not keep a header archive. No start/stop bound to a leg. `PrimalNwcService` stays the NWC service.
-- PCOC verify route. Do not add one until Christian names the surface.
+- An executing PCOC verify route. The Account verify door is copy only until Christian names a real surface.
 - Live/TEST profile switch (`TEST` paused; assume live).
 - `STAGES 18` implementation (stays in pcoc).

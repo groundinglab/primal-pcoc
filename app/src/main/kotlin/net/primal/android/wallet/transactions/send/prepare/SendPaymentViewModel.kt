@@ -83,6 +83,8 @@ class SendPaymentViewModel @Inject constructor(
                     QrCodeDataType.NOSTR_CONNECT ->
                         setEffect(SideEffect.NostrConnectRequest(url = result.value))
 
+                    QrCodeDataType.PCOC_SERVICE_URL -> Unit
+
                     QrCodeDataType.TIP_HASH -> Unit
 
                     else -> processTextData(text = result.value)

@@ -101,7 +101,6 @@ import net.primal.android.nostrconnect.utils.NOSTR_CONNECT_SCHEME
 import net.primal.android.nostrconnect.utils.PRIMAL_CONNECT_SCHEME
 import net.primal.android.notes.feed.model.asNeventString
 import net.primal.android.notes.feed.note.ui.events.NoteCallbacks
-import net.primal.android.pcoc.PcocScreen
 import net.primal.android.premium.buying.PremiumBuyingContract
 import net.primal.android.premium.buying.PremiumBuyingScreen
 import net.primal.android.premium.buying.PremiumBuyingViewModel
@@ -628,11 +627,6 @@ private fun PrimalAppNavigation(
             ),
         )
 
-        pcoc(
-            route = "pcoc",
-            navController = navController,
-        )
-
         exploreFeed(
             route = "explore/note?" +
                 "$EXPLORE_FEED_SPEC={$EXPLORE_FEED_SPEC}&" +
@@ -1019,6 +1013,8 @@ private fun PrimalAppNavigation(
             ),
             navController = navController,
         )
+
+        pcocNavigation(navController = navController)
 
         settingsNavigation(route = "settings", navController = navController)
 
@@ -1983,19 +1979,6 @@ private fun NavGraphBuilder.messages(
         ),
     )
 }
-
-private fun NavGraphBuilder.pcoc(route: String, navController: NavController) =
-    composable(
-        route = route,
-        enterTransition = { primalSlideInHorizontallyFromEnd },
-        exitTransition = { primalScaleOut },
-        popEnterTransition = { primalScaleIn },
-        popExitTransition = { primalSlideOutHorizontallyToEnd },
-    ) {
-        ApplyEdgeToEdge()
-        LockToOrientationPortrait()
-        PcocScreen(onClose = { navController.navigateUp() })
-    }
 
 private fun NavGraphBuilder.bookmarks(
     route: String,
