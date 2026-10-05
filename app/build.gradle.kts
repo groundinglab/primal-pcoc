@@ -52,8 +52,8 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2726
-val appVersionName = "3.5.29"
+val appVersionCode = 2727
+val appVersionName = "3.5.30"
 
 // True only when libhike_yielded_public_key.so is packaged. Until then the enroll
 // reader stays unlinked and does not invent a yielded key.

@@ -13,7 +13,7 @@ The signature is BIP-340 over the 32 hash bytes (`CryptoUtils.sign` / `secp256k1
 Entry is Account → PCOC (the drawer tile immediately before Settings). Four doors:
 
 1. **Enroll your PCOC** — working.
-2. **Verify any PCOC** — copy only. No execute.
+2. **Verify any PCOC** — full verify. Section 14, then section 15. The door shows valid or invalid only after that finishes.
 3. **Create a PCOC** — copy only. No execute.
 4. **Request service admission** — working.
 
@@ -46,14 +46,23 @@ POST body only `{object_b64, signature}` to the **exact** scanned URL. No redire
 
 The phone shows accept or deny only from that response’s `decision`. Timeout, an empty body, or garbage is a failed request, not a denial. No polling and no Requested status channel. The phone does not show `verifier_ran`, `result`, or measurements.
 
-## 4. Shells
+## 4. Verify any PCOC
 
-Verify any PCOC and Create a PCOC are copy only.
+Full verify. The door runs section 14, then section 15, as the Java port of `reference/hike`. It shows **valid** when section 15 admits and **invalid** when it does not. Measurements stay hidden. Phone wall time is product. **VivoBook bare metal** is the timing acceptance host. Phone time is not that clock.
 
-- Verify does not run a verifier and does not show verify success, a verifier result, or measurements.
+The live index is `https://index.pcoc.app`. The host constant is `index.pcoc.app`. Every index GET sends `User-Agent: pcoc-hike`. There is no phone index setting and no chain-rpc setting. Path-bind is `GET https://index.pcoc.app/index/{block_height}` with `network` equal to `main`. This phone does not GET Bari, and it does not use a test plane, a `test-*` host, or synth.
+
+If terrain allocation fails, or the six-thread pool does not finish, the door shows neither word. It does not shrink the 268435456-byte terrain. `largeHeap` does not change that size. Draw count 6 and pool size 6 stay separate. The draw finishes on the calling thread before the pool is built. Fewer than 6 legs does not draw (`CouldNotDraw`) and the door shows invalid.
+
+This door does not POST the admission gate.
+
+## 5. Create shell
+
+Create a PCOC is copy only.
+
 - Create does not plant, gossip, call Bari, grow a seed list, or run produce. It does not create an object and does not show an admission result.
 
-## 5. Gate and site, unchanged by this package
+## 6. Gate and site, unchanged by this package
 
 These stay on the gate and the site. This phone package does not edit them.
 
@@ -63,18 +72,18 @@ These stay on the gate and the site. This phone package does not edit them.
 - The site must not add a Schnorr pre-check against QR-only `h` that can disagree with the gate’s window.
 - Today’s live `pcoc.app/sign-in` bare-hash QR, where the page POSTs the gate, is not what this phone implements.
 
-## 6. Feature table
+## 7. Feature table
 
 | Feature | Status | Touch points | Pass / fail |
 | --- | --- | --- | --- |
 | Entry | This package | Account drawer tile immediately before Settings. Route `pcoc`. | Pass: Account → PCOC opens the four doors. The centre stays Wallet. |
 | Enroll your PCOC | This package | File picker (`OpenDocument`). `hike::yielded_public_key` via the compile-gated JNI reader. `EnrolledPcocStore` keeps object bytes per account hex. | Pass: PublicKey match stores the bytes and is not an “is a hike” pass. Mismatch withholds, does not store, and is not a denial. NoPublicKey and Undecodable are separate stops. Clear deletes object bytes only. Fail: `object_public_key`, a hand-rolled hike check, or collapsing Undecodable into NoPublicKey. |
-| Verify any PCOC | Copy shell | `VerifyPcocScreen`. | Pass: copy only. Fail: a verify success, a local verifier result, or measurements. |
+| Verify any PCOC | This package | `VerifyPcocScreen`. Java section 14 then section 15. Live index `https://index.pcoc.app` with `User-Agent: pcoc-hike`. | Pass: valid or invalid only after the run finishes. Measurements hidden. VivoBook bare metal is the timing host. Phone wall time is not that clock. Fewer than 6 legs shows invalid. Allocation failure or an unfinished pool of 6 shows neither word. Fail: a shorter procedure, a measurement on screen, a gate POST, Bari, synth, or a `test-*` host. |
 | Create a PCOC | Copy shell | `CreatePcocScreen`. | Pass: copy only. Fail: plant, gossip, Bari, a seed list, produce, a created object, or an admission result. |
 | Request service admission | This package | Camera QR. `AdmissionQr`, `AdmissionSigner` (`CryptoUtils.sign`), `AdmissionSiteClient`. | Pass: one HTTPS URL, `h` is 64 hex, BIP-340 over those 32 bytes, POST `{object_b64, signature}` to that URL, accept/deny only from `decision`. Fail: bare-hash QR, phone→gate POST, redirect to another host, nsec in the body, Option B, polling, or timeout/empty/garbage shown as deny. |
 | Wrong login | This package | `Credential.admissionPrivateKeyOrNull` is `CredentialType.PrivateKey` only. | Pass: npub-only, internal signer, and external signer do not submit. |
 
-## 7. Acceptance
+## 8. Acceptance
 
 - [ ] Account → PCOC opens Enroll your PCOC, Verify any PCOC, Create a PCOC, and Request service admission.
 - [ ] Enroll uses the file picker only and reads `hike::yielded_public_key` only.
@@ -87,6 +96,7 @@ These stay on the gate and the site. This phone package does not edit them.
 - [ ] Sign and submit is explicit. The signed message is the 32 bytes of `h` via `CryptoUtils.sign`, not `signOrThrow`.
 - [ ] The POST body is only `{object_b64, signature}` to the exact scanned URL. The phone does not POST the admission gate and does not follow a redirect onto another host.
 - [ ] The phone shows accept or deny only from `decision`. Timeout, empty, or garbage is a failed request, not a denial.
-- [ ] Verify any and Create are copy only. Create does not plant, gossip, call Bari, grow a seed list, or run produce.
+- [ ] Verify any runs section 14 then section 15 and shows valid or invalid only. Measurements stay hidden. VivoBook bare metal is the timing acceptance host. Phone wall time is not that clock.
+- [ ] Create is copy only. Create does not plant, gossip, call Bari, grow a seed list, or run produce.
 - [ ] The centre tab is still Wallet.
 - [ ] This package does not change the admission gate, the website, Cloudflare, or R2.

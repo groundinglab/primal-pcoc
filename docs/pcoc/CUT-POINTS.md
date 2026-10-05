@@ -117,17 +117,17 @@ The JNI that does exist for signatures is `fr.acinq.secp256k1` behind `CryptoUti
 
 No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
 
-`STAGES 18` stays in pcoc. This app does not reimplement the stage table. A leg is 1,000,000 steps. The UI later shows a leg and a leg result once sample objects define those fields.
+`STAGES` is 18. A leg is 1,000,000 steps. Verify any uses those constants. It does not invent a per-stage table, and it does not show a leg or a leg result.
 
 ### Local verify
 
-Account → PCOC includes **Verify any PCOC** as a copy shell (`VerifyPcocScreen`). It is not a verifier and it does not show success. Do not turn that route into a `hike::verify` execution path.
+Account → PCOC **Verify any PCOC** (`VerifyPcocScreen`) runs the Java port of section 14 then section 15. The door shows valid or invalid only. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
 
-The tip client is also absent. Which client reads the public tip stays Ask Christian. Do not fill a header client, and do not describe verify inputs as an object plus headers held by the app. The tip is a public sequencer tick. The app does not keep a header archive.
+The tip client is also absent. Verify reads `https://index.pcoc.app`. It does not keep a header archive.
 
 `NostrNotary.verifySignature` checks a Nostr event id against `event.sig` and `event.pubKey`. `Nip05VerificationService` (provided as `LocalNip05VerificationService` from `MainActivity`) checks an internet identifier. Neither is the reference verifier.
 
-When Christian names a verify surface, that surface calls the reference verifier. The admit gate does not own a second verifier and does not call verify. Until the ask list answers, the verify surface stays unfilled.
+Verify any is that surface. The admit gate does not own a second verifier and does not call verify.
 
 ### Screen-off tip observe
 
@@ -152,7 +152,7 @@ The fork still presents as upstream Primal:
 - `R.string.app_name` is `Primal` (`app/src/main/res/values/strings.xml`).
 - `AndroidManifest` `android:label="@string/app_name"`.
 - `applicationId` is `net.primal.android` (`app/build.gradle.kts`). Signer and file-provider authorities are `${applicationId}.*`.
-- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.29`).
+- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.30`).
 - `user/domain/Badges.kt` is `unreadNotificationsCount` and `unreadMessagesCount`. `PrimalNavigationBar` paints a badge only for `PrimalTopLevelDestination.Alerts`. `PrimalDrawer`’s `showPremiumBadge` is Primal Premium.
 
 The badge cut is the visible name and the settings version row: `app_name` and `VersionListItem`. `Badges` and the premium drawer badge stay notification and premium UI.
@@ -187,7 +187,7 @@ Variant facts from `app/build.gradle.kts` and `gradle/libs.versions.toml` (these
 | `applicationId` | `net.primal.android` |
 | compileSdk / targetSdk / minSdk | 37 / 36 / 26 |
 | AGP / Kotlin / JDK | 9.2.1 / 2.4.0 / 21 |
-| Version | `appVersionName` `3.5.29`, `appVersionCode` `2726` |
+| Version | `appVersionName` `3.5.30`, `appVersionCode` `2727` |
 | `google` extras | Play billing, Firebase messaging, ML Kit barcode — not on the `aosp` classpath |
 | `aosp` extra | ZXing (`aospImplementation`) |
 
@@ -205,6 +205,6 @@ Recorded so a later change does not fill them in from Primal primitives:
 - Register step after produce.
 - Option B admit bytes. Account → Request service admission is the locked `{object_b64, signature}` POST to the scanned HTTPS URL, not Option B and not a phone→gate POST.
 - A client that reads the public Bitcoin tip. The app does not keep a header archive. No start/stop bound to a leg. `PrimalNwcService` stays the NWC service.
-- An executing PCOC verify route. The Account verify door is copy only until Christian names a real surface.
-- Live/TEST profile switch (`TEST` paused; assume live).
-- `STAGES 18` implementation (stays in pcoc).
+- A second verifier on the admit gate. Verify any is the Java section 14 then section 15 door.
+- Live/TEST profile switch (`TEST` paused; assume live). The verify door has no synth and no `test-*` host.
+- A per-stage table. `STAGES` is 18.

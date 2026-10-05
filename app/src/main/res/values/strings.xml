@@ -165,7 +165,10 @@
     <string name="pcoc_enroll_clear_text">This deletes the stored object bytes for this account. It does not remove the account or the private key.</string>
     <string name="pcoc_enroll_clear_confirm">Clear</string>
     <string name="pcoc_enroll_clear_dismiss">Cancel</string>
-    <string name="pcoc_verify_body">Verify any PCOC does not run on this phone.\n\nVerification stays at the admission door. This screen does not read a file, does not run a verifier, and does not show a verify success, a verifier result, or measurements.</string>
+    <string name="pcoc_verify_hint">Choose a PCOC file. This door runs the full check, then shows valid or invalid. It does not show measurements.</string>
+    <string name="pcoc_verify_choose_file">Choose a PCOC file</string>
+    <string name="pcoc_verify_valid">valid</string>
+    <string name="pcoc_verify_invalid">invalid</string>
     <string name="pcoc_create_body">Create a PCOC does not run on this phone.\n\nA live object is produced elsewhere. This screen does not plant a hike, gossip it, call Bari, grow a seed list, or run produce. It does not create an object and it does not show an admission result.</string>
     <string name="pcoc_admit_hint">Scan one HTTPS URL. Query h is 64 hex: the highest stored header hash from the site index, in Bitcoin display order. A bare hash is not this QR. Sign and submit sends the object and signature only to that URL.</string>
     <string name="pcoc_admit_no_object">No enrolled object. Nothing will be submitted.</string>
