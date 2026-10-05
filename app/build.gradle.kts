@@ -52,8 +52,14 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2725
-val appVersionName = "3.5.28"
+val appVersionCode = 2726
+val appVersionName = "3.5.29"
+
+// True only when libhike_yielded_public_key.so is packaged. Until then the enroll
+// reader stays unlinked and does not invent a yielded key.
+val pcocHikeReaderLinked = file("src/main/jniLibs").walkTopDown().any { candidate ->
+    candidate.isFile && candidate.name.startsWith("libhike_yielded_public_key")
+}
 
 tasks.register("generateReleaseProperties") {
     doLast {
@@ -115,6 +121,12 @@ android {
             type = "String",
             name = "KLIPY_CLIENT_KEY",
             value = "\"${configProperties?.getProperty("api.klipy.clientKey", "")}\"",
+        )
+
+        buildConfigField(
+            type = "boolean",
+            name = "PCOC_HIKE_READER_LINKED",
+            value = pcocHikeReaderLinked.toString(),
         )
     }
 

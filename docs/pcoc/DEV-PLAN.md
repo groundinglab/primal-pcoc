@@ -6,11 +6,11 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Tonight (import + live sign-in)** needs a real live PCOC CBOR file, produced elsewhere (pepebook / VivoBook produce). Bari is the plant helper and does not produce that file. Tonight does not need an in-app produce artifact. The Bari waypoint-anchoring GO does not block import + sign-in when that file exists. The wire and the sign-in read (`hike::yielded_public_key`) are locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The reader name is not an ask, and the `public_key` checks are not blocked on a decoder. UI home is locked: a named Groundinglab row on `SettingsHomeScreen` (`PrimalSettingsSection`), always visible. Not `DeveloperToolsScreen`. The centre stays Wallet.
+**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC and Request service admission work. Verify any PCOC and Create a PCOC are copy shells. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
 
 **Later** (in-app produce, local verify, screen-off tip observe, Option B admit) stay behind their own asks. In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
-Issue #87 was not readable here (HTTP 404). If the issue contradicts a later-phase lock, the issue wins and this plan is updated before that code. The tonight POST fields match the Sign-in sections of `services/admission-gate/README.md` and `apps/www/sign-in/README.md` on `groundinglab/pcoc` `main`.
+Issue #87 was not readable here (HTTP 404). Docs still owes the BIP-340 one-liner there. The phone door signs the 32 hash bytes with `CryptoUtils.sign`, as locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The earlier “POST the gate from the phone” sentence is superseded for these doors.
 
 ## Ordered phases
 
@@ -24,15 +24,15 @@ Add `docs/pcoc/CUT-POINTS.md`, `docs/pcoc/DEV-PLAN.md`, `docs/pcoc/FEATURES-v0.1
 
 Use the existing path in [FEATURES-v0.1.md](FEATURES-v0.1.md): bech32 nsec → `LoginHandler` / `CredentialsStore.saveNsec` → `ActiveAccountStore.activeUserId()` is the hex pubkey of that nsec. Login can succeed before the object is compared. No new key store. No `InternalSigner`.
 
-### 2. Tonight — import and associate
+### 2. Enroll your PCOC
 
-On the named Groundinglab row of `SettingsHomeScreen` (`PrimalSettingsSection`), always visible: Android file picker only, then bind that CBOR file to the active account. Not `DeveloperToolsScreen`. The sign-in read is `hike::yielded_public_key` (`reference/hike/src/object.rs`): the 32-byte `public_key` when the first CBOR item has that field. Compare the hex of those 32 bytes to `ActiveAccountStore.activeUserId()`. `object_public_key` is not this read. Do not hand-roll a CBOR layout. Association is import, not a register step. A hex mismatch withholds sign-in. This phase does not add a produce artifact and does not wait on the Bari GO. It does wait on a real live object file (pepebook / VivoBook) and on an Android binding for `hike::yielded_public_key`. The reader name is locked.
+On Account → PCOC: file picker only, then `hike::yielded_public_key` (`reference/hike/src/object.rs`). Three results stay apart: PublicKey, NoPublicKey, Undecodable. A PublicKey whose 32 bytes match the account key may be stored for admission. That store is not an “is a hike” pass. A mismatch withholds and does not store. It is not an admission denial. `object_public_key` is not this read. Do not hand-roll a CBOR layout. Clear deletes stored object bytes only. The Android call is a thin JNI, compile-gated until `libhike_yielded_public_key.so` is present. Do not invent a key when it is missing.
 
 Build gate: `./gradlew :app:assembleAospDebug` (see the baseline notes in [CUT-POINTS.md](CUT-POINTS.md)).
 
-### 3. Tonight — live sign-in
+### 3. Request service admission
 
-On that same Groundinglab settings row: scan the tip-hash QR, BIP-340-sign the display-order hash bytes with the producer nsec, POST the locked JSON to `https://admission.pcoc.app/v1/sign-in`, show `decision`. The app may call the gate itself. Do not add a website↔phone sync. Do not call `/v1/challenge` or `/v1/admit`. The centre stays Wallet.
+On Account → PCOC: scan one HTTPS URL. Query `h` is 64 hex (highest stored header hash, Bitcoin display order), not a bare hash and not the gossip tip. Explicit Sign and submit. BIP-340-sign those 32 bytes with `CryptoUtils.sign` and the producer nsec. POST `{object_b64, signature}` to the exact scanned URL. Do not POST `https://admission.pcoc.app/v1/sign-in`. Do not follow a redirect to another host. Show accept or deny only from `decision`. Timeout, empty, or garbage is a failed request, not a denial. No poll. No Option B. The centre stays Wallet.
 
 ### 4. Later — Groundinglab badge
 
@@ -56,9 +56,9 @@ If the artifact is not published, or the call site is still unnamed, this phase 
 
 ### 7. Later — local verify
 
-Blocked. Not tonight. Unfilled until the ask list names the surface and the tip client.
+The Account door **Verify any PCOC** is a copy shell. It does not run `hike::verify` and it does not show a verify success. A real verify surface stays blocked until the ask list names it and the tip client.
 
-Do not add a `NavHost` destination. Do not invent a verify screen. Do not pass a sample object plus headers held by the app. There is no verify route and no header client in this tree. Leave both absent.
+Do not turn that shell into an execution route. Do not pass a sample object plus headers held by the app. There is no header client in this tree.
 
 When Christian names the surface, that surface calls the reference verifier. The screen does not own a verifier. The Option B admit gate does not own a second verifier and does not call verify. Tonight’s sign-in posts to the admission gate; the gate runs reference verify.
 
@@ -74,15 +74,15 @@ No header client is added in this phase. The app does not keep a header archive.
 
 ### 9. Later — Option B admit, after a Christian GO
 
-Not tonight. `/v1/challenge` and `/v1/admit` stay lab-only until that GO. Tonight uses `POST /v1/sign-in` only, as locked in [FEATURES-v0.1.md](FEATURES-v0.1.md).
+Not this door. `/v1/challenge` and `/v1/admit` stay lab-only until that GO. Request service admission POSTs `{object_b64, signature}` to the scanned HTTPS URL, as locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The phone does not POST the gate.
 
 The lab surface is `DeveloperToolsScreen` (`developer_tools`), or it stays unnamed. The centre stays Wallet. This phase does not switch the centre to admit. Admit-on-centre remains Ask Christian only.
 
-Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s associated pubkey and does not call the reference verifier. This phase starts only after the Option B wire is specified. It does not define bytes, and it does not define a signature. Nostr event signing stays on `NostrNotary.signNostrEvent` and `signOrThrow`. Tonight’s tip-hash BIP-340 may use `CryptoUtils.sign` on the 32-byte tip hash. That call is not an Option B payload and not a Nostr event.
+Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s associated pubkey and does not call the reference verifier. This phase starts only after the Option B wire is specified. It does not define bytes, and it does not define a signature. Nostr event signing stays on `NostrNotary.signNostrEvent` and `signOrThrow`. Request service admission uses `CryptoUtils.sign` on the 32 bytes of query `h`. That call is not an Option B payload and not a Nostr event.
 
 ## Ask Christian
 
-Import and Sign-in UI home is closed in [FEATURES-v0.1.md](FEATURES-v0.1.md) section 6: a named Groundinglab row on `SettingsHomeScreen` (`PrimalSettingsSection`), always visible. Not Developer Tools. `hike::yielded_public_key` is locked. Do not hand-roll a CBOR layout. Do not retarget Wallet.
+Account door UI home is closed in [FEATURES-v0.1.md](FEATURES-v0.1.md): Account → PCOC, the tile immediately before Settings. That supersedes the earlier Groundinglab settings row for these doors. `hike::yielded_public_key` is locked. Do not hand-roll a CBOR layout. Do not retarget Wallet.
 
 Later, still stop rather than invent:
 

@@ -229,7 +229,8 @@ private fun String.isValidScanInput(scanMode: ScanCodeContract.ScanMode): Boolea
     return when (scanMode) {
         ScanCodeContract.ScanMode.Anything -> {
             val type = QrCodeDataType.from(this)
-            (type != null && type != QrCodeDataType.TIP_HASH) || isValidPromoCode()
+            (type != null && type != QrCodeDataType.TIP_HASH && type != QrCodeDataType.PCOC_SERVICE_URL) ||
+                isValidPromoCode()
         }
         ScanCodeContract.ScanMode.RemoteLogin -> QrCodeDataType.from(this) == QrCodeDataType.NOSTR_CONNECT
     }

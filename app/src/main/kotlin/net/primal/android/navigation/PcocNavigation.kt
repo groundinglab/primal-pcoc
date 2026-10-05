@@ -1,0 +1,97 @@
+package net.primal.android.navigation
+
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.compose.composable
+import androidx.navigation.navigation
+import net.primal.android.core.compose.ApplyEdgeToEdge
+import net.primal.android.core.compose.LockToOrientationPortrait
+import net.primal.android.pcoc.PcocDoor
+import net.primal.android.pcoc.PcocScreen
+import net.primal.android.pcoc.admit.RequestAdmissionScreen
+import net.primal.android.pcoc.admit.RequestAdmissionViewModel
+import net.primal.android.pcoc.create.CreatePcocScreen
+import net.primal.android.pcoc.enroll.EnrollPcocScreen
+import net.primal.android.pcoc.enroll.EnrollPcocViewModel
+import net.primal.android.pcoc.verify.VerifyPcocScreen
+
+fun NavGraphBuilder.pcocNavigation(navController: NavController) {
+    navigation(route = PCOC_GRAPH, startDestination = PCOC_HOME) {
+        composable(
+            route = PCOC_HOME,
+            enterTransition = { primalSlideInHorizontallyFromEnd },
+            exitTransition = { primalScaleOut },
+            popEnterTransition = { primalScaleIn },
+            popExitTransition = { primalSlideOutHorizontallyToEnd },
+        ) {
+            ApplyEdgeToEdge()
+            LockToOrientationPortrait()
+            PcocScreen(
+                onClose = { navController.navigateUp() },
+                onDoor = { door -> navController.navigate(door.route()) },
+            )
+        }
+        composable(
+            route = PCOC_ENROLL,
+            enterTransition = { primalSlideInHorizontallyFromEnd },
+            exitTransition = { primalScaleOut },
+            popEnterTransition = { primalScaleIn },
+            popExitTransition = { primalSlideOutHorizontallyToEnd },
+        ) {
+            val viewModel = hiltViewModel<EnrollPcocViewModel>()
+            ApplyEdgeToEdge()
+            LockToOrientationPortrait()
+            EnrollPcocScreen(viewModel = viewModel, onClose = { navController.navigateUp() })
+        }
+        composable(
+            route = PCOC_VERIFY,
+            enterTransition = { primalSlideInHorizontallyFromEnd },
+            exitTransition = { primalScaleOut },
+            popEnterTransition = { primalScaleIn },
+            popExitTransition = { primalSlideOutHorizontallyToEnd },
+        ) {
+            ApplyEdgeToEdge()
+            LockToOrientationPortrait()
+            VerifyPcocScreen(onClose = { navController.navigateUp() })
+        }
+        composable(
+            route = PCOC_CREATE,
+            enterTransition = { primalSlideInHorizontallyFromEnd },
+            exitTransition = { primalScaleOut },
+            popEnterTransition = { primalScaleIn },
+            popExitTransition = { primalSlideOutHorizontallyToEnd },
+        ) {
+            ApplyEdgeToEdge()
+            LockToOrientationPortrait()
+            CreatePcocScreen(onClose = { navController.navigateUp() })
+        }
+        composable(
+            route = PCOC_ADMIT,
+            enterTransition = { primalSlideInHorizontallyFromEnd },
+            exitTransition = { primalScaleOut },
+            popEnterTransition = { primalScaleIn },
+            popExitTransition = { primalSlideOutHorizontallyToEnd },
+        ) {
+            val viewModel = hiltViewModel<RequestAdmissionViewModel>()
+            ApplyEdgeToEdge()
+            LockToOrientationPortrait()
+            RequestAdmissionScreen(viewModel = viewModel, onClose = { navController.navigateUp() })
+        }
+    }
+}
+
+private fun PcocDoor.route(): String =
+    when (this) {
+        PcocDoor.Enroll -> PCOC_ENROLL
+        PcocDoor.Verify -> PCOC_VERIFY
+        PcocDoor.Create -> PCOC_CREATE
+        PcocDoor.Admit -> PCOC_ADMIT
+    }
+
+private const val PCOC_GRAPH = "pcoc"
+private const val PCOC_HOME = "pcoc_home"
+private const val PCOC_ENROLL = "pcoc_enroll"
+private const val PCOC_VERIFY = "pcoc_verify"
+private const val PCOC_CREATE = "pcoc_create"
+private const val PCOC_ADMIT = "pcoc_admit"

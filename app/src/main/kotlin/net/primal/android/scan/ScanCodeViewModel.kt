@@ -177,6 +177,8 @@ class ScanCodeViewModel @Inject constructor(
                 getPromoCodeDetails(code.getPromoCodeFromUrl())
             }
 
+            QrCodeDataType.PCOC_SERVICE_URL -> Unit
+
             QrCodeDataType.TIP_HASH -> Unit
 
             null -> processUnknownCode(code)
