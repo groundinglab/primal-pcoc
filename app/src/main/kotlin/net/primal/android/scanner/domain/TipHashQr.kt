@@ -11,13 +11,14 @@ object TipHashQr {
 
     /**
      * @return the 64-hex tip hash in display order, lowercased, or null when the scan is not that hash.
-     * A height by itself does not match. When height and a hash are both present, only the hash is returned.
+     * A height by itself does not match. When height and one hash are both present, only the hash is returned.
+     * Two hash tokens are ambiguous, even when they are the same hash, and do not match.
      */
     fun parse(raw: String): String? {
         val trimmed = raw.trim()
         exactHash.matchEntire(trimmed)?.let { return it.groupValues[1].lowercase() }
 
-        val hashes = hashToken.findAll(trimmed).map { it.groupValues[1].lowercase() }.distinct().toList()
+        val hashes = hashToken.findAll(trimmed).map { it.groupValues[1].lowercase() }.toList()
         return hashes.singleOrNull()
     }
 }
