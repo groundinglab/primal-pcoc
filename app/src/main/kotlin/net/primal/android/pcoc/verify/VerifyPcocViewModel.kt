@@ -126,29 +126,48 @@ class VerifyPcocViewModel @Inject constructor(
         return if (stopped) Outcome.Stopped else Outcome.Verdict(word)
     }
 
-    private fun progress(mine: Int) = object : VerifyProgress {
-        override fun indexReads() {
-            publish(mine) { copy(busy = true, stage = Stage.Index, notice = null, word = null) }
+    private fun progress(mine: Int): VerifyProgress {
+        fun show(stage: Stage) {
+            publish(mine) { copy(busy = true, stage = stage, notice = null, word = null) }
         }
 
-        override fun terrain() {
-            publish(mine) { copy(busy = true, stage = Stage.Terrain, notice = null, word = null) }
-        }
-
-        override fun checks() {
-            publish(mine) { copy(busy = true, stage = Stage.Checks, notice = null, word = null) }
-        }
-
-        override fun leg(done: Int, total: Int) {
+        fun showStep(stage: Stage, done: Int, total: Int) {
             publish(mine) {
                 copy(
                     busy = true,
-                    stage = Stage.Legs,
-                    legsDone = done,
-                    legsTotal = total,
+                    stage = stage,
+                    stepDone = done,
+                    stepTotal = total,
                     notice = null,
                     word = null,
                 )
+            }
+        }
+
+        return object : VerifyProgress {
+            override fun indexReads() = show(Stage.Index)
+
+            override fun terrain() = show(Stage.Terrain)
+
+            override fun checks() = show(Stage.Checks)
+
+            override fun checkpoints(done: Int, total: Int) = showStep(Stage.Checkpoints, done, total)
+
+            override fun waypoints(done: Int, total: Int) = showStep(Stage.Waypoints, done, total)
+
+            override fun paths(done: Int, total: Int) = showStep(Stage.Paths, done, total)
+
+            override fun leg(done: Int, total: Int) {
+                publish(mine) {
+                    copy(
+                        busy = true,
+                        stage = Stage.Legs,
+                        legsDone = done,
+                        legsTotal = total,
+                        notice = null,
+                        word = null,
+                    )
+                }
             }
         }
     }

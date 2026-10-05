@@ -9,6 +9,8 @@ interface VerifyPcocContract {
         val stage: Stage? = null,
         val legsDone: Int = 0,
         val legsTotal: Int = 6,
+        val stepDone: Int = 0,
+        val stepTotal: Int = 0,
         val word: VerifyAny.Word? = null,
         val notice: Notice? = null,
     )
@@ -18,6 +20,9 @@ interface VerifyPcocContract {
         Index,
         Terrain,
         Checks,
+        Checkpoints,
+        Waypoints,
+        Paths,
         Legs,
     }
 

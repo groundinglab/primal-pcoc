@@ -11,8 +11,19 @@ object StageLog {
 
     @JvmStatic
     fun debug(stage: String, startedNanos: Long) {
-        val elapsedMs = (System.nanoTime() - startedNanos) / NANOS_PER_MILLISECOND
-        val message = "$stage $elapsedMs ms"
+        write("$stage ${elapsedMs(startedNanos)} ms")
+    }
+
+    /** Same clock as [debug], with how many records that stage walked. */
+    @JvmStatic
+    fun debugRecords(stage: String, records: Int, startedNanos: Long) {
+        write("$stage $records records ${elapsedMs(startedNanos)} ms")
+    }
+
+    private fun elapsedMs(startedNanos: Long): Long =
+        (System.nanoTime() - startedNanos) / NANOS_PER_MILLISECOND
+
+    private fun write(message: String) {
         jul.log(Level.FINE, message)
         try {
             Napier.d(tag = "pcoc-hike") { message }

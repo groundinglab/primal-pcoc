@@ -114,6 +114,21 @@ private fun UiState.stageLabel(): String =
         Stage.Index -> stringResource(id = R.string.pcoc_verify_stage_index)
         Stage.Terrain -> stringResource(id = R.string.pcoc_verify_stage_terrain)
         Stage.Checks -> stringResource(id = R.string.pcoc_verify_stage_checks)
+        Stage.Checkpoints -> stringResource(
+            id = R.string.pcoc_verify_stage_checkpoints,
+            stepDone,
+            stepTotal,
+        )
+        Stage.Waypoints -> stringResource(
+            id = R.string.pcoc_verify_stage_waypoints,
+            stepDone,
+            stepTotal,
+        )
+        Stage.Paths -> stringResource(
+            id = R.string.pcoc_verify_stage_paths,
+            stepDone,
+            stepTotal,
+        )
         Stage.Legs -> stringResource(
             id = R.string.pcoc_verify_stage_legs,
             legsDone,

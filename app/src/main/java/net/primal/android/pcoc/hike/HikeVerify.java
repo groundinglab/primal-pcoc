@@ -174,18 +174,22 @@ public final class HikeVerify {
                 } finally {
                     StageLog.debug("index reads", indexStarted);
                 }
-                boolean digests = anyCheckpoints(hike);
+                int checkpointTotal = countCheckpoints(hike);
                 boolean waypointInputs = hike.stages.length >= HikeConst.STAGES;
-                if (digests || waypointInputs) {
+                if (checkpointTotal != 0 || waypointInputs) {
                     terrain = terrainOf(hike, progress);
                 }
-                note(progress, Note.FILE_CHECKS);
                 long checksStarted = System.nanoTime();
                 boolean[][] digestMatches;
                 try {
-                    digestMatches = digestRecords(hike, terrain);
+                    if (checkpointTotal > 0) {
+                        checkpoints(progress, 0, checkpointTotal);
+                    } else if (hike.stages.length < HikeConst.STAGES) {
+                        note(progress, Note.FILE_CHECKS);
+                    }
+                    digestMatches = digestRecords(hike, terrain, progress, checkpointTotal);
                 } finally {
-                    StageLog.debug("file checks", checksStarted);
+                    StageLog.debugRecords("file checks", checkpointTotal, checksStarted);
                 }
                 checkpoints = new Checkpoints(
                     beacons.matches,
@@ -199,7 +203,6 @@ public final class HikeVerify {
                 if (terrain == null) {
                     terrain = terrainOf(hike, progress);
                 }
-                note(progress, Note.FILE_CHECKS);
                 waypoints = waypointRecords(hike, terrain, index, progress);
             }
             StoredStage[] stages = hike == null ? null : storedStages(hike, stageTimes);
@@ -414,11 +417,17 @@ public final class HikeVerify {
         return new BeaconPass(matches, times);
     }
 
-    private static boolean[][] digestRecords(HikeObject.Hike hike, TerrainRoom terrain) throws HikeUnfinished {
+    private static boolean[][] digestRecords(
+        HikeObject.Hike hike,
+        TerrainRoom terrain,
+        VerifyProgress progress,
+        int checkpointTotal
+    ) throws HikeUnfinished {
         boolean[][] out = new boolean[hike.stages.length][];
         byte[] preimage = null;
-        Sha256 sha = null;
+        CheckpointHash hash = null;
         byte[] digest = null;
+        int done = 0;
         for (int stageIndex = 0; stageIndex < hike.stages.length; stageIndex++) {
             stopIfCancelled();
             HikeObject.Stage stage = hike.stages[stageIndex];
@@ -426,9 +435,9 @@ public final class HikeVerify {
                 out[stageIndex] = new boolean[0];
                 continue;
             }
-            if (preimage == null) {
+            if (hash == null) {
                 preimage = new byte[HikeConst.CHECKPOINT_PREIMAGE_LEN];
-                sha = new Sha256();
+                hash = CheckpointHash.open();
                 digest = new byte[32];
             }
             boolean[] legs = new boolean[stage.checkpoints.length];
@@ -436,10 +445,12 @@ public final class HikeVerify {
                 stopIfCancelled();
                 byte[] previous = leg == 0 ? HikeConst.ZERO_32 : stage.checkpoints[leg - 1];
                 Bind.fillCheckpointPreimage(terrain, preimage, previous, stage.waypoint, stage.legResults[leg]);
-                sha.reset();
-                sha.update(preimage, 0, preimage.length);
-                sha.digest(digest);
+                hash.digest(preimage, digest);
                 legs[leg] = Arrays.equals(digest, stage.checkpoints[leg]);
+                done++;
+                if (progress != null && checkpointTotal > 0) {
+                    progress.checkpoints(done, checkpointTotal);
+                }
             }
             out[stageIndex] = legs;
         }
@@ -469,14 +480,18 @@ public final class HikeVerify {
         VerifyProgress progress
     )
         throws IndexUnreachable, HikeUnfinished {
-        long checksStarted = System.nanoTime();
+        int links = HikeConst.STAGES - 1;
+        if (progress != null) {
+            progress.waypoints(0, links);
+        }
+        long waypointStarted = System.nanoTime();
         boolean opening = Arrays.equals(hike.stages[0].waypoint, HikeConst.ZERO_32);
-        boolean[] differs = new boolean[HikeConst.STAGES - 1];
+        boolean[] differs = new boolean[links];
         Sha256 sha = new Sha256();
         byte[] pair = new byte[64];
         byte[] digest = new byte[32];
         byte[] slotBytes = new byte[HikeConst.SLOT_BYTES];
-        for (int stage = 0; stage < HikeConst.STAGES - 1; stage++) {
+        for (int stage = 0; stage < links; stage++) {
             stopIfCancelled();
             HikeObject.Stage current = hike.stages[stage];
             byte[] successor = Bind.successorWaypoint(
@@ -490,28 +505,47 @@ public final class HikeVerify {
                 slotBytes
             );
             differs[stage] = !Arrays.equals(successor, hike.stages[stage + 1].waypoint);
+            if (progress != null) {
+                progress.waypoints(stage + 1, links);
+            }
         }
+        StageLog.debugRecords("waypoints", links, waypointStarted);
         long absent = 0L;
         boolean presentFails = false;
+        int present = 0;
+        for (int i = 0; i < hike.stages.length; i++) {
+            if (hike.stages[i].path.length != 0) {
+                present++;
+            }
+        }
+        int checked = 0;
+        long pathStarted = System.nanoTime();
         long indexStarted = 0L;
+        if (present > 0 && progress != null) {
+            progress.paths(0, present);
+        }
         for (int i = 0; i < hike.stages.length; i++) {
             HikeObject.Stage stage = hike.stages[i];
             if (stage.path.length == 0) {
                 absent++;
                 continue;
             }
-            if (!PathBody.validate(stage.path, stage.waypoint)) {
-                presentFails = true;
-                continue;
+            boolean failed = !PathBody.validate(stage.path, stage.waypoint);
+            PathBody.Locators locators = failed ? null : PathBody.locators(stage.path);
+            if (!failed && locators == null) {
+                failed = true;
             }
-            PathBody.Locators locators = PathBody.locators(stage.path);
-            if (locators == null) {
+            checked++;
+            if (indexStarted == 0L && progress != null) {
+                progress.paths(checked, present);
+            }
+            if (failed || locators == null) {
                 presentFails = true;
                 continue;
             }
             stopIfCancelled();
             if (indexStarted == 0L) {
-                StageLog.debug("file checks", checksStarted);
+                StageLog.debugRecords("paths", present, pathStarted);
                 note(progress, Note.INDEX_READS);
                 indexStarted = System.nanoTime();
             }
@@ -520,9 +554,9 @@ public final class HikeVerify {
                 presentFails = true;
             }
         }
-        if (indexStarted == 0L) {
-            StageLog.debug("file checks", checksStarted);
-        } else {
+        if (present > 0 && indexStarted == 0L) {
+            StageLog.debugRecords("paths", present, pathStarted);
+        } else if (indexStarted != 0L) {
             StageLog.debug("index reads", indexStarted);
         }
         return new Waypoints(opening, differs, absent, presentFails);
@@ -608,13 +642,22 @@ public final class HikeVerify {
         return count;
     }
 
-    private static boolean anyCheckpoints(HikeObject.Hike hike) {
+    private static int countCheckpoints(HikeObject.Hike hike) {
+        int total = 0;
         for (int i = 0; i < hike.stages.length; i++) {
-            if (hike.stages[i].checkpoints.length != 0) {
-                return true;
+            int count = hike.stages[i].checkpoints.length;
+            if (count > Integer.MAX_VALUE - total) {
+                return Integer.MAX_VALUE;
             }
+            total += count;
         }
-        return false;
+        return total;
+    }
+
+    private static void checkpoints(VerifyProgress progress, int done, int total) {
+        if (progress != null) {
+            progress.checkpoints(done, total);
+        }
     }
 
     private static TerrainRoom terrainOf(HikeObject.Hike hike, VerifyProgress progress) throws HikeUnfinished {
