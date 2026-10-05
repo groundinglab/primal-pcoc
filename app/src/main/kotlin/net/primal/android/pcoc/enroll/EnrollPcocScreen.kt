@@ -16,6 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import java.text.DateFormat
+import java.util.Date
 import net.primal.android.R
 import net.primal.android.core.compose.ConfirmActionAlertDialog
 import net.primal.android.core.compose.button.PrimalLoadingButton
@@ -66,6 +68,9 @@ private fun EnrollPcocScreen(
                 style = AppTheme.typography.titleLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
+            if (state.stored) {
+                StoredFileLines(fileName = state.fileName, savedAtEpochMs = state.savedAtEpochMs)
+            }
             Text(
                 modifier = Modifier.padding(top = 12.dp),
                 text = stringResource(id = R.string.pcoc_enroll_hint),
@@ -112,6 +117,27 @@ private fun EnrollPcocScreen(
             dismissText = stringResource(id = R.string.pcoc_enroll_clear_dismiss),
             onConfirmation = { eventPublisher(UiEvent.ConfirmClear) },
             onDismissRequest = { eventPublisher(UiEvent.DismissClear) },
+        )
+    }
+}
+
+@Composable
+private fun StoredFileLines(fileName: String?, savedAtEpochMs: Long?) {
+    if (!fileName.isNullOrBlank()) {
+        Text(
+            modifier = Modifier.padding(top = 12.dp),
+            text = fileName,
+            style = AppTheme.typography.bodyLarge,
+            color = AppTheme.colorScheme.onPrimary,
+        )
+    }
+    if (savedAtEpochMs != null) {
+        val savedOn = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(savedAtEpochMs))
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = stringResource(id = R.string.pcoc_enroll_saved_date, savedOn),
+            style = AppTheme.typography.bodyLarge,
+            color = AppTheme.colorScheme.onPrimary,
         )
     }
 }

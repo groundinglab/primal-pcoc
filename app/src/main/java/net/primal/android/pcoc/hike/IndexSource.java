@@ -5,5 +5,5 @@ package net.primal.android.pcoc.hike;
  * {@link IndexUnreachable} is a fetch failure, not a mismatch.
  */
 public interface IndexSource {
-    String read(long height) throws IndexUnreachable;
+    String read(long height) throws IndexUnreachable, HikeUnfinished;
 }

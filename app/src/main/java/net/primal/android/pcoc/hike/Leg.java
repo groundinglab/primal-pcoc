@@ -14,18 +14,21 @@ final class Leg {
         return Le.u64(digest, 0);
     }
 
-    static long step(byte[] terrain, long state, Sha256 sha, byte[] preimage, byte[] digest) {
+    static long step(long[] words, long state, Sha256 sha, byte[] preimage, byte[] digest) {
         int slot = (int) Long.remainderUnsigned(state, HikeConst.N_SLOTS);
-        int start = slot * HikeConst.SLOT_BYTES;
+        int base = slot * HikeConst.WORDS_PER_SLOT;
         long folded = state;
         for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
-            long value = Le.u64(terrain, start + (word << 3));
-            folded ^= value ^ (long) word;
+            folded ^= words[base + word] ^ (long) word;
         }
         return seal(sha, preimage, digest, folded);
     }
 
-    static long legResult(byte[] terrain, byte[] previousCheckpoint) throws HikeUnfinished {
+    static long legResult(TerrainRoom terrain, byte[] previousCheckpoint) throws HikeUnfinished {
+        long[] words = terrain.array();
+        if (words == null) {
+            throw new HikeUnfinished();
+        }
         Sha256 sha = new Sha256();
         byte[] preimage = new byte[20];
         System.arraycopy(HikeConst.SEAL_DOMAIN, 0, preimage, 0, 12);
@@ -35,10 +38,10 @@ final class Leg {
             if ((step & STOP_MASK) == 0 && Thread.currentThread().isInterrupted()) {
                 throw new HikeUnfinished();
             }
-            state = step(terrain, state, sha, preimage, digest);
+            state = step(words, state, sha, preimage, digest);
         }
         return state;
     }
 
-    private static final int STOP_MASK = 8191;
+    private static final int STOP_MASK = 1023;
 }

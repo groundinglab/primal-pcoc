@@ -149,10 +149,11 @@
     <string name="pcoc_admit_title">Request service admission</string>
     <string name="pcoc_enroll_choose_file">Choose a file</string>
     <string name="pcoc_enroll_clear">Clear enrolled object</string>
-    <string name="pcoc_enroll_stored_status">An object is stored for this account.</string>
+    <string name="pcoc_enroll_stored_status">Saved. This PCOC will be checked by the service when you sign in.</string>
+    <string name="pcoc_enroll_saved_date">Date saved %1$s</string>
     <string name="pcoc_enroll_empty_status">No object is stored for this account.</string>
     <string name="pcoc_enroll_hint">Choose the PCOC file. This phone stores that file for this account. It does not read a key from the file. The admission site decides.</string>
-    <string name="pcoc_enroll_outcome_stored">Stored for this account. Nothing was submitted. The admission site decides.</string>
+    <string name="pcoc_enroll_outcome_stored">Nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_unreadable">Stopped. The file could not be read. Nothing was stored and nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_not_stored">Stopped. The object bytes were not stored. Nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_cleared">Cleared the stored object bytes for this account. The account and its private key were not removed.</string>

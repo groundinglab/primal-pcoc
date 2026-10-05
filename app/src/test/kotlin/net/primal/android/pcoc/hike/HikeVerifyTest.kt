@@ -4,6 +4,13 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.util.Arrays
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Handler
+import java.util.logging.Level
+import java.util.logging.LogRecord
+import java.util.logging.Logger
 import org.junit.Test
 
 class HikeVerifyTest {
@@ -67,10 +74,11 @@ class HikeVerifyTest {
     @Test
     fun `fewer than six legs does not draw and a failed source does not open the pool`() {
         val boom = Draw.Entropy { _ -> error("drew") }
-        HikeVerify.measureSix(hikeWithLegs(5), ByteArray(0), boom).kind shouldBe HikeVerify.SixKind.COULD_NOT_DRAW
+        HikeVerify.measureSix(hikeWithLegs(5), TerrainRoom.unused(), boom).kind shouldBe
+            HikeVerify.SixKind.COULD_NOT_DRAW
 
         val empty = Draw.Entropy { _ -> false }
-        HikeVerify.measureSix(hikeWithLegs(6), ByteArray(0), empty).kind shouldBe
+        HikeVerify.measureSix(hikeWithLegs(6), TerrainRoom.unused(), empty).kind shouldBe
             HikeVerify.SixKind.DRAW_NOT_OBTAINED
     }
 
@@ -81,6 +89,118 @@ class HikeVerifyTest {
         pool.maximumPoolSize shouldBe 6
         pool.prestartAllCoreThreads() shouldBe 6
         pool.shutdownNow()
+        pool.awaitTermination(5, TimeUnit.SECONDS) shouldBe true
+        pcocThreads() shouldBe 0
+    }
+
+    @Test
+    fun `terrain words and leg results match the reference vectors`() {
+        val seed = ByteArray(64)
+        Arrays.fill(seed, 0, 32, 0x11)
+        Arrays.fill(seed, 32, 64, 0x22)
+        val room = Terrain.fill(Terrain.fillPin(seed))
+        try {
+            room.word(0, 0) shouldBe 0xb6b6498e1ee3b07fUL.toLong()
+            room.word(1, 0) shouldBe 0x772826088e4577ccL
+            room.word(5, 3) shouldBe 0xc735c06fe9907d92UL.toLong()
+            room.word(16383, 2047) shouldBe 0x0854fb91afadf843L
+            terrainSha(room) shouldBe "ecf40115ea0f0da9a2e2bf492742c2627535afd7ca3ce9288cd59ff71cb02665"
+
+            val zero = ByteArray(32)
+            val one = ByteArray(32)
+            one[0] = 1
+            val zeroResult = Leg.legResult(room, zero)
+            zeroResult shouldBe 0xc4e77fe01b7080aaUL.toLong()
+            zeroResult shouldNotBe 0xc4e77fe01b7080abUL.toLong()
+            Leg.legResult(room, one) shouldBe 0x6a5e29054bc84a67L
+
+            val slot = ByteArray(HikeConst.SLOT_BYTES)
+            room.copySlot(0, slot)
+            val across = ByteArray(16)
+            room.copyBytes(HikeConst.SLOT_BYTES - 4, across)
+            val tail = slot.copyOfRange(HikeConst.SLOT_BYTES - 4, HikeConst.SLOT_BYTES)
+            across.copyOfRange(0, 4).contentEquals(tail) shouldBe true
+            room.copySlot(1, slot)
+            across.copyOfRange(4, 16).contentEquals(slot.copyOfRange(0, 12)) shouldBe true
+        } finally {
+            room.release()
+        }
+    }
+
+    @Test
+    fun `three verifies with a cancel between them do not leak or slow down`() {
+        val flight = VerifyFlight()
+        val quietIndex = IndexSource { _ -> null }
+        val noDraw = Draw.Entropy { _ -> error("drew") }
+        val bytes = oneCheckpoint()
+        val logs = mutableListOf<String>()
+        val logger = Logger.getLogger("pcoc.hike")
+        val previous = logger.level
+        logger.level = Level.FINE
+        val handler = object : Handler() {
+            override fun publish(record: LogRecord) {
+                if (record.loggerName == "pcoc.hike") logs += record.message
+            }
+
+            override fun flush() = Unit
+
+            override fun close() = Unit
+        }
+        handler.level = Level.FINE
+        logger.addHandler(handler)
+        try {
+            val baselineMemory = usedMemory()
+            pcocThreads() shouldBe 0
+
+            val first = elapsed { finishQuiet(flight, bytes, quietIndex, noDraw) }
+            logs.any { it.startsWith("headers ") } shouldBe true
+            logs.any { it.startsWith("terrain ") } shouldBe true
+            nearBaseline(baselineMemory)
+            pcocThreads() shouldBe 0
+
+            val legs = AtomicInteger(-1)
+            val opened = CountDownLatch(1)
+            val worker = Thread(
+                {
+                    flight.call {
+                        VerifyAny.finish(
+                            sixLegs(),
+                            quietIndex,
+                            Script((0 until 6).fold(ByteArray(0)) { acc, value -> acc + le(value.toLong()) }),
+                            object : VerifyProgress {
+                                override fun headers() = Unit
+
+                                override fun terrain() {
+                                    opened.countDown()
+                                }
+
+                                override fun leg(done: Int, total: Int) {
+                                    legs.set(done)
+                                    if (done == 0) flight.cancel()
+                                }
+                            },
+                        )
+                    }
+                },
+                "pcoc-verify-test",
+            )
+            worker.start()
+            opened.await(60, TimeUnit.SECONDS) shouldBe true
+            worker.join(30_000)
+            worker.isAlive shouldBe false
+            legs.get() shouldBe 0
+            nearBaseline(baselineMemory)
+            pcocThreads() shouldBe 0
+
+            val third = elapsed { finishQuiet(flight, bytes, quietIndex, noDraw) }
+            nearBaseline(baselineMemory)
+            pcocThreads() shouldBe 0
+            (third <= first * 2 + 2_000) shouldBe true
+        } finally {
+            flight.cancel()
+            logger.removeHandler(handler)
+            logger.level = previous
+        }
     }
 
     @Test
@@ -278,6 +398,87 @@ class HikeVerifyTest {
         HikeVerify.admit(
             measurements(passing, six = HikeVerify.SixLegs(HikeVerify.SixKind.NOT_OBTAINED, null, null)),
         ) shouldBe true
+    }
+
+    private fun finishQuiet(
+        flight: VerifyFlight,
+        bytes: ByteArray,
+        index: IndexSource,
+        entropy: Draw.Entropy,
+    ) {
+        val word = flight.call {
+            VerifyAny.finish(bytes, index, entropy, null)
+        }
+        word shouldBe VerifyAny.Word.INVALID
+    }
+
+    private fun elapsed(block: () -> Unit): Long {
+        val started = System.nanoTime()
+        block()
+        return (System.nanoTime() - started) / 1_000_000L
+    }
+
+    private fun usedMemory(): Long {
+        repeat(4) {
+            System.gc()
+            System.runFinalization()
+        }
+        val runtime = Runtime.getRuntime()
+        return runtime.totalMemory() - runtime.freeMemory()
+    }
+
+    private fun nearBaseline(baseline: Long) {
+        val used = usedMemory()
+        (used - baseline < 96L * 1024 * 1024) shouldBe true
+    }
+
+    private fun pcocThreads(): Int =
+        Thread.getAllStackTraces().keys.count { thread ->
+            thread.isAlive && thread.name.startsWith("pcoc-leg")
+        }
+
+    private fun terrainSha(room: TerrainRoom): String {
+        val sha = Sha256()
+        val slot = ByteArray(HikeConst.SLOT_BYTES)
+        for (index in 0 until HikeConst.N_SLOTS) {
+            room.copySlot(index, slot)
+            sha.update(slot, 0, slot.size)
+        }
+        val out = ByteArray(32)
+        sha.digest(out)
+        return out.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun oneCheckpoint(): ByteArray {
+        val beacon = ByteArray(32)
+        beacon[0] = 1
+        val stage = HikeObject.Stage(
+            beacon,
+            1L,
+            1L,
+            ByteArray(32),
+            ByteArray(0),
+            arrayOf(ByteArray(32)),
+            arrayOf(ByteArray(8)),
+        )
+        return HikeObject.encode(HikeObject.Hike(ByteArray(32) { 0x11 }, beacon.copyOf(), arrayOf(stage)))
+    }
+
+    private fun sixLegs(): ByteArray {
+        val stages = Array(6) { index ->
+            val beacon = ByteArray(32)
+            beacon[0] = (index + 1).toByte()
+            HikeObject.Stage(
+                beacon,
+                index + 1L,
+                1L,
+                ByteArray(32),
+                ByteArray(0),
+                arrayOf(ByteArray(32)),
+                arrayOf(ByteArray(8)),
+            )
+        }
+        return HikeObject.encode(HikeObject.Hike(ByteArray(32) { 0x11 }, stages[0].beacon.copyOf(), stages))
     }
 
     private fun passing(): HikeVerify.Measurements =

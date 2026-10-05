@@ -12,9 +12,8 @@ final class Bind {
         return (int) Long.remainderUnsigned(Le.u64(previousCheckpoint, 0), HikeConst.OFFSET_MODULUS);
     }
 
-    static void copySample(byte[] terrain, byte[] previousCheckpoint, byte[] sample) {
-        int offset = sampleOffset(previousCheckpoint);
-        System.arraycopy(terrain, offset, sample, 0, HikeConst.SAMPLE_BYTES);
+    static void copySample(TerrainRoom terrain, byte[] previousCheckpoint, byte[] sample) {
+        terrain.copyBytes(sampleOffset(previousCheckpoint), sample);
     }
 
     static void fillCheckpointPreimage(
@@ -44,20 +43,21 @@ final class Bind {
     }
 
     static byte[] successorWaypoint(
-        byte[] terrain,
+        TerrainRoom terrain,
         byte[] beacon,
         byte[] openingWaypoint,
         byte[][] checkpoints,
         Sha256 sha,
         byte[] pair,
-        byte[] digest
+        byte[] digest,
+        byte[] slotBytes
     ) {
         byte[] fold = foldCheckpoints(sha, checkpoints, pair, digest);
         int slot = (int) Long.remainderUnsigned(Le.u64(beacon, 0), HikeConst.N_SLOTS);
-        int start = slot * HikeConst.SLOT_BYTES;
+        terrain.copySlot(slot, slotBytes);
         sha.reset();
         sha.update(beacon, 0, 32);
-        sha.update(terrain, start, HikeConst.SLOT_BYTES);
+        sha.update(slotBytes, 0, HikeConst.SLOT_BYTES);
         sha.update(openingWaypoint, 0, 32);
         sha.update(fold, 0, 32);
         sha.digest(digest);

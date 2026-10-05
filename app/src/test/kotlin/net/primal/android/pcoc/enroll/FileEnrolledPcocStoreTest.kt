@@ -30,6 +30,22 @@ class FileEnrolledPcocStoreTest {
     }
 
     @Test
+    fun `the note is the file name and the date saved`() {
+        val root = kotlin.io.path.createTempDirectory("pcoc-objects").toFile()
+        val store = FileEnrolledPcocStore(root)
+        val account = "ab".repeat(32)
+        store.write(account, byteArrayOf(1, 2, 3), "report.pcoc", 1_759_622_400_000L)
+
+        store.note(account) shouldBe EnrolledNote("report.pcoc", 1_759_622_400_000L)
+        store.read(account).contentEquals(byteArrayOf(1, 2, 3)) shouldBe true
+        File(root, "${account}.note").readText().contains(account) shouldBe false
+
+        store.delete(account)
+        store.note(account) shouldBe null
+        File(root, "${account}.note").exists() shouldBe false
+    }
+
+    @Test
     fun `write rejects an id that is not 64 hex`() {
         val root = kotlin.io.path.createTempDirectory("pcoc-objects").toFile()
         val store = FileEnrolledPcocStore(root)
