@@ -23,7 +23,6 @@ import net.primal.android.pcoc.admit.RequestAdmissionContract.Outcome
 import net.primal.android.pcoc.admit.RequestAdmissionContract.ScanProblem
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiEvent
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiState
-import net.primal.android.scanner.QrCodeScanner
 import net.primal.android.theme.AppTheme
 
 @Composable
@@ -65,20 +64,11 @@ private fun RequestAdmissionScreen(
                     style = AppTheme.typography.bodyMedium,
                     color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
                 )
-                QrCodeScanner(
+                AdmissionQrScanner(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    cameraVisible = !state.submitting,
-                    onQrCodeDetected = { eventPublisher(UiEvent.QrCodeDetected(it.value)) },
-                    hint = {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                            text = stringResource(id = R.string.pcoc_admit_camera_hint),
-                            style = AppTheme.typography.bodyMedium,
-                            color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-                        )
-                    },
+                    onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
                 )
             } else {
                 AdmissionScanResult(
@@ -168,7 +158,19 @@ private fun ScanProblem.text(): String =
 @Composable
 private fun Outcome.text(): String =
     when (this) {
-        Outcome.Accepted -> stringResource(id = R.string.pcoc_admit_accepted)
-        Outcome.Denied -> stringResource(id = R.string.pcoc_admit_denied)
+        is Outcome.Decided -> decidedText(accepted = accepted, verifierRan = verifierRan)
         Outcome.Failed -> stringResource(id = R.string.pcoc_admit_failed)
     }
+
+@Composable
+private fun decidedText(accepted: Boolean, verifierRan: Boolean?): String {
+    val decision = stringResource(
+        id = if (accepted) R.string.pcoc_admit_accepted else R.string.pcoc_admit_denied,
+    )
+    val check = when (verifierRan) {
+        true -> stringResource(id = R.string.pcoc_admit_check_ran)
+        false -> stringResource(id = R.string.pcoc_admit_check_not_ran)
+        null -> null
+    }
+    return if (check == null) decision else "$decision\n$check"
+}

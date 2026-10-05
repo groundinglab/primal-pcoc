@@ -30,7 +30,10 @@ class AdmissionSiteClientTest {
 
         val result = client.post(exactUrl = exact, objectBytes = objectBytes, signatureHex = signature)
 
-        result shouldBe AdmissionPostResult.Decision(AdmissionDecision.Accept)
+        result shouldBe AdmissionPostResult.Decision(
+            decision = AdmissionDecision.Accept,
+            verifierRan = true,
+        )
         factory.requests.single().url.toString() shouldBe exact
         val recorded = factory.requests.single()
         recorded.method shouldBe "POST"
@@ -52,7 +55,7 @@ class AdmissionSiteClientTest {
         val client = AdmissionSiteClient(factory)
 
         client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
-            AdmissionPostResult.Decision(AdmissionDecision.Deny)
+            AdmissionPostResult.Decision(decision = AdmissionDecision.Deny, verifierRan = true)
     }
 
     @Test
@@ -103,6 +106,26 @@ class AdmissionSiteClientTest {
         client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
             AdmissionPostResult.Failed
         factory.requests.size shouldBe 1
+    }
+
+    @Test
+    fun `posts the live sign-in url unchanged`() {
+        val hash = "01" + "ab".repeat(30) + "ff"
+        val exact = "https://pcoc.app/sign-in/?h=$hash"
+        val factory = scripted(body = """{"decision":"accept","verifier_ran":false}""")
+        val client = AdmissionSiteClient(factory)
+
+        client.post(exactUrl = exact, objectBytes = objectBytes, signatureHex = signature) shouldBe
+            AdmissionPostResult.Decision(decision = AdmissionDecision.Accept, verifierRan = false)
+        factory.requests.single().url.toString() shouldBe exact
+    }
+
+    @Test
+    fun `a caller that throws is a failed request`() {
+        val client = AdmissionSiteClient(Call.Factory { throw IllegalStateException("closed") })
+
+        client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
+            AdmissionPostResult.Failed
     }
 
     @Test

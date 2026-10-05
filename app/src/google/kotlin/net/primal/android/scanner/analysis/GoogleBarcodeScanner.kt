@@ -20,23 +20,26 @@ class GoogleBarcodeScanner @Inject constructor() : QrCodeResultDecoder {
     )
 
     @OptIn(ExperimentalGetImage::class)
-    override fun process(imageProxy: ImageProxy): QrCodeResult? =
-        imageProxy.use {
-            val mediaImage = it.image ?: return@use null
+    override fun process(imageProxy: ImageProxy): QrCodeResult? {
+        val text = read(imageProxy) ?: return null
+        val type = QrCodeDataType.from(text) ?: return null
+        return QrCodeResult(value = text, type = type)
+    }
 
+    @OptIn(ExperimentalGetImage::class)
+    override fun decodeText(imageProxy: ImageProxy): String? = read(imageProxy)
+
+    @OptIn(ExperimentalGetImage::class)
+    private fun read(imageProxy: ImageProxy): String? =
+        imageProxy.use { proxy ->
+            val mediaImage = proxy.image ?: return@use null
             val readyImage = InputImage.fromMediaImage(
                 mediaImage,
-                it.imageInfo.rotationDegrees,
+                proxy.imageInfo.rotationDegrees,
             )
-
             val barcodes = runCatching { Tasks.await(scanner.process(readyImage)) }.getOrNull() ?: return@use null
-
-            barcodes.firstNotNullOfOrNull {
-                it.rawValue?.let { rawValue ->
-                    QrCodeDataType.from(rawValue)?.let { type ->
-                        QrCodeResult(value = rawValue, type = type)
-                    }
-                }
+            barcodes.firstNotNullOfOrNull { barcode ->
+                chooseQrText(raw = barcode.rawValue, display = barcode.displayValue, url = barcode.url?.url)
             }
         }
 }

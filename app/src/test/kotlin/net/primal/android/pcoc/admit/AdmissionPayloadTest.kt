@@ -29,8 +29,16 @@ class AdmissionPayloadTest {
     fun `decision is only accept or deny and extra fields are ignored`() {
         val acceptBody = """{"decision":"accept","verifier_ran":true,"result":"ok","measurements":{}}"""
         AdmissionPayload.parseDecision(acceptBody) shouldBe AdmissionDecision.Accept
-        AdmissionPayload.parseDecision("""{"decision":"deny","verifier_ran":false}""") shouldBe
-            AdmissionDecision.Deny
+        AdmissionPayload.parseReport(acceptBody) shouldBe AdmissionReport(
+            decision = AdmissionDecision.Accept,
+            verifierRan = true,
+        )
+        AdmissionPayload.parseReport("""{"decision":"deny","verifier_ran":false}""") shouldBe
+            AdmissionReport(decision = AdmissionDecision.Deny, verifierRan = false)
+        AdmissionPayload.parseReport("""{"decision":"accept"}""") shouldBe
+            AdmissionReport(decision = AdmissionDecision.Accept, verifierRan = null)
+        AdmissionPayload.parseReport("""{"decision":"deny","verifier_ran":"yes"}""") shouldBe
+            AdmissionReport(decision = AdmissionDecision.Deny, verifierRan = null)
         AdmissionPayload.parseDecision("") shouldBe null
         AdmissionPayload.parseDecision("not-json") shouldBe null
         AdmissionPayload.parseDecision("{}") shouldBe null
