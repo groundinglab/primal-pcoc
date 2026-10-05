@@ -23,18 +23,11 @@ The centre stays Wallet.
 
 File picker only. Not a share sheet and not a deep link.
 
-Read `hike::yielded_public_key` only. Not `object_public_key`. The reader returns three results: **PublicKey**, **NoPublicKey**, **Undecodable**. Do not collapse Undecodable into NoPublicKey. Do not add a fourth reader result. A returned PublicKey is not an “is a hike” pass. Do not hand-roll a CBOR layout or a second shape check on the phone.
+Enroll stores the picked file. The phone reads those bytes and keeps them as the enrolled object for the signed-in account. It does no local key check. It does not call `hike::yielded_public_key` or `object_public_key`. It does not match the file to the account. There is no JNI reader and no `libhike_yielded_public_key.so` gate. Storing the file is not a hike verdict.
 
-- **PublicKey** whose 32 bytes match the signed-in account’s 32-byte key (the bytes, or the store’s hex spelling — not npub text compared with hex text) → may store the object bytes for admit.
-- **PublicKey** mismatch → withhold. Not stored. Not an admission denial. Nothing submitted.
-- **NoPublicKey** → stop. Not stored. Not a withhold. Not a denial. Nothing submitted.
-- **Undecodable** → stop. Not the NoPublicKey path. Not a withhold. Not a denial. Nothing submitted.
+Clear asks for confirmation, then deletes the stored object bytes only. It does not touch the account or the nsec. Enroll does not store an nsec or a mnemonic.
 
-Clear asks for confirmation, then deletes the stored object bytes only. It does not touch the account or the nsec.
-
-No enrolled object, or the wrong login (npub-only or internal signer), means Request service admission does not submit. An external signer has no producer nsec here, so it does not submit either.
-
-How Android calls `hike::yielded_public_key` is a thin JNI into that function (`libhike_yielded_public_key.so`). This tree does not ship that native artifact. Until it is linked, enroll stops without storing and without inventing a key. That stop is not NoPublicKey and not Undecodable.
+No enrolled object, or a login without the producer nsec (npub-only, internal signer, or external signer), means Request service admission does not submit. The admission site decides accept or deny.
 
 ## 3. Request service admission
 
@@ -67,7 +60,7 @@ Create a PCOC is copy only.
 These stay on the gate and the site. This phone package does not edit them.
 
 - The gate still checks the signature against the highest stored hash or the height-minus-one file when it exists.
-- A missing yielded key at the gate is a gate denial (the gate, not the phone withhold).
+- A missing yielded key at the gate is a gate denial. This phone does not make that check. The admission site decides.
 - Only a match runs `hike::verify` and section 15. An undecodable shape reaches the verifier with no signature check, as the door already defines.
 - The site must not add a Schnorr pre-check against QR-only `h` that can disagree with the gate’s window.
 - Today’s live `pcoc.app/sign-in` bare-hash QR, where the page POSTs the gate, is not what this phone implements.
@@ -77,7 +70,7 @@ These stay on the gate and the site. This phone package does not edit them.
 | Feature | Status | Touch points | Pass / fail |
 | --- | --- | --- | --- |
 | Entry | This package | Account drawer tile immediately before Settings. Route `pcoc`. | Pass: Account → PCOC opens the four doors. The centre stays Wallet. |
-| Enroll your PCOC | This package | File picker (`OpenDocument`). `hike::yielded_public_key` via the compile-gated JNI reader. `EnrolledPcocStore` keeps object bytes per account hex. | Pass: PublicKey match stores the bytes and is not an “is a hike” pass. Mismatch withholds, does not store, and is not a denial. NoPublicKey and Undecodable are separate stops. Clear deletes object bytes only. Fail: `object_public_key`, a hand-rolled hike check, or collapsing Undecodable into NoPublicKey. |
+| Enroll your PCOC | This package | File picker (`OpenDocument`). `EnrolledPcocStore` keeps the picked object bytes per account hex. | Pass: the picked file is stored for the signed-in account, with no local key check. Clear deletes object bytes only. The admission site decides. Fail: `hike::yielded_public_key`, `object_public_key`, a match against the account, a JNI or `.so` gate, or storing an nsec or mnemonic. |
 | Verify any PCOC | This package | `VerifyPcocScreen`. Java section 14 then section 15. Live index `https://index.pcoc.app` with `User-Agent: pcoc-hike`. | Pass: valid or invalid only after the run finishes. Measurements hidden. VivoBook bare metal is the timing host. Phone wall time is not that clock. Fewer than 6 legs shows invalid. Allocation failure or an unfinished pool of 6 shows neither word. Fail: a shorter procedure, a measurement on screen, a gate POST, Bari, synth, or a `test-*` host. |
 | Create a PCOC | Copy shell | `CreatePcocScreen`. | Pass: copy only. Fail: plant, gossip, Bari, a seed list, produce, a created object, or an admission result. |
 | Request service admission | This package | Camera QR. `AdmissionQr`, `AdmissionSigner` (`CryptoUtils.sign`), `AdmissionSiteClient`. | Pass: one HTTPS URL, `h` is 64 hex, BIP-340 over those 32 bytes, POST `{object_b64, signature}` to that URL, accept/deny only from `decision`. Fail: bare-hash QR, phone→gate POST, redirect to another host, nsec in the body, Option B, polling, or timeout/empty/garbage shown as deny. |
@@ -86,11 +79,9 @@ These stay on the gate and the site. This phone package does not edit them.
 ## 8. Acceptance
 
 - [ ] Account → PCOC opens Enroll your PCOC, Verify any PCOC, Create a PCOC, and Request service admission.
-- [ ] Enroll uses the file picker only and reads `hike::yielded_public_key` only.
-- [ ] PublicKey match may store object bytes. That store is not an “is a hike” pass.
-- [ ] PublicKey mismatch withholds: not stored, not an admission denial, nothing submitted.
-- [ ] NoPublicKey and Undecodable are separate stops: not stored, not a withhold, not a denial, nothing submitted.
+- [ ] Enroll uses the file picker only and stores the picked file for the signed-in account. It does no local key check.
 - [ ] Clear confirms, then deletes stored object bytes only.
+- [ ] The admission site decides accept or deny. The phone does not.
 - [ ] No enroll, or npub-only / internal signer (and any login without the producer nsec): Request service admission does not submit.
 - [ ] The QR is one HTTPS URL whose query `h` is 64 hex. A bare hash is not signed and not submitted.
 - [ ] Sign and submit is explicit. The signed message is the 32 bytes of `h` via `CryptoUtils.sign`, not `signOrThrow`.

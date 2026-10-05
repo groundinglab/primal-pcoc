@@ -26,7 +26,7 @@ Use the existing path in [FEATURES-v0.1.md](FEATURES-v0.1.md): bech32 nsec → `
 
 ### 2. Enroll your PCOC
 
-On Account → PCOC: file picker only, then `hike::yielded_public_key` (`reference/hike/src/object.rs`). Three results stay apart: PublicKey, NoPublicKey, Undecodable. A PublicKey whose 32 bytes match the account key may be stored for admission. That store is not an “is a hike” pass. A mismatch withholds and does not store. It is not an admission denial. `object_public_key` is not this read. Do not hand-roll a CBOR layout. Clear deletes stored object bytes only. The Android call is a thin JNI, compile-gated until `libhike_yielded_public_key.so` is present. Do not invent a key when it is missing.
+On Account → PCOC: file picker only. Store the picked file bytes for the signed-in account. No local key check. Do not call `hike::yielded_public_key` or `object_public_key`. Do not match the file to the account. Do not add a JNI reader. Clear deletes stored object bytes only. The admission site decides.
 
 Build gate: `./gradlew :app:assembleAospDebug` (see the baseline notes in [CUT-POINTS.md](CUT-POINTS.md)).
 
@@ -80,13 +80,13 @@ Option B withhold matches `ActiveAccountStore.activeUserId()` to the object’s 
 
 ## Ask Christian
 
-Account door UI home is closed in [FEATURES-v0.1.md](FEATURES-v0.1.md): Account → PCOC, the tile immediately before Settings. That supersedes the earlier Groundinglab settings row for these doors. `hike::yielded_public_key` is locked. Do not hand-roll a CBOR layout. Do not retarget Wallet.
+Account door UI home is closed in [FEATURES-v0.1.md](FEATURES-v0.1.md): Account → PCOC, the tile immediately before Settings. That supersedes the earlier Groundinglab settings row for these doors. Enroll stores the picked file and does no local key check. Do not retarget Wallet.
 
 Later, still stop rather than invent:
 
 1. **Option B wire and signature.** What are Option B’s bytes, and is there a signature at all? Phase 9 waits. Tonight’s sign-in body stays the two fields in the SPEC.
 2. **Produce artifact.** Which Android-callable coordinates and symbols does `groundinglab/pcoc` expose? This tree has no Rust bridge. Phase 6 waits. This does not block phases 1–3.
-3. **Produce association record.** When in-app produce finishes, which field is the object id and which field is the associated pubkey? Phase 9 waits on this. Naming it does not move admit onto the centre. Tonight’s import uses `hike::yielded_public_key`, not this produce record and not `object_public_key`.
+3. **Produce association record.** When in-app produce finishes, which field is the object id and which field is the associated pubkey? Phase 9 waits on this. Naming it does not move admit onto the centre. Tonight’s enroll stores the picked file. It does not use `hike::yielded_public_key` or `object_public_key`.
 4. **Tip client.** Which client reads the public tip? Phase 8 waits. Do not bind start or stop to a leg. The app does not keep a header archive. The same answer blocks phase 7. mempool.space transaction lookup is the wallet path.
 5. **Centre versus Wallet, including produce-on-centre and admit-on-centre.** Wallet stays the centre item (`WalletDashboardContent`). Do not retarget it. Phases 5 and 6 wait. Tonight’s UI is the settings ask in the SPEC, not this one.
 6. **Badge scope.** Launcher label (`app_name`), settings version row (`VersionListItem`), or both? Does `applicationId` stay `net.primal.android`? Phase 4 waits. Not a tonight blocker.

@@ -109,7 +109,7 @@ Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged
 
 Checked and absent:
 
-- Account → PCOC lives in `net.primal.android.pcoc`. Enroll calls `hike::yielded_public_key` through a compile-gated JNI stub (`HikeYieldedPublicKeyJni`). The native library is not in this repo. The stub does not call `object_public_key` and does not invent a hike check.
+- Account → PCOC lives in `net.primal.android.pcoc`. Enroll stores the picked file bytes for the signed-in account. It does not call `hike::yielded_public_key` or `object_public_key`, and it does not load a hike JNI library.
 - No Rust crate or UniFFI binding is vendored here. Create does not call produce, plant, gossip, or Bari.
 - No `leg` / `leg result` types.
 

@@ -20,7 +20,6 @@ import kotlinx.coroutines.withContext
 import net.primal.android.pcoc.enroll.EnrollPcocContract.Notice
 import net.primal.android.pcoc.enroll.EnrollPcocContract.UiEvent
 import net.primal.android.pcoc.enroll.EnrollPcocContract.UiState
-import net.primal.android.pcoc.hike.HikeYieldedPublicKeyReader
 import net.primal.android.user.accounts.active.ActiveAccountStore
 import net.primal.core.utils.coroutines.DispatcherProvider
 
@@ -28,12 +27,11 @@ import net.primal.core.utils.coroutines.DispatcherProvider
 class EnrollPcocViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val activeAccountStore: ActiveAccountStore,
-    reader: HikeYieldedPublicKeyReader,
     private val store: EnrolledPcocStore,
     private val dispatchers: DispatcherProvider,
 ) : ViewModel() {
 
-    private val enroll = EnrollPcoc(reader = reader, store = store)
+    private val enroll = EnrollPcoc(store = store)
 
     private val _state = MutableStateFlow(UiState())
     val state = _state.asStateFlow()
@@ -135,9 +133,5 @@ class EnrollPcocViewModel @Inject constructor(
 private fun EnrollOutcome.toNotice(): Notice =
     when (this) {
         EnrollOutcome.Stored -> Notice.Stored
-        EnrollOutcome.Withheld -> Notice.Withheld
-        EnrollOutcome.NoPublicKey -> Notice.NoPublicKey
-        EnrollOutcome.Undecodable -> Notice.Undecodable
-        EnrollOutcome.ReaderUnavailable -> Notice.ReaderUnavailable
-        EnrollOutcome.NoAccountKey -> Notice.NoAccountKey
+        EnrollOutcome.NotStored -> Notice.NotStored
     }

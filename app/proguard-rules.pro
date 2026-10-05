@@ -23,8 +23,6 @@
 # Avoid class/method name obfuscation for your own code
 -keepnames class net.primal.** { *; }
 
--keep class net.primal.android.pcoc.hike.HikeYieldedPublicKeyJni { *; }
-
 -keep class fr.acinq.secp256k1.** { *; }
 
 -keep class net.zetetic.** { *; }

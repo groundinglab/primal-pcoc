@@ -120,11 +120,6 @@ private fun EnrollPcocScreen(
 private fun Notice.text(): String =
     when (this) {
         Notice.Stored -> stringResource(id = R.string.pcoc_enroll_outcome_stored)
-        Notice.Withheld -> stringResource(id = R.string.pcoc_enroll_outcome_withheld)
-        Notice.NoPublicKey -> stringResource(id = R.string.pcoc_enroll_outcome_no_public_key)
-        Notice.Undecodable -> stringResource(id = R.string.pcoc_enroll_outcome_undecodable)
-        Notice.ReaderUnavailable -> stringResource(id = R.string.pcoc_enroll_outcome_reader_unavailable)
-        Notice.NoAccountKey -> stringResource(id = R.string.pcoc_enroll_outcome_no_account_key)
         Notice.Unreadable -> stringResource(id = R.string.pcoc_enroll_outcome_unreadable)
         Notice.NotStored -> stringResource(id = R.string.pcoc_enroll_outcome_not_stored)
         Notice.Cleared -> stringResource(id = R.string.pcoc_enroll_outcome_cleared)
