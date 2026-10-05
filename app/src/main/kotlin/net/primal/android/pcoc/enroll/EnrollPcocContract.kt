@@ -12,11 +12,6 @@ interface EnrollPcocContract {
 
     enum class Notice {
         Stored,
-        Withheld,
-        NoPublicKey,
-        Undecodable,
-        ReaderUnavailable,
-        NoAccountKey,
         Unreadable,
         NotStored,
         Cleared,

@@ -1,7 +1,6 @@
 package net.primal.android.pcoc.admit
 
 import fr.acinq.secp256k1.Hex
-import net.primal.android.pcoc.hike.ACCOUNT_KEY_SIZE
 import net.primal.android.user.domain.Credential
 import net.primal.android.user.domain.CredentialType
 import net.primal.core.utils.runCatching
@@ -33,7 +32,7 @@ object AdmissionSigner {
         require(privateKey.size == PRODUCER_KEY_SIZE)
         require(HASH_HEX.matches(hashHex)) { "signed message must be the 32 bytes of h" }
         val hash = Hex.decode(hashHex)
-        require(hash.size == ACCOUNT_KEY_SIZE) { "signed message must be the 32 bytes of h" }
+        require(hash.size == PRODUCER_KEY_SIZE) { "signed message must be the 32 bytes of h" }
         val signature = CryptoUtils.sign(data = hash, privateKey = privateKey)
         require(signature.size == SCHNORR_SIGNATURE_SIZE)
         return signature.toHex().lowercase()

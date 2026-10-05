@@ -2,7 +2,6 @@ package net.primal.android.pcoc.admit
 
 import fr.acinq.secp256k1.Hex
 import java.net.URI
-import net.primal.android.pcoc.hike.ACCOUNT_KEY_SIZE
 import net.primal.core.utils.runCatching
 
 /**
@@ -55,7 +54,7 @@ object AdmissionQr {
         val bytes = hash?.let { candidate ->
             if (HASH_HEX.matches(candidate)) runCatching { Hex.decode(candidate) }.getOrNull() else null
         }
-        return if (bytes != null && bytes.size == ACCOUNT_KEY_SIZE && hash != null) {
+        return if (bytes != null && bytes.size == HASH_BYTE_SIZE && hash != null) {
             AdmissionQrParse.Ready(
                 exactUrl = exact,
                 hashHex = hash.lowercase(),
@@ -90,5 +89,6 @@ internal const val ADMISSION_GATE_HOST = "admission.pcoc.app"
 private const val HTTPS_PREFIX = "https://"
 private const val HTTPS_SCHEME = "https"
 private const val HASH_QUERY = "h"
+private const val HASH_BYTE_SIZE = 32
 private val BARE_HASH = Regex("""^(?:0x)?[0-9a-fA-F]{64}$""")
 private val HASH_HEX = Regex("""^[0-9a-fA-F]{64}$""")

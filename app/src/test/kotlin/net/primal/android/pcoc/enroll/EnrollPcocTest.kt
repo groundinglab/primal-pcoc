@@ -1,11 +1,6 @@
 package net.primal.android.pcoc.enroll
 
-import fr.acinq.secp256k1.Hex
 import io.kotest.matchers.shouldBe
-import net.primal.android.pcoc.hike.HikeReaderUnavailable
-import net.primal.android.pcoc.hike.HikeYieldedPublicKeyReader
-import net.primal.android.pcoc.hike.YieldedPublicKey
-import net.primal.domain.nostr.cryptography.utils.toNpub
 import org.junit.Test
 
 class EnrollPcocTest {
@@ -15,73 +10,41 @@ class EnrollPcocTest {
     private val objectBytes = byteArrayOf(9, 8, 7)
 
     @Test
-    fun `public key match stores the object bytes and is not a hike verdict`() {
+    fun `picked file is stored for the account with no key check`() {
         val store = MemoryStore()
-        val enroll = enroll(store, YieldedPublicKey.PublicKey(Hex.decode(accountHex)))
+        val enroll = EnrollPcoc(store)
 
         enroll.enroll(objectBytes, accountHex) shouldBe EnrollOutcome.Stored
         store.read(accountHex).contentEquals(objectBytes) shouldBe true
     }
 
     @Test
-    fun `uppercase account hex matches the yielded bytes`() {
+    fun `a later pick replaces the stored bytes`() {
         val store = MemoryStore()
-        val enroll = enroll(store, YieldedPublicKey.PublicKey(Hex.decode(accountHex)))
+        val enroll = EnrollPcoc(store)
+        enroll.enroll(byteArrayOf(1), accountHex)
 
-        enroll.enroll(objectBytes, accountHex.uppercase()) shouldBe EnrollOutcome.Stored
-        store.contains(accountHex) shouldBe true
+        enroll.enroll(objectBytes, accountHex) shouldBe EnrollOutcome.Stored
+        store.read(accountHex).contentEquals(objectBytes) shouldBe true
     }
 
     @Test
-    fun `public key mismatch withholds and does not replace a stored object`() {
+    fun `empty file bytes are stored`() {
         val store = MemoryStore()
-        store.write(accountHex, byteArrayOf(1))
-        val enroll = enroll(store, YieldedPublicKey.PublicKey(Hex.decode(otherHex)))
+        val enroll = EnrollPcoc(store)
 
-        enroll.enroll(objectBytes, accountHex) shouldBe EnrollOutcome.Withheld
-        store.read(accountHex).contentEquals(byteArrayOf(1)) shouldBe true
+        enroll.enroll(byteArrayOf(), accountHex) shouldBe EnrollOutcome.Stored
+        store.read(accountHex).contentEquals(byteArrayOf()) shouldBe true
     }
 
     @Test
-    fun `no public key stops without storing and is not a withhold`() {
+    fun `an id that is not 64 hex is not stored`() {
         val store = MemoryStore()
-        store.write(accountHex, byteArrayOf(1))
-        val enroll = enroll(store, YieldedPublicKey.NoPublicKey)
+        val enroll = EnrollPcoc(store)
 
-        enroll.enroll(objectBytes, accountHex) shouldBe EnrollOutcome.NoPublicKey
-        store.read(accountHex).contentEquals(byteArrayOf(1)) shouldBe true
-    }
-
-    @Test
-    fun `undecodable stops on its own path and does not store`() {
-        val store = MemoryStore()
-        val enroll = enroll(store, YieldedPublicKey.Undecodable)
-
-        enroll.enroll(objectBytes, accountHex) shouldBe EnrollOutcome.Undecodable
+        enroll.enroll(objectBytes, "nsec1notauserid") shouldBe EnrollOutcome.NotStored
         store.contains(accountHex) shouldBe false
-    }
-
-    @Test
-    fun `reader unavailable does not store`() {
-        val store = MemoryStore()
-        val enroll = EnrollPcoc(
-            reader = HikeYieldedPublicKeyReader { throw HikeReaderUnavailable("not linked") },
-            store = store,
-        )
-
-        enroll.enroll(objectBytes, accountHex) shouldBe EnrollOutcome.ReaderUnavailable
-        store.contains(accountHex) shouldBe false
-    }
-
-    @Test
-    fun `npub text is not compared as hex and nothing is stored`() {
-        val store = MemoryStore()
-        val npub = Hex.decode(accountHex).toNpub()
-        val enroll = enroll(store, YieldedPublicKey.PublicKey(Hex.decode(accountHex)))
-
-        enroll.enroll(objectBytes, npub) shouldBe EnrollOutcome.NoAccountKey
-        store.contains(accountHex) shouldBe false
-        store.contains(npub) shouldBe false
+        store.contains("nsec1notauserid") shouldBe false
     }
 
     @Test
@@ -89,16 +52,13 @@ class EnrollPcocTest {
         val store = MemoryStore()
         store.write(accountHex, objectBytes)
         store.write(otherHex, byteArrayOf(4))
-        val enroll = enroll(store, YieldedPublicKey.NoPublicKey)
+        val enroll = EnrollPcoc(store)
 
         enroll.clear(accountHex)
 
         store.contains(accountHex) shouldBe false
         store.read(otherHex).contentEquals(byteArrayOf(4)) shouldBe true
     }
-
-    private fun enroll(store: MemoryStore, yielded: YieldedPublicKey) =
-        EnrollPcoc(reader = HikeYieldedPublicKeyReader { yielded }, store = store)
 }
 
 private class MemoryStore : EnrolledPcocStore {

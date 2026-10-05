@@ -151,15 +151,10 @@
     <string name="pcoc_enroll_clear">Clear enrolled object</string>
     <string name="pcoc_enroll_stored_status">An object is stored for this account.</string>
     <string name="pcoc_enroll_empty_status">No object is stored for this account.</string>
-    <string name="pcoc_enroll_hint">Choose the object with the file picker. The phone reads hike::yielded_public_key only. A stored object is for admission. Storing it is not a check that the file is a hike.</string>
-    <string name="pcoc_enroll_outcome_stored">Stored for admission. The yielded public key matches this account. This is not a check that the file is a hike. Nothing was submitted.</string>
-    <string name="pcoc_enroll_outcome_withheld">Withheld. The yielded public key does not match this account. The file was not stored. This is not an admission denial. Nothing was submitted.</string>
-    <string name="pcoc_enroll_outcome_no_public_key">Stopped. The reader returned no public key. The file was not stored. This is not a withhold and not an admission denial. Nothing was submitted.</string>
-    <string name="pcoc_enroll_outcome_undecodable">Stopped. The file could not be decoded. The file was not stored. This is not the no-public-key stop, not a withhold, and not an admission denial. Nothing was submitted.</string>
-    <string name="pcoc_enroll_outcome_reader_unavailable">Stopped. hike::yielded_public_key is not linked on this build, so the file was not read. Nothing was stored and nothing was submitted.</string>
+    <string name="pcoc_enroll_hint">Choose the PCOC file. This phone stores that file for this account. It does not read a key from the file. The admission site decides.</string>
+    <string name="pcoc_enroll_outcome_stored">Stored for this account. Nothing was submitted. The admission site decides.</string>
     <string name="pcoc_enroll_outcome_unreadable">Stopped. The file could not be read. Nothing was stored and nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_not_stored">Stopped. The object bytes were not stored. Nothing was submitted.</string>
-    <string name="pcoc_enroll_outcome_no_account_key">Stopped. This account has no 32-byte key to compare. The file was not stored. This is not a withhold and not an admission denial. Nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_cleared">Cleared the stored object bytes for this account. The account and its private key were not removed.</string>
     <string name="pcoc_enroll_clear_title">Clear enrolled object?</string>
     <string name="pcoc_enroll_clear_text">This deletes the stored object bytes for this account. It does not remove the account or the private key.</string>
