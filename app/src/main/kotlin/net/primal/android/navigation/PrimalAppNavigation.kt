@@ -101,6 +101,7 @@ import net.primal.android.nostrconnect.utils.NOSTR_CONNECT_SCHEME
 import net.primal.android.nostrconnect.utils.PRIMAL_CONNECT_SCHEME
 import net.primal.android.notes.feed.model.asNeventString
 import net.primal.android.notes.feed.note.ui.events.NoteCallbacks
+import net.primal.android.pcoc.PcocScreen
 import net.primal.android.premium.buying.PremiumBuyingContract
 import net.primal.android.premium.buying.PremiumBuyingScreen
 import net.primal.android.premium.buying.PremiumBuyingViewModel
@@ -264,6 +265,8 @@ fun NavController.navigateToProfileFollows(profileId: String, followsType: Profi
     navigate(route = "profile/$profileId/follows?$FOLLOWS_TYPE=$followsType")
 
 fun NavController.navigateToProfileEditor() = navigate(route = "profileEditor")
+
+private fun NavController.navigateToPcoc() = navigate(route = "pcoc")
 
 private fun NavController.navigateToSettings() = navigate(route = "settings")
 
@@ -454,6 +457,7 @@ fun PrimalAppNavigation(navController: NavHostController, startDestination: Stri
             is DrawerScreenDestination.Bookmarks -> navController.navigateToBookmarks()
             DrawerScreenDestination.ScanCode -> navController.navigateToScanCode(scanMode = ScanMode.Anything)
             DrawerScreenDestination.RemoteLogin -> navController.navigateToScanCode(scanMode = ScanMode.RemoteLogin)
+            DrawerScreenDestination.Pcoc -> navController.navigateToPcoc()
             DrawerScreenDestination.Settings -> navController.navigateToSettings()
             is DrawerScreenDestination.SignOut -> navController.navigateToLogout(profileId = it.userId)
         }
@@ -622,6 +626,11 @@ private fun PrimalAppNavigation(
                     uriPattern = "https://primal.net/bookmarks"
                 },
             ),
+        )
+
+        pcoc(
+            route = "pcoc",
+            navController = navController,
         )
 
         exploreFeed(
@@ -1974,6 +1983,19 @@ private fun NavGraphBuilder.messages(
         ),
     )
 }
+
+private fun NavGraphBuilder.pcoc(route: String, navController: NavController) =
+    composable(
+        route = route,
+        enterTransition = { primalSlideInHorizontallyFromEnd },
+        exitTransition = { primalScaleOut },
+        popEnterTransition = { primalScaleIn },
+        popExitTransition = { primalSlideOutHorizontallyToEnd },
+    ) {
+        ApplyEdgeToEdge()
+        LockToOrientationPortrait()
+        PcocScreen(onClose = { navController.navigateUp() })
+    }
 
 private fun NavGraphBuilder.bookmarks(
     route: String,

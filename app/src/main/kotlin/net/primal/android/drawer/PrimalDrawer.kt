@@ -46,6 +46,7 @@ import net.primal.android.core.compose.NostrUserText
 import net.primal.android.core.compose.PrimalOverlayBottomBar
 import net.primal.android.core.compose.PrimalOverlayCloseButton
 import net.primal.android.core.compose.icons.PrimalIcons
+import net.primal.android.core.compose.icons.primaliconpack.Document
 import net.primal.android.core.compose.icons.primaliconpack.DrawerBookmarks
 import net.primal.android.core.compose.icons.primaliconpack.DrawerMessages
 import net.primal.android.core.compose.icons.primaliconpack.DrawerPremium
@@ -336,6 +337,7 @@ sealed class DrawerScreenDestination {
     data class Bookmarks(val userId: String) : DrawerScreenDestination()
     data object ScanCode : DrawerScreenDestination()
     data object RemoteLogin : DrawerScreenDestination()
+    data object Pcoc : DrawerScreenDestination()
     data object Settings : DrawerScreenDestination()
     data class SignOut(val userId: String) : DrawerScreenDestination()
 }
@@ -349,6 +351,7 @@ private fun DrawerScreenDestination.label(): String {
         is DrawerScreenDestination.Bookmarks -> stringResource(R.string.drawer_destination_bookmarks)
         DrawerScreenDestination.RemoteLogin -> stringResource(id = R.string.drawer_destination_remote_login)
         DrawerScreenDestination.ScanCode -> stringResource(id = R.string.drawer_destination_scan_code)
+        DrawerScreenDestination.Pcoc -> stringResource(R.string.drawer_destination_pcoc)
         DrawerScreenDestination.Settings -> stringResource(R.string.drawer_destination_settings)
         is DrawerScreenDestination.SignOut -> stringResource(R.string.drawer_destination_sign_out)
     }
@@ -363,6 +366,7 @@ private fun DrawerScreenDestination.icon(): ImageVector {
         is DrawerScreenDestination.Bookmarks -> PrimalIcons.DrawerBookmarks
         DrawerScreenDestination.RemoteLogin -> PrimalIcons.RemoteLogin
         DrawerScreenDestination.ScanCode -> PrimalIcons.QrCode
+        DrawerScreenDestination.Pcoc -> PrimalIcons.Document
         DrawerScreenDestination.Settings -> PrimalIcons.DrawerSettings
         is DrawerScreenDestination.SignOut -> PrimalIcons.DrawerSignOut
     }
@@ -381,6 +385,7 @@ fun PrimalDrawerPreview() {
                     DrawerScreenDestination.Bookmarks(userId = "none"),
                     DrawerScreenDestination.ScanCode,
                     DrawerScreenDestination.RemoteLogin,
+                    DrawerScreenDestination.Pcoc,
                     DrawerScreenDestination.Settings,
                     DrawerScreenDestination.SignOut(userId = "none"),
                 ),
