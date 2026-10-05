@@ -25,15 +25,20 @@ final class Leg {
         return seal(sha, preimage, digest, folded);
     }
 
-    static long legResult(byte[] terrain, byte[] previousCheckpoint) {
+    static long legResult(byte[] terrain, byte[] previousCheckpoint) throws HikeUnfinished {
         Sha256 sha = new Sha256();
         byte[] preimage = new byte[20];
         System.arraycopy(HikeConst.SEAL_DOMAIN, 0, preimage, 0, 12);
         byte[] digest = new byte[32];
         long state = Le.u64(previousCheckpoint, 0);
         for (int step = 0; step < HikeConst.STEPS_PER_LEG; step++) {
+            if ((step & STOP_MASK) == 0 && Thread.currentThread().isInterrupted()) {
+                throw new HikeUnfinished();
+            }
             state = step(terrain, state, sha, preimage, digest);
         }
         return state;
     }
+
+    private static final int STOP_MASK = 8191;
 }

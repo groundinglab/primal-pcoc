@@ -1,5 +1,6 @@
 package net.primal.android.pcoc.hike
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.util.Arrays
@@ -74,7 +75,7 @@ class HikeVerifyTest {
     }
 
     @Test
-    fun `the rewalk pool is six threads`() {
+    fun `the leg pool is six threads`() {
         val pool = HikeVerify.openPool()
         pool.corePoolSize shouldBe 6
         pool.maximumPoolSize shouldBe 6
@@ -194,6 +195,25 @@ class HikeVerifyTest {
         HikeVerify.admit(measurements) shouldBe false
         VerifyAny.finish(quiet(2), IndexSource { _ -> null }, Draw.Entropy { _ -> error("drew") }) shouldBe
             VerifyAny.Word.INVALID
+    }
+
+    @Test
+    fun `an index fetch failure is not a verdict and does not draw`() {
+        var drew = false
+        shouldThrow<IndexUnreachable> {
+            HikeVerify.verify(
+                quiet(2),
+                IndexSource { throw IndexUnreachable() },
+                Draw.Entropy {
+                    drew = true
+                    error("drew")
+                },
+            )
+        }
+        drew shouldBe false
+        shouldThrow<IndexUnreachable> {
+            VerifyAny.finish(quiet(2), IndexSource { throw IndexUnreachable() }, Draw.Entropy { _ -> error("drew") })
+        }
     }
 
     @Test

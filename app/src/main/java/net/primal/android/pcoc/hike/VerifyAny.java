@@ -12,9 +12,18 @@ public final class VerifyAny {
         INVALID
     }
 
-    public static Word finish(byte[] object, IndexSource index, Draw.Entropy entropy) {
+    public static Word finish(byte[] object, IndexSource index, Draw.Entropy entropy) throws IndexUnreachable {
+        return finish(object, index, entropy, null);
+    }
+
+    public static Word finish(
+        byte[] object,
+        IndexSource index,
+        Draw.Entropy entropy,
+        VerifyProgress progress
+    ) throws IndexUnreachable {
         try {
-            HikeVerify.Measurements measurements = HikeVerify.verify(object, index, entropy);
+            HikeVerify.Measurements measurements = HikeVerify.verify(object, index, entropy, progress);
             return HikeVerify.admit(measurements) ? Word.VALID : Word.INVALID;
         } catch (HikeUnfinished unfinished) {
             return null;
@@ -23,8 +32,8 @@ public final class VerifyAny {
         }
     }
 
-    public static Word finish(byte[] object, IndexSource index) {
-        return finish(object, index, new OsEntropy());
+    public static Word finish(byte[] object, IndexSource index) throws IndexUnreachable {
+        return finish(object, index, new OsEntropy(), null);
     }
 
     private VerifyAny() {

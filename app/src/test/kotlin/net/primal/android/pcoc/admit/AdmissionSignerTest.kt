@@ -48,7 +48,7 @@ class AdmissionSignerTest {
     }
 
     @Test
-    fun `only a private key credential yields producer bytes`() {
+    fun `only a private key credential returns producer bytes`() {
         val pair = CryptoUtils.generateHexEncodedKeypair()
         val nsec = pair.privateKey.hexToNsecHrp()
         val npub = pair.pubKey.hexToNpubHrp()

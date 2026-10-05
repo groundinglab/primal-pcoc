@@ -1,5 +1,6 @@
 package net.primal.android.pcoc.hike
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -45,9 +46,11 @@ class LiveIndexClientTest {
     }
 
     @Test
-    fun `a timeout is an unsuccessful read`() {
+    fun `a timeout is an index failure and not a mismatch`() {
         val factory = ScriptedFactory(failure = IOException("timed out"))
-        LiveIndex(factory).read(1L) shouldBe null
+        shouldThrow<IndexUnreachable> {
+            LiveIndex(factory).read(1L)
+        }
     }
 
     @Test
@@ -56,7 +59,9 @@ class LiveIndexClientTest {
         http.followRedirects shouldBe false
         http.followSslRedirects shouldBe false
         http.retryOnConnectionFailure shouldBe false
+        http.connectTimeoutMillis shouldBe TimeUnit.SECONDS.toMillis(30L)
         http.readTimeoutMillis shouldBe TimeUnit.SECONDS.toMillis(30L)
+        http.writeTimeoutMillis shouldBe TimeUnit.SECONDS.toMillis(30L)
         http.callTimeoutMillis shouldBe TimeUnit.SECONDS.toMillis(30L)
     }
 

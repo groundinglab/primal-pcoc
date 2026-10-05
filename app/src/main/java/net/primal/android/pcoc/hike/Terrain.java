@@ -49,11 +49,14 @@ final class Terrain {
     }
 
     /** {@code TERRAIN_BYTES} bytes. Throws {@link OutOfMemoryError} rather than shrinking. */
-    static byte[] fill(long fillPin) {
+    static byte[] fill(long fillPin) throws HikeUnfinished {
         byte[] terrain = new byte[HikeConst.TERRAIN_BYTES];
         long[] words = new long[HikeConst.WORDS_PER_SLOT];
         int[] parents = new int[3];
         for (int slot = 0; slot < HikeConst.N_SLOTS; slot++) {
+            if ((slot & 63) == 0 && Thread.currentThread().isInterrupted()) {
+                throw new HikeUnfinished();
+            }
             for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
                 long mixed = fillPin ^ ((long) slot << 32) ^ (long) word ^ HikeConst.WORD_XOR;
                 words[word] = mix64(mixed);
