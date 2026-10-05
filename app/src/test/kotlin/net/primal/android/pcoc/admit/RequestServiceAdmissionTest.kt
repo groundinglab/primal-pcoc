@@ -76,17 +76,18 @@ class RequestServiceAdmissionTest {
         request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Failed
     }
 
-    private fun memoryStore() = object : EnrolledPcocStore {
-        private val files = mutableMapOf<String, ByteArray>()
-        override fun contains(userIdHex: String) = files.containsKey(userIdHex.lowercase())
-        override fun read(userIdHex: String) = files[userIdHex.lowercase()]?.copyOf()
-        override fun write(userIdHex: String, objectBytes: ByteArray) {
-            files[userIdHex.lowercase()] = objectBytes.copyOf()
+    private fun memoryStore() =
+        object : EnrolledPcocStore {
+            private val files = mutableMapOf<String, ByteArray>()
+            override fun contains(userIdHex: String) = files.containsKey(userIdHex.lowercase())
+            override fun read(userIdHex: String) = files[userIdHex.lowercase()]?.copyOf()
+            override fun write(userIdHex: String, objectBytes: ByteArray) {
+                files[userIdHex.lowercase()] = objectBytes.copyOf()
+            }
+            override fun delete(userIdHex: String) {
+                files.remove(userIdHex.lowercase())
+            }
         }
-        override fun delete(userIdHex: String) {
-            files.remove(userIdHex.lowercase())
-        }
-    }
 
     private data class Post(val url: String, val bytes: ByteArray, val signature: String)
 }

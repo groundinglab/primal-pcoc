@@ -55,4 +55,3 @@ internal fun String.isPcocServiceQr(): Boolean {
 }
 
 private val SERVICE_HASH_QUERY = Regex("""[?&]h=""")
-

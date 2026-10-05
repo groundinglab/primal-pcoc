@@ -11,7 +11,11 @@ import androidx.compose.ui.unit.dp
 import net.primal.android.theme.AppTheme
 
 @Composable
-fun PcocCopyScreen(title: String, body: String, onClose: () -> Unit) {
+fun PcocCopyScreen(
+    title: String,
+    body: String,
+    onClose: () -> Unit,
+) {
     PcocScaffold(title = title, onClose = onClose) { paddingValues ->
         Text(
             modifier = Modifier
