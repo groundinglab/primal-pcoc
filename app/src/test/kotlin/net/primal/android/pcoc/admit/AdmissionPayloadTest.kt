@@ -46,4 +46,27 @@ class AdmissionPayloadTest {
         AdmissionPayload.parseDecision("""{"decision":1}""") shouldBe null
         AdmissionPayload.parseDecision("""{"decision":"Accept"}""") shouldBe null
     }
+
+    @Test
+    fun `gate text keeps verifier_ran and does not invent a local check sentence`() {
+        val ran = """{"decision":"deny","verifier_ran":true,"result":"no","measurements":{"section":15}}"""
+        val early = """{"decision":"deny","verifier_ran":false,"measurements":{"n":1}}"""
+        val missing = """{"decision":"accept"}"""
+
+        val ranReport = AdmissionPayload.parseReport(ran)!!
+        val earlyReport = AdmissionPayload.parseReport(early)!!
+        val missingReport = AdmissionPayload.parseReport(missing)!!
+
+        gateResultText(ranReport.decision, ranReport.verifierRan) shouldBe
+            "The service said:\ndecision: deny\nverifier_ran: true"
+        gateResultText(earlyReport.decision, earlyReport.verifierRan) shouldBe
+            "The service said:\ndecision: deny\nverifier_ran: false"
+        gateResultText(missingReport.decision, missingReport.verifierRan) shouldBe
+            "The service said:\ndecision: accept\nverifier_ran: not in the response"
+        listOf(ranReport, earlyReport, missingReport).forEach { report ->
+            val text = gateResultText(report.decision, report.verifierRan)
+            text.contains("did not run") shouldBe false
+            text.contains("The check ran") shouldBe false
+        }
+    }
 }
