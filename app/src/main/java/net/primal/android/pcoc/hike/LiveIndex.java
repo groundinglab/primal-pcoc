@@ -35,12 +35,13 @@ public final class LiveIndex implements IndexSource {
             .retryOnConnectionFailure(false)
             .connectTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .callTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build();
     }
 
     @Override
-    public String read(long height) {
+    public String read(long height) throws IndexUnreachable {
         String url = LIVE_INDEX_URL + "/index/" + Long.toUnsignedString(height);
         Request request = new Request.Builder()
             .url(url)
@@ -65,7 +66,7 @@ public final class LiveIndex implements IndexSource {
         } catch (CharacterCodingException notUtf8) {
             return null;
         } catch (IOException failed) {
-            return null;
+            throw new IndexUnreachable();
         }
     }
 }

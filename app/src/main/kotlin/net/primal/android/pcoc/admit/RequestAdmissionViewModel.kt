@@ -69,6 +69,7 @@ class RequestAdmissionViewModel @Inject constructor(
                         setState {
                             copy(
                                 scanning = true,
+                                confirming = false,
                                 readyUrl = null,
                                 hashHex = null,
                                 scanProblem = null,
@@ -76,7 +77,14 @@ class RequestAdmissionViewModel @Inject constructor(
                             )
                         }
                     }
-                    UiEvent.SignAndSubmit -> signAndSubmit()
+                    UiEvent.RequestSign -> if (canConfirm()) {
+                        setState { copy(confirming = true) }
+                    }
+                    UiEvent.DismissSign -> setState { copy(confirming = false) }
+                    UiEvent.SignAndSubmit -> {
+                        setState { copy(confirming = false) }
+                        signAndSubmit()
+                    }
                 }
             }
         }
@@ -95,6 +103,14 @@ class RequestAdmissionViewModel @Inject constructor(
                 scanProblem = parsed.toScanProblem(),
             )
         }
+    }
+
+    private fun canConfirm(): Boolean {
+        val current = _state.value
+        return current.hasEnrolledObject &&
+            current.canSign &&
+            current.readyUrl != null &&
+            !current.submitting
     }
 
     private fun signAndSubmit() {

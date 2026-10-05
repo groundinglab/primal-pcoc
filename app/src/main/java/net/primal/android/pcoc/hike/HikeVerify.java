@@ -3,7 +3,6 @@ package net.primal.android.pcoc.hike;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -11,7 +10,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Section 14 in order, then section 15 is {@link #admit}. A mismatch does not skip a later record.
- * The pool of {@link HikeConst#REWALK_THREADS} is built inside the re-walk, only after a successful draw.
+ * The pool of {@link HikeConst#REWALK_THREADS} is built inside the leg check, only after a successful draw.
  */
 public final class HikeVerify {
 
@@ -146,7 +145,17 @@ public final class HikeVerify {
         }
     }
 
-    public static Measurements verify(byte[] bytes, IndexSource index, Draw.Entropy entropy) throws HikeUnfinished {
+    public static Measurements verify(byte[] bytes, IndexSource index, Draw.Entropy entropy)
+        throws HikeUnfinished, IndexUnreachable {
+        return verify(bytes, index, entropy, null);
+    }
+
+    public static Measurements verify(
+        byte[] bytes,
+        IndexSource index,
+        Draw.Entropy entropy,
+        VerifyProgress progress
+    ) throws HikeUnfinished, IndexUnreachable {
         HikeObject.Measured measured = HikeObject.readMeasured(bytes);
         boolean shape = measured != null && measured.shape;
         HikeObject.Hike hike = measured == null ? null : measured.hike;
@@ -154,11 +163,12 @@ public final class HikeVerify {
         Checkpoints checkpoints = null;
         Long[] stageTimes = null;
         if (hike != null) {
+            note(progress, Note.HEADERS);
             BeaconPass beacons = beaconRecords(hike, index);
             boolean digests = anyCheckpoints(hike);
             boolean waypointInputs = hike.stages.length >= HikeConst.STAGES;
             if (digests || waypointInputs) {
-                terrain = terrainOf(hike);
+                terrain = terrainOf(hike, progress);
             }
             boolean[][] digestMatches = digestRecords(hike, terrain);
             checkpoints = new Checkpoints(
@@ -171,8 +181,9 @@ public final class HikeVerify {
         Waypoints waypoints = null;
         if (hike != null && hike.stages.length >= HikeConst.STAGES) {
             if (terrain == null) {
-                terrain = terrainOf(hike);
+                terrain = terrainOf(hike, progress);
             }
+            note(progress, Note.HEADERS);
             waypoints = waypointRecords(hike, terrain, index);
         }
         StoredStage[] stages = hike == null ? null : storedStages(hike, stageTimes);
@@ -188,9 +199,9 @@ public final class HikeVerify {
                 sixLegs = new SixLegs(SixKind.COULD_NOT_DRAW, null, null);
             } else {
                 if (terrain == null) {
-                    terrain = terrainOf(hike);
+                    terrain = terrainOf(hike, progress);
                 }
-                sixLegs = measureSix(hike, terrain, entropy);
+                sixLegs = measureSix(hike, terrain, entropy, progress);
             }
         }
         return new Measurements(shape, checkpoints, waypoints, LegRate.NOT_READ, pathsIncluded, sixLegs, stages);
@@ -233,13 +244,22 @@ public final class HikeVerify {
 
     static ThreadPoolExecutor openPool() {
         return (ThreadPoolExecutor) Executors.newFixedThreadPool(HikeConst.REWALK_THREADS, runnable -> {
-            Thread thread = new Thread(runnable, "pcoc-rewalk");
+            Thread thread = new Thread(runnable, "pcoc-leg");
             thread.setDaemon(true);
             return thread;
         });
     }
 
     static SixLegs measureSix(HikeObject.Hike hike, byte[] terrain, Draw.Entropy entropy) throws HikeUnfinished {
+        return measureSix(hike, terrain, entropy, null);
+    }
+
+    static SixLegs measureSix(
+        HikeObject.Hike hike,
+        byte[] terrain,
+        Draw.Entropy entropy,
+        VerifyProgress progress
+    ) throws HikeUnfinished {
         Long total = totalLegs(hike);
         if (total == null) {
             return new SixLegs(SixKind.NOT_OBTAINED, null, null);
@@ -253,26 +273,37 @@ public final class HikeVerify {
         } catch (Draw.Unavailable unavailable) {
             return new SixLegs(SixKind.DRAW_NOT_OBTAINED, null, null);
         }
-        boolean[] matches = rewalk(hike, terrain, indices);
+        boolean[] matches = rewalk(hike, terrain, indices, progress);
         return new SixLegs(SixKind.REWALKED, indices, matches);
     }
 
-    private static boolean[] rewalk(HikeObject.Hike hike, byte[] terrain, long[] indices) throws HikeUnfinished {
+    private static boolean[] rewalk(
+        HikeObject.Hike hike,
+        byte[] terrain,
+        long[] indices,
+        VerifyProgress progress
+    ) throws HikeUnfinished {
         ThreadPoolExecutor pool = openPool();
         if (pool.prestartAllCoreThreads() != HikeConst.REWALK_THREADS) {
             pool.shutdownNow();
             throw new HikeUnfinished();
         }
         try {
-            List<Callable<Boolean>> tasks = new ArrayList<Callable<Boolean>>(indices.length);
+            if (progress != null) {
+                progress.leg(0, indices.length);
+            }
+            List<Future<Boolean>> futures = new ArrayList<Future<Boolean>>(indices.length);
             for (int i = 0; i < indices.length; i++) {
                 long index = indices[i];
-                tasks.add(() -> rewalkOne(hike, terrain, index));
+                futures.add(pool.submit(() -> rewalkOne(hike, terrain, index)));
             }
-            List<Future<Boolean>> futures = pool.invokeAll(tasks);
             boolean[] matches = new boolean[indices.length];
             for (int i = 0; i < futures.size(); i++) {
+                stopIfCancelled();
                 matches[i] = futures.get(i).get().booleanValue();
+                if (progress != null) {
+                    progress.leg(i + 1, indices.length);
+                }
             }
             return matches;
         } catch (InterruptedException interrupted) {
@@ -288,7 +319,7 @@ public final class HikeVerify {
         }
     }
 
-    private static boolean rewalkOne(HikeObject.Hike hike, byte[] terrain, long index) {
+    private static boolean rewalkOne(HikeObject.Hike hike, byte[] terrain, long index) throws HikeUnfinished {
         int[] place = locate(hike, index);
         HikeObject.Stage stage = hike.stages[place[0]];
         int leg = place[1];
@@ -320,10 +351,12 @@ public final class HikeVerify {
         }
     }
 
-    private static BeaconPass beaconRecords(HikeObject.Hike hike, IndexSource index) {
+    private static BeaconPass beaconRecords(HikeObject.Hike hike, IndexSource index)
+        throws IndexUnreachable, HikeUnfinished {
         boolean[] matches = new boolean[hike.stages.length];
         Long[] times = new Long[hike.stages.length];
         for (int i = 0; i < hike.stages.length; i++) {
+            stopIfCancelled();
             HikeObject.Stage stage = hike.stages[i];
             String body = index.read(stage.beaconHeight);
             IndexJson.Beacon beacon = body == null ? null : IndexJson.beacon(body);
@@ -384,7 +417,8 @@ public final class HikeVerify {
         return false;
     }
 
-    private static Waypoints waypointRecords(HikeObject.Hike hike, byte[] terrain, IndexSource index) {
+    private static Waypoints waypointRecords(HikeObject.Hike hike, byte[] terrain, IndexSource index)
+        throws IndexUnreachable, HikeUnfinished {
         boolean opening = Arrays.equals(hike.stages[0].waypoint, HikeConst.ZERO_32);
         boolean[] differs = new boolean[HikeConst.STAGES - 1];
         Sha256 sha = new Sha256();
@@ -420,6 +454,7 @@ public final class HikeVerify {
                 presentFails = true;
                 continue;
             }
+            stopIfCancelled();
             String body = index.read(Integer.toUnsignedLong(locators.blockHeight));
             if (body == null || !IndexJson.proxyMain(body, locators)) {
                 presentFails = true;
@@ -517,8 +552,31 @@ public final class HikeVerify {
         return false;
     }
 
-    private static byte[] terrainOf(HikeObject.Hike hike) {
+    private static byte[] terrainOf(HikeObject.Hike hike, VerifyProgress progress) throws HikeUnfinished {
+        note(progress, Note.TERRAIN);
         return Terrain.fill(Terrain.fillPin(Terrain.productionSeed(hike.publicKey, hike.seedBeacon)));
+    }
+
+    private static void note(VerifyProgress progress, Note note) {
+        if (progress == null) {
+            return;
+        }
+        if (note == Note.HEADERS) {
+            progress.headers();
+        } else {
+            progress.terrain();
+        }
+    }
+
+    private static void stopIfCancelled() throws HikeUnfinished {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new HikeUnfinished();
+        }
+    }
+
+    private enum Note {
+        HEADERS,
+        TERRAIN
     }
 
     private static Long totalLegs(HikeObject.Hike hike) {

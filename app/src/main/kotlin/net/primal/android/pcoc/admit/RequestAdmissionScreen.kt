@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.primal.android.R
+import net.primal.android.core.compose.ConfirmActionAlertDialog
 import net.primal.android.core.compose.button.PrimalLoadingButton
 import net.primal.android.pcoc.PcocScaffold
 import net.primal.android.pcoc.admit.RequestAdmissionContract.Outcome
@@ -50,8 +51,20 @@ private fun RequestAdmissionScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
-            AdmissionBlocks(state = state)
-            if (state.scanning) {
+            if (!state.hasEnrolledObject) {
+                Text(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                    text = stringResource(id = R.string.pcoc_admit_need_pcoc),
+                    style = AppTheme.typography.bodyLarge,
+                    color = AppTheme.colorScheme.onPrimary,
+                )
+            } else if (state.scanning) {
+                Text(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    text = stringResource(id = R.string.pcoc_admit_hint),
+                    style = AppTheme.typography.bodyMedium,
+                    color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+                )
                 QrCodeScanner(
                     modifier = Modifier
                         .weight(1f)
@@ -74,44 +87,26 @@ private fun RequestAdmissionScreen(
                     eventPublisher = eventPublisher,
                 )
             }
-            if (state.readyUrl != null) {
+            if (state.hasEnrolledObject && state.readyUrl != null) {
                 PrimalLoadingButton(
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 16.dp)
                         .fillMaxWidth()
                         .height(56.dp),
-                    text = stringResource(id = R.string.pcoc_admit_sign_submit),
-                    enabled = state.hasEnrolledObject && state.canSign && !state.submitting,
+                    text = stringResource(id = R.string.pcoc_admit_sign_in),
+                    enabled = state.canSign && !state.submitting,
                     loading = state.submitting,
-                    onClick = { eventPublisher(UiEvent.SignAndSubmit) },
+                    onClick = { eventPublisher(UiEvent.RequestSign) },
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun AdmissionBlocks(state: UiState) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(
-            text = stringResource(id = R.string.pcoc_admit_hint),
-            style = AppTheme.typography.bodyMedium,
-            color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-        )
-        if (!state.hasEnrolledObject) {
-            Text(
-                modifier = Modifier.padding(top = 12.dp),
-                text = stringResource(id = R.string.pcoc_admit_no_object),
-                style = AppTheme.typography.bodyLarge,
-                color = AppTheme.colorScheme.onPrimary,
-            )
-        }
-        if (!state.canSign) {
-            Text(
-                modifier = Modifier.padding(top = 8.dp),
-                text = stringResource(id = R.string.pcoc_admit_wrong_login),
-                style = AppTheme.typography.bodyLarge,
-                color = AppTheme.colorScheme.onPrimary,
+        if (state.confirming) {
+            ConfirmActionAlertDialog(
+                dialogTitle = stringResource(id = R.string.pcoc_admit_confirm_title),
+                confirmText = stringResource(id = R.string.pcoc_admit_confirm_ok),
+                dismissText = stringResource(id = R.string.pcoc_admit_confirm_cancel),
+                onConfirmation = { eventPublisher(UiEvent.SignAndSubmit) },
+                onDismissRequest = { eventPublisher(UiEvent.DismissSign) },
             )
         }
     }
@@ -134,22 +129,12 @@ private fun AdmissionScanResult(
             style = AppTheme.typography.bodyLarge,
             color = AppTheme.colorScheme.onPrimary,
         )
-        val hash = state.hashHex
-        if (hash != null) {
+        if (!state.canSign) {
             Text(
                 modifier = Modifier.padding(top = 12.dp),
-                text = stringResource(id = R.string.pcoc_admit_hash_label, hash),
-                style = AppTheme.typography.bodySmall,
-                color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-            )
-        }
-        val url = state.readyUrl
-        if (url != null) {
-            Text(
-                modifier = Modifier.padding(top = 8.dp),
-                text = url,
-                style = AppTheme.typography.bodySmall,
-                color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+                text = stringResource(id = R.string.pcoc_admit_wrong_login),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
             )
         }
         val outcome = state.outcome

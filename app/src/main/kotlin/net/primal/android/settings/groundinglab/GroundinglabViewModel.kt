@@ -40,7 +40,7 @@ class GroundinglabViewModel @Inject constructor(
     private val events = MutableSharedFlow<UiEvent>()
     fun setEvent(event: UiEvent) = viewModelScope.launch { events.emit(event) }
 
-    /** CBOR held for `object_b64`. The local yielded-public-key compare is not done here. */
+    /** CBOR held for `object_b64`. The file is not compared to the account key here. */
     private var objectBytes: ByteArray? = null
 
     init {

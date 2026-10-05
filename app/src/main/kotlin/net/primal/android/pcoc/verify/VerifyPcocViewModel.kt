@@ -10,15 +10,25 @@ import io.github.aakira.napier.Napier
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
+import net.primal.android.pcoc.hike.IndexUnreachable
 import net.primal.android.pcoc.hike.LiveIndex
+import net.primal.android.pcoc.hike.OsEntropy
 import net.primal.android.pcoc.hike.VerifyAny
+import net.primal.android.pcoc.hike.VerifyProgress
+import net.primal.android.pcoc.verify.VerifyPcocContract.Notice
+import net.primal.android.pcoc.verify.VerifyPcocContract.Stage
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiEvent
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiState
 import net.primal.core.utils.coroutines.DispatcherProvider
@@ -37,26 +47,97 @@ class VerifyPcocViewModel @Inject constructor(
     private val events = MutableSharedFlow<UiEvent>()
     fun setEvent(event: UiEvent) = viewModelScope.launch { events.emit(event) }
 
+    private var run: Job? = null
+
     init {
         viewModelScope.launch {
             events.collect { event ->
                 when (event) {
                     is UiEvent.FilePicked -> onFile(event.uri)
+                    UiEvent.Cancel -> cancelRun()
                 }
             }
         }
     }
 
+    private fun cancelRun() {
+        run?.cancel()
+        run = null
+        setState { UiState() }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
     private fun onFile(uri: Uri) {
-        viewModelScope.launch {
-            setState { copy(busy = true, word = null) }
-            val bytes = withContext(dispatchers.io()) { readObject(uri) }
-            val word = if (bytes == null) {
-                null
-            } else {
-                withContext(dispatchers.io()) { VerifyAny.finish(bytes, index) }
+        run?.cancel()
+        val alive = AtomicBoolean(true)
+        run = viewModelScope.launch {
+            val mine = coroutineContext[Job]
+            setState {
+                UiState(busy = true, stage = Stage.Headers)
             }
-            setState { copy(busy = false, word = word) }
+            delay(FRAME_PAUSE_MS)
+            val reporting = object : VerifyProgress {
+                override fun headers() {
+                    if (!alive.get()) return
+                    setState { copy(busy = true, stage = Stage.Headers, notice = null, word = null) }
+                }
+
+                override fun terrain() {
+                    if (!alive.get()) return
+                    setState { copy(busy = true, stage = Stage.Terrain, notice = null, word = null) }
+                }
+
+                override fun leg(done: Int, total: Int) {
+                    if (!alive.get()) return
+                    setState {
+                        copy(
+                            busy = true,
+                            stage = Stage.Legs,
+                            legsDone = done,
+                            legsTotal = total,
+                            notice = null,
+                            word = null,
+                        )
+                    }
+                }
+            }
+            try {
+                val bytes = runInterruptible(dispatchers.io()) { readObject(uri) }
+                val word = if (bytes == null) {
+                    null
+                } else {
+                    runInterruptible(dispatchers.io()) {
+                        VerifyAny.finish(bytes, index, OsEntropy(), reporting)
+                    }
+                }
+                if (!alive.get()) return@launch
+                setState {
+                    copy(
+                        busy = false,
+                        stage = null,
+                        word = word,
+                        notice = if (word == null) Notice.DidNotFinish else null,
+                    )
+                }
+            } catch (unreachable: IndexUnreachable) {
+                alive.set(false)
+                Napier.w(unreachable) { "The index could not be reached." }
+                setState { UiState(notice = Notice.IndexUnreachable) }
+            } catch (cancelled: CancellationException) {
+                alive.set(false)
+                if (run == mine) {
+                    setState { UiState() }
+                }
+                throw cancelled
+            } catch (error: RuntimeException) {
+                alive.set(false)
+                Napier.w(error) { "Verify any did not finish." }
+                setState { UiState(notice = Notice.DidNotFinish) }
+            } catch (error: OutOfMemoryError) {
+                alive.set(false)
+                Napier.w(error) { "Verify any did not finish." }
+                setState { UiState(notice = Notice.DidNotFinish) }
+            }
         }
     }
 
@@ -87,5 +168,6 @@ class VerifyPcocViewModel @Inject constructor(
 
     private companion object {
         const val READ_CHUNK_BYTES = 8 * 1024
+        const val FRAME_PAUSE_MS = 50L
     }
 }

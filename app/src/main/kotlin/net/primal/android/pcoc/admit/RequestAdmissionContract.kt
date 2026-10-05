@@ -9,6 +9,7 @@ interface RequestAdmissionContract {
         val hashHex: String? = null,
         val scanProblem: ScanProblem? = null,
         val submitting: Boolean = false,
+        val confirming: Boolean = false,
         val outcome: Outcome? = null,
     )
 
@@ -30,6 +31,10 @@ interface RequestAdmissionContract {
         data class QrCodeDetected(val value: String) : UiEvent()
 
         data object ScanAgain : UiEvent()
+
+        data object RequestSign : UiEvent()
+
+        data object DismissSign : UiEvent()
 
         data object SignAndSubmit : UiEvent()
     }

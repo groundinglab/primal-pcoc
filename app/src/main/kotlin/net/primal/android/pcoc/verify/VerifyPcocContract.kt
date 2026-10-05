@@ -6,10 +6,27 @@ import net.primal.android.pcoc.hike.VerifyAny
 interface VerifyPcocContract {
     data class UiState(
         val busy: Boolean = false,
+        val stage: Stage? = null,
+        val legsDone: Int = 0,
+        val legsTotal: Int = 6,
         val word: VerifyAny.Word? = null,
+        val notice: Notice? = null,
     )
+
+    enum class Stage {
+        Headers,
+        Terrain,
+        Legs,
+    }
+
+    enum class Notice {
+        IndexUnreachable,
+        DidNotFinish,
+    }
 
     sealed class UiEvent {
         data class FilePicked(val uri: Uri) : UiEvent()
+
+        data object Cancel : UiEvent()
     }
 }
