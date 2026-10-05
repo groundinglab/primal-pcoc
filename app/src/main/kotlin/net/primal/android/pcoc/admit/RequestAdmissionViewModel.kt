@@ -56,7 +56,7 @@ class RequestAdmissionViewModel @Inject constructor(
     }
 
     private suspend fun refreshAccount(userId: String) {
-        val stored = withContext(dispatchers.io()) { store.contains(userId) }
+        val stored = withContext(dispatchers.io()) { accountHasObject(store, userId) }
         val key = withContext(dispatchers.io()) { producerPrivateKey(credentialsStore, userId) }
         key?.fill(0)
         setState { copy(hasEnrolledObject = stored, canSign = key != null) }
@@ -132,16 +132,7 @@ class RequestAdmissionViewModel @Inject constructor(
     private suspend fun finishReadyScan(exactUrl: String, hashBytes: Int) {
         val userId = activeAccountStore.activeUserId()
         val plan = try {
-            withContext(dispatchers.io()) {
-                val key = producerPrivateKey(credentialsStore, userId)
-                val canSign = key != null
-                key?.fill(0)
-                planReadyScan(
-                    canSign = canSign,
-                    accountHex = userId,
-                    objectBytes = store.read(userId),
-                )
-            }
+            withContext(dispatchers.io()) { readyPlan(userId) }
         } catch (error: IOException) {
             Napier.w(error) { "Service admission could not read the saved PCOC." }
             null
@@ -163,6 +154,7 @@ class RequestAdmissionViewModel @Inject constructor(
             hBytes = hashBytes,
             target = admissionTarget(exactUrl),
             followUp = plan.followUp.name,
+            keys = plan.keys,
         )
         setState { afterReadyScan(plan) }
     }
@@ -227,6 +219,19 @@ class RequestAdmissionViewModel @Inject constructor(
             key?.fill(0)
         }
     }
+
+    private fun readyPlan(userId: String): ReadyScanPlan {
+        val privateKey = producerPrivateKey(credentialsStore, userId)
+        val canSign = privateKey != null
+        val signingKey = privateKey?.let(::signingPublicKey)
+        privateKey?.fill(0)
+        return planReadyScan(
+            canSign = canSign,
+            accountHex = userId,
+            objectBytes = enrolledObject(store, userId),
+            signingKey = signingKey,
+        )
+    }
 }
 
 private fun UiState.afterReadyScan(plan: ReadyScanPlan): UiState {
@@ -236,7 +241,14 @@ private fun UiState.afterReadyScan(plan: ReadyScanPlan): UiState {
         ReadyScanFollowUp.WrongLogin ->
             base.copy(scanning = false, confirming = false, canSign = false, outcome = null)
         ReadyScanFollowUp.KeyMismatch ->
-            base.copy(scanning = false, confirming = false, outcome = Outcome.KeyMismatch)
+            base.copy(
+                scanning = false,
+                confirming = false,
+                outcome = Outcome.KeyMismatch(
+                    loginPrefix = plan.keys?.loginPrefix.orEmpty(),
+                    filePrefix = plan.keys?.filePrefix.orEmpty(),
+                ),
+            )
         ReadyScanFollowUp.ObjectKeyUnreadable ->
             base.copy(scanning = false, confirming = false, outcome = Outcome.ObjectKeyUnreadable)
         ReadyScanFollowUp.NoObject ->
@@ -267,7 +279,10 @@ private fun AdmissionSubmitOutcome.toOutcome(): Outcome =
             verifierRan = verifierRan,
         )
         AdmissionSubmitOutcome.Failed -> Outcome.Failed
-        AdmissionSubmitOutcome.KeyMismatch -> Outcome.KeyMismatch
+        is AdmissionSubmitOutcome.KeyMismatch -> Outcome.KeyMismatch(
+            loginPrefix = loginPrefix,
+            filePrefix = filePrefix,
+        )
         AdmissionSubmitOutcome.ObjectKeyUnreadable -> Outcome.ObjectKeyUnreadable
         AdmissionSubmitOutcome.NotSubmitted -> Outcome.NotSent
     }

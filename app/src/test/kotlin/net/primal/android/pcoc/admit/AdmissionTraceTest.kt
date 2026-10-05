@@ -53,5 +53,15 @@ class AdmissionTraceTest {
         xml.contains("The check ran") shouldBe false
         xml.contains("This saved PCOC is for a different login. It was not sent.") shouldBe true
         xml.contains("Sending…") shouldBe true
+        val detail = Regex("""name="pcoc_admit_key_mismatch_detail">([^<]+)</string>""")
+            .find(xml)
+            ?.groupValues
+            ?.get(1)
+            .orEmpty()
+        detail shouldBe "This login starts with %1\$s. The saved file starts with %2\$s."
+        detail.contains("pubkey") shouldBe false
+        detail.contains("nsec") shouldBe false
+        detail.contains("hex") shouldBe false
+        detail.contains("cbor") shouldBe false
     }
 }

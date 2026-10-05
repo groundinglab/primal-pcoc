@@ -152,6 +152,15 @@ build types — giving variants such as `aospDebug`, `aospAltRelease`, and `goog
 To build debug builds no extra configuration is required, just execute `./gradlew :app:assembleAospDebug`
 (or `:app:assembleGoogleDebug`) or run in Android Studio.
 
+To sideload that APK from pepebook onto a phone on the same network, serve the APK folder and open the computer's LAN address in the phone browser. This does not use Cloudflare:
+
+```bash
+./gradlew :app:assembleAospDebug
+python3 -m http.server 8000 --directory app/build/outputs/apk/aosp/debug
+```
+
+Install `app-aosp-debug.apk` from the page, for example `http://192.168.1.20:8000/`.
+
 ### Release
 To build release builds you will need to create `config.properties` file in the project root directory.
 Following properties in `config.properties` are **MANDATORY** for any release build:

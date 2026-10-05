@@ -181,7 +181,19 @@ private fun Outcome.text(): String =
     when (this) {
         is Outcome.FromGate -> gateResultText(decision = decision, verifierRan = verifierRan)
         Outcome.Failed -> stringResource(id = R.string.pcoc_admit_failed)
-        Outcome.KeyMismatch -> stringResource(id = R.string.pcoc_admit_key_mismatch)
+        is Outcome.KeyMismatch -> mismatchCopy(loginPrefix = loginPrefix, filePrefix = filePrefix)
         Outcome.ObjectKeyUnreadable -> stringResource(id = R.string.pcoc_admit_key_unreadable)
         Outcome.NotSent -> stringResource(id = R.string.pcoc_admit_not_sent)
     }
+
+@Composable
+private fun mismatchCopy(loginPrefix: String, filePrefix: String): String {
+    val base = stringResource(id = R.string.pcoc_admit_key_mismatch)
+    if (!KEY_PREFIX.matches(loginPrefix) || !KEY_PREFIX.matches(filePrefix)) return base
+    val detail = stringResource(
+        id = R.string.pcoc_admit_key_mismatch_detail,
+        loginPrefix,
+        filePrefix,
+    )
+    return base + "\n" + detail
+}
