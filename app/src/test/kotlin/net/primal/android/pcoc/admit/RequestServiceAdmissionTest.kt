@@ -1,7 +1,9 @@
 package net.primal.android.pcoc.admit
 
+import fr.acinq.secp256k1.Hex
 import io.kotest.matchers.shouldBe
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
+import net.primal.domain.nostr.cryptography.utils.CryptoUtils
 import org.junit.Test
 
 class RequestServiceAdmissionTest {
@@ -9,7 +11,7 @@ class RequestServiceAdmissionTest {
     private val account = "11".repeat(32)
     private val hash = "ab".repeat(32)
     private val url = "https://service.example/door?h=$hash"
-    private val objectBytes = byteArrayOf(4, 5, 6)
+    private val objectBytes = cborPublicKeyMap(ByteArray(32) { 0x11 })
     private val privateKey = ByteArray(32) { 9 }
 
     @Test
@@ -74,6 +76,99 @@ class RequestServiceAdmissionTest {
         )
 
         request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Failed
+    }
+
+    @Test
+    fun `a different object public key is not posted`() {
+        val store = memoryStore()
+        store.write(account, cborPublicKeyMap(ByteArray(32) { 0x22 }))
+        var posts = 0
+        var signs = 0
+        val request = RequestServiceAdmission(
+            store = store,
+            poster = AdmissionPoster { _, _, _ ->
+                posts += 1
+                AdmissionPostResult.Failed
+            },
+            signHash = { _, _ ->
+                signs += 1
+                "cd".repeat(64)
+            },
+        )
+
+        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.KeyMismatch
+        posts shouldBe 0
+        signs shouldBe 0
+    }
+
+    @Test
+    fun `an object with no public key is not posted`() {
+        val store = memoryStore()
+        store.write(account, byteArrayOf(4, 5, 6))
+        var posts = 0
+        val request = RequestServiceAdmission(
+            store = store,
+            poster = AdmissionPoster { _, _, _ ->
+                posts += 1
+                AdmissionPostResult.Decision(AdmissionDecision.Deny, verifierRan = false)
+            },
+            signHash = { _, _ -> "cd".repeat(64) },
+        )
+
+        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.ObjectKeyUnreadable
+        posts shouldBe 0
+    }
+
+    @Test
+    fun `live sign-in url signs the scanned h bytes and posts that object`() {
+        val pair = CryptoUtils.generateHexEncodedKeypair()
+        val liveAccount = pair.pubKey
+        val liveKey = Hex.decode(pair.privateKey)
+        val liveObject = cborPublicKeyMap(Hex.decode(pair.pubKey))
+        val liveHash = "01" + "ab".repeat(30) + "ff"
+        val exact = "https://pcoc.app/sign-in/?h=$liveHash"
+        val ready = AdmissionQr.parse(exact) as AdmissionQrParse.Ready
+        val store = memoryStore()
+        store.write(liveAccount, liveObject)
+        val seen = mutableListOf<Post>()
+        val request = RequestServiceAdmission(
+            store = store,
+            poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
+                seen += Post(exactUrl, bytes, signatureHex)
+                AdmissionPostResult.Decision(
+                    decision = AdmissionDecision.Deny,
+                    verifierRan = true,
+                )
+            },
+        )
+
+        val outcome = request.submit(exactUrl = exact, accountHex = liveAccount, privateKey = liveKey)
+        outcome shouldBe AdmissionSubmitOutcome.Decision(
+            decision = AdmissionDecision.Deny,
+            verifierRan = true,
+        )
+        val posted = seen.single()
+        posted.url shouldBe exact
+        posted.bytes.contentEquals(liveObject) shouldBe true
+        posted.signature.length shouldBe 128
+        posted.signature.matches(Regex("^[0-9a-f]{128}$")) shouldBe true
+        CryptoUtils.verify(
+            signature = Hex.decode(posted.signature),
+            hash = ready.hashBytes,
+            pubKey = Hex.decode(pair.pubKey),
+        ) shouldBe true
+        CryptoUtils.verify(
+            signature = Hex.decode(posted.signature),
+            hash = ready.hashBytes.reversedArray(),
+            pubKey = Hex.decode(pair.pubKey),
+        ) shouldBe false
+        val json = AdmissionPayload.encode(objectBytes = posted.bytes, signatureHex = posted.signature)
+        val fields = admissionBodyFields(json)
+        fields.hasObjectB64 shouldBe true
+        fields.hasSignature shouldBe true
+        json.contains(liveHash) shouldBe false
+        gateResultText(AdmissionDecision.Deny, verifierRan = true) shouldBe
+            "The service said:\ndecision: deny\nverifier_ran: true"
     }
 
     @Test

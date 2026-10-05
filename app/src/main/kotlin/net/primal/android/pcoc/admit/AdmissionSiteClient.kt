@@ -59,22 +59,40 @@ class AdmissionSiteClient(
         objectBytes: ByteArray,
         signatureHex: String,
     ): AdmissionPostResult {
-        val ready = AdmissionQr.parse(exactUrl) is AdmissionQrParse.Ready
-        val json = if (ready) {
+        val ready = AdmissionQr.parse(exactUrl) as? AdmissionQrParse.Ready
+        val encoded = ready?.let {
             runCatchingEncode(objectBytes = objectBytes, signatureHex = signatureHex)
-        } else {
-            null
         }
-        val request = json?.let { body ->
+        val request = encoded?.let { body ->
             Request.Builder()
                 .url(exactUrl)
                 .post(body.toByteArray(Charsets.UTF_8).toRequestBody(JSON))
                 .build()
         }
         val allowed = request != null &&
+            ready != null &&
+            encoded != null &&
             requestTargets(requestUrl = request.url, exactUrl = exactUrl) &&
             !AdmissionQr.isAdmissionGateHost(request.url.host)
-        return if (request != null && allowed) execute(request) else AdmissionPostResult.NotSent
+        return if (request == null || ready == null || encoded == null || !allowed) {
+            AdmissionTrace.refused(
+                reason = "not-sent",
+                pubkeyMatch = null,
+                hBytes = ready?.hashBytes?.size,
+                target = admissionTarget(exactUrl),
+            )
+            AdmissionPostResult.NotSent
+        } else {
+            val fields = admissionBodyFields(encoded)
+            AdmissionTrace.post(
+                target = admissionTarget(exactUrl),
+                hBytes = ready.hashBytes.size,
+                hasObjectB64 = fields.hasObjectB64,
+                hasSignature = fields.hasSignature,
+                signatureHex = signatureHex,
+            )
+            execute(request)
+        }
     }
 
     private fun failedPost(error: Exception): AdmissionPostResult {
@@ -102,6 +120,7 @@ internal fun newAdmissionHttpClient(): OkHttpClient =
 internal fun interpretAdmissionResponse(response: Response): AdmissionPostResult {
     val redirected = response.priorResponse != null || response.isRedirect
     val body = response.body?.string().orEmpty()
+    AdmissionTrace.http(status = response.code, body = body)
     val report = if (redirected || response.code in REDIRECT_START..REDIRECT_END) {
         null
     } else {

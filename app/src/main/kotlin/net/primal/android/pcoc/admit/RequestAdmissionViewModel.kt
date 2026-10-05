@@ -67,44 +67,104 @@ class RequestAdmissionViewModel @Inject constructor(
             events.collect { event ->
                 when (event) {
                     is UiEvent.QrCodeDetected -> onQr(event.value)
-                    UiEvent.ScanAgain -> if (!_state.value.submitting) {
-                        setState {
-                            copy(
-                                scanning = true,
-                                confirming = false,
-                                readyUrl = null,
-                                hashHex = null,
-                                scanProblem = null,
-                                outcome = null,
-                            )
-                        }
-                    }
+                    UiEvent.ScanAgain -> onScanAgain()
                     UiEvent.RequestSign -> if (canConfirm()) {
                         setState { copy(confirming = true) }
                     }
-                    UiEvent.DismissSign -> setState { copy(confirming = false) }
-                    UiEvent.SignAndSubmit -> {
+                    UiEvent.DismissSign -> if (!_state.value.submitting) {
                         setState { copy(confirming = false) }
-                        signAndSubmit()
                     }
+                    UiEvent.SignAndSubmit -> startSubmit()
                 }
             }
         }
     }
 
-    private fun onQr(raw: String) {
-        if (!_state.value.scanning) return
-        val parsed = AdmissionQr.parse(raw)
-        val ready = parsed as? AdmissionQrParse.Ready
+    private fun onScanAgain() {
+        val current = _state.value
+        if (current.submitting || current.readingObject) return
         setState {
             copy(
-                scanning = false,
+                scanning = true,
+                readingObject = false,
+                confirming = false,
+                readyUrl = null,
+                hashHex = null,
+                scanProblem = null,
                 outcome = null,
-                readyUrl = ready?.exactUrl,
-                hashHex = ready?.hashHex,
-                scanProblem = parsed.toScanProblem(),
             )
         }
+    }
+
+    private fun onQr(raw: String) {
+        val current = _state.value
+        if (!current.scanning || current.readingObject || current.submitting) return
+        val parsed = AdmissionQr.parse(raw)
+        val ready = parsed as? AdmissionQrParse.Ready
+        if (ready == null) {
+            setState {
+                copy(
+                    scanning = false,
+                    readingObject = false,
+                    confirming = false,
+                    outcome = null,
+                    readyUrl = null,
+                    hashHex = null,
+                    scanProblem = parsed.toScanProblem(),
+                )
+            }
+            return
+        }
+        setState {
+            copy(
+                readingObject = true,
+                outcome = null,
+                readyUrl = ready.exactUrl,
+                hashHex = ready.hashHex,
+                scanProblem = null,
+            )
+        }
+        viewModelScope.launch {
+            finishReadyScan(exactUrl = ready.exactUrl, hashBytes = ready.hashBytes.size)
+        }
+    }
+
+    private suspend fun finishReadyScan(exactUrl: String, hashBytes: Int) {
+        val userId = activeAccountStore.activeUserId()
+        val plan = try {
+            withContext(dispatchers.io()) {
+                val key = producerPrivateKey(credentialsStore, userId)
+                val canSign = key != null
+                key?.fill(0)
+                planReadyScan(
+                    canSign = canSign,
+                    accountHex = userId,
+                    objectBytes = store.read(userId),
+                )
+            }
+        } catch (error: IOException) {
+            Napier.w(error) { "Service admission could not read the saved PCOC." }
+            null
+        }
+        if (!_state.value.readingObject) return
+        if (plan == null) {
+            setState {
+                copy(
+                    scanning = false,
+                    readingObject = false,
+                    confirming = false,
+                    outcome = Outcome.NotSent,
+                )
+            }
+            return
+        }
+        AdmissionTrace.scan(
+            pubkeyMatch = plan.pubkeyMatch,
+            hBytes = hashBytes,
+            target = admissionTarget(exactUrl),
+            followUp = plan.followUp.name,
+        )
+        setState { afterReadyScan(plan) }
     }
 
     private fun canConfirm(): Boolean {
@@ -112,16 +172,18 @@ class RequestAdmissionViewModel @Inject constructor(
         return current.hasEnrolledObject &&
             current.canSign &&
             current.readyUrl != null &&
-            !current.submitting
+            current.outcome == null &&
+            !current.submitting &&
+            !current.readingObject
     }
 
-    private fun signAndSubmit() {
+    private fun startSubmit() {
         val current = _state.value
         val url = current.readyUrl
-        val blocked = current.submitting || url == null
+        val blocked = !current.confirming || current.submitting || url == null
         val cannotSign = !current.hasEnrolledObject || !current.canSign
         if (blocked || cannotSign) return
-        setState { copy(submitting = true, outcome = null) }
+        setState { copy(confirming = false, submitting = true, outcome = null) }
         viewModelScope.launch {
             val userId = activeAccountStore.activeUserId()
             val outcome = submitCaught(exactUrl = url, userId = userId)
@@ -167,6 +229,27 @@ class RequestAdmissionViewModel @Inject constructor(
     }
 }
 
+private fun UiState.afterReadyScan(plan: ReadyScanPlan): UiState {
+    val base = copy(readingObject = false, scanProblem = null)
+    return when (plan.followUp) {
+        ReadyScanFollowUp.Confirm -> base.copy(scanning = false, confirming = true, outcome = null)
+        ReadyScanFollowUp.WrongLogin ->
+            base.copy(scanning = false, confirming = false, canSign = false, outcome = null)
+        ReadyScanFollowUp.KeyMismatch ->
+            base.copy(scanning = false, confirming = false, outcome = Outcome.KeyMismatch)
+        ReadyScanFollowUp.ObjectKeyUnreadable ->
+            base.copy(scanning = false, confirming = false, outcome = Outcome.ObjectKeyUnreadable)
+        ReadyScanFollowUp.NoObject ->
+            base.copy(
+                scanning = false,
+                confirming = false,
+                hasEnrolledObject = false,
+                readyUrl = null,
+                outcome = null,
+            )
+    }
+}
+
 private fun AdmissionQrParse.toScanProblem(): ScanProblem? =
     when (this) {
         is AdmissionQrParse.Ready -> null
@@ -177,12 +260,14 @@ private fun AdmissionQrParse.toScanProblem(): ScanProblem? =
         AdmissionQrParse.NotAServiceUrl -> ScanProblem.NotAServiceUrl
     }
 
-private fun AdmissionSubmitOutcome.toOutcome(): Outcome? =
+private fun AdmissionSubmitOutcome.toOutcome(): Outcome =
     when (this) {
-        is AdmissionSubmitOutcome.Decision -> Outcome.Decided(
-            accepted = decision == AdmissionDecision.Accept,
+        is AdmissionSubmitOutcome.Decision -> Outcome.FromGate(
+            decision = decision,
             verifierRan = verifierRan,
         )
         AdmissionSubmitOutcome.Failed -> Outcome.Failed
-        AdmissionSubmitOutcome.NotSubmitted -> null
+        AdmissionSubmitOutcome.KeyMismatch -> Outcome.KeyMismatch
+        AdmissionSubmitOutcome.ObjectKeyUnreadable -> Outcome.ObjectKeyUnreadable
+        AdmissionSubmitOutcome.NotSubmitted -> Outcome.NotSent
     }

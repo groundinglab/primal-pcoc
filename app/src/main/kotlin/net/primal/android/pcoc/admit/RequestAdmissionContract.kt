@@ -5,6 +5,7 @@ interface RequestAdmissionContract {
         val hasEnrolledObject: Boolean = false,
         val canSign: Boolean = false,
         val scanning: Boolean = true,
+        val readingObject: Boolean = false,
         val readyUrl: String? = null,
         val hashHex: String? = null,
         val scanProblem: ScanProblem? = null,
@@ -22,9 +23,15 @@ interface RequestAdmissionContract {
     }
 
     sealed interface Outcome {
-        data class Decided(val accepted: Boolean, val verifierRan: Boolean?) : Outcome
+        data class FromGate(val decision: AdmissionDecision, val verifierRan: Boolean?) : Outcome
 
         data object Failed : Outcome
+
+        data object KeyMismatch : Outcome
+
+        data object ObjectKeyUnreadable : Outcome
+
+        data object NotSent : Outcome
     }
 
     sealed class UiEvent {
