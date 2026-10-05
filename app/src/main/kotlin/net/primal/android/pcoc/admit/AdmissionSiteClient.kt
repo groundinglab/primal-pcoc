@@ -21,7 +21,10 @@ fun interface AdmissionPoster {
 }
 
 sealed class AdmissionPostResult {
-    data class Decision(val decision: AdmissionDecision) : AdmissionPostResult()
+    data class Decision(
+        val decision: AdmissionDecision,
+        val verifierRan: Boolean? = null,
+    ) : AdmissionPostResult()
 
     data object Failed : AdmissionPostResult()
 
@@ -37,6 +40,21 @@ class AdmissionSiteClient(
 ) : AdmissionPoster {
 
     override fun post(
+        exactUrl: String,
+        objectBytes: ByteArray,
+        signatureHex: String,
+    ): AdmissionPostResult =
+        try {
+            postReady(exactUrl = exactUrl, objectBytes = objectBytes, signatureHex = signatureHex)
+        } catch (error: IOException) {
+            failedPost(error)
+        } catch (error: IllegalArgumentException) {
+            failedPost(error)
+        } catch (error: IllegalStateException) {
+            failedPost(error)
+        }
+
+    private fun postReady(
         exactUrl: String,
         objectBytes: ByteArray,
         signatureHex: String,
@@ -59,14 +77,14 @@ class AdmissionSiteClient(
         return if (request != null && allowed) execute(request) else AdmissionPostResult.NotSent
     }
 
+    private fun failedPost(error: Exception): AdmissionPostResult {
+        Napier.w(error) { "Service admission request failed." }
+        return AdmissionPostResult.Failed
+    }
+
     private fun execute(request: Request): AdmissionPostResult =
-        try {
-            http.newCall(request).execute().use { response ->
-                interpretAdmissionResponse(response)
-            }
-        } catch (error: IOException) {
-            Napier.w(error) { "Service admission request failed." }
-            AdmissionPostResult.Failed
+        http.newCall(request).execute().use { response ->
+            interpretAdmissionResponse(response)
         }
 }
 
@@ -84,12 +102,14 @@ internal fun newAdmissionHttpClient(): OkHttpClient =
 internal fun interpretAdmissionResponse(response: Response): AdmissionPostResult {
     val redirected = response.priorResponse != null || response.isRedirect
     val body = response.body?.string().orEmpty()
-    val decision = if (redirected || response.code in REDIRECT_START..REDIRECT_END) {
+    val report = if (redirected || response.code in REDIRECT_START..REDIRECT_END) {
         null
     } else {
-        AdmissionPayload.parseDecision(body)
+        AdmissionPayload.parseReport(body)
     }
-    return decision?.let { AdmissionPostResult.Decision(it) } ?: AdmissionPostResult.Failed
+    return report?.let {
+        AdmissionPostResult.Decision(decision = it.decision, verifierRan = it.verifierRan)
+    } ?: AdmissionPostResult.Failed
 }
 
 internal fun requestTargets(requestUrl: HttpUrl, exactUrl: String): Boolean {

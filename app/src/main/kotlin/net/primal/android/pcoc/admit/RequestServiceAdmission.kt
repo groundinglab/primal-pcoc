@@ -4,7 +4,10 @@ import io.github.aakira.napier.Napier
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
 
 sealed class AdmissionSubmitOutcome {
-    data class Decision(val decision: AdmissionDecision) : AdmissionSubmitOutcome()
+    data class Decision(
+        val decision: AdmissionDecision,
+        val verifierRan: Boolean? = null,
+    ) : AdmissionSubmitOutcome()
 
     data object Failed : AdmissionSubmitOutcome()
 
@@ -52,7 +55,10 @@ class RequestServiceAdmission(
 
     private fun AdmissionPostResult?.toOutcome(): AdmissionSubmitOutcome =
         when (this) {
-            is AdmissionPostResult.Decision -> AdmissionSubmitOutcome.Decision(decision)
+            is AdmissionPostResult.Decision -> AdmissionSubmitOutcome.Decision(
+                decision = decision,
+                verifierRan = verifierRan,
+            )
             AdmissionPostResult.Failed, AdmissionPostResult.NotSent -> AdmissionSubmitOutcome.Failed
             null -> AdmissionSubmitOutcome.Failed
         }

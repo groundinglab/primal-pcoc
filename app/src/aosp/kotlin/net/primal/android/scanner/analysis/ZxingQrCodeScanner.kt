@@ -1,6 +1,7 @@
 package net.primal.android.scanner.analysis
 
 import androidx.camera.core.ImageProxy
+import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
 import com.google.zxing.PlanarYUVLuminanceSource
@@ -18,43 +19,51 @@ class ZxingQrCodeScanner @Inject constructor() : QrCodeResultDecoder {
 
     private val hints = mapOf(
         DecodeHintType.TRY_HARDER to true,
+        DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
     )
 
     override fun process(imageProxy: ImageProxy): QrCodeResult? {
-        val width = imageProxy.width
-        val height = imageProxy.height
-
-        val yuvBytes = imageProxy.use {
-            it.planes[0].buffer.toByteArray()
-        }
-
-        return scanBytes(bytes = yuvBytes, width = width, height = height)
-            ?: scanBytes(bytes = yuvBytes.invertColors(), width = width, height = height)
+        val text = read(imageProxy) ?: return null
+        val type = QrCodeDataType.from(text) ?: return null
+        return QrCodeResult(value = text, type = type)
     }
 
-    private fun scanBytes(
-        bytes: ByteArray,
-        width: Int,
-        height: Int,
-    ): QrCodeResult? {
-        val source = PlanarYUVLuminanceSource(
-            bytes,
-            width,
-            height,
-            0,
-            0,
-            width,
-            height,
-            false,
-        )
-        val bitmap = BinaryBitmap(HybridBinarizer(source))
+    override fun decodeText(imageProxy: ImageProxy): String? = read(imageProxy)
 
-        val result = runCatching { reader.decode(bitmap, hints) }.getOrNull() ?: return null
+    private fun read(imageProxy: ImageProxy): String? {
+        val frame = imageProxy.use { proxy -> copyFrame(proxy) } ?: return null
+        return decode(bytes = frame.bytes, width = frame.width, height = frame.height)
+            ?: decode(bytes = frame.bytes.invertColors(), width = frame.width, height = frame.height)
+    }
 
-        val text = result.text ?: return null
-        val dataType = QrCodeDataType.from(text) ?: return null
+    private fun copyFrame(proxy: ImageProxy): Frame? {
+        val plane = runCatching { proxy.planes.firstOrNull() }.getOrNull() ?: return null
+        val packed = packYPlane(
+            y = plane.buffer.copyBytes(),
+            width = proxy.width,
+            height = proxy.height,
+            rowStride = plane.rowStride,
+            pixelStride = plane.pixelStride,
+        ) ?: return null
+        return Frame(bytes = packed, width = proxy.width, height = proxy.height)
+    }
 
-        return QrCodeResult(value = text, type = dataType)
+    private fun decode(bytes: ByteArray, width: Int, height: Int): String? {
+        val text = runCatching {
+            val source = PlanarYUVLuminanceSource(
+                bytes,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                false,
+            )
+            reader.decode(BinaryBitmap(HybridBinarizer(source)), hints).text
+        }.getOrNull()
+        reader.reset()
+        return text
     }
 
     @Suppress("MagicNumber")
@@ -66,10 +75,11 @@ class ZxingQrCodeScanner @Inject constructor() : QrCodeResultDecoder {
         return inverted
     }
 
-    private fun ByteBuffer.toByteArray(): ByteArray {
-        rewind()
-        return ByteArray(remaining()).also {
-            get(it)
-        }
+    private fun ByteBuffer.copyBytes(): ByteArray {
+        val view = duplicate()
+        view.rewind()
+        return ByteArray(view.remaining()).also { view.get(it) }
     }
+
+    private data class Frame(val bytes: ByteArray, val width: Int, val height: Int)
 }

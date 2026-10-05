@@ -3,7 +3,9 @@ package net.primal.android.pcoc.admit
 import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.primal.core.utils.runCatching
@@ -13,6 +15,11 @@ enum class AdmissionDecision {
     Accept,
     Deny,
 }
+
+data class AdmissionReport(
+    val decision: AdmissionDecision,
+    val verifierRan: Boolean?,
+)
 
 /**
  * Phone POST body. Fields are only `object_b64` and `signature`.
@@ -31,28 +38,51 @@ object AdmissionPayload {
         )
     }
 
-    fun parseDecision(body: String): AdmissionDecision? {
-        val text = decisionText(body) ?: return null
-        return when (text) {
-            ACCEPT -> AdmissionDecision.Accept
-            DENY -> AdmissionDecision.Deny
-            else -> null
+    fun parseDecision(body: String): AdmissionDecision? = parseReport(body)?.decision
+
+    fun parseReport(body: String): AdmissionReport? {
+        val obj = jsonObject(body)
+        val decision = obj?.let { decisionOf(stringField(it, DECISION)) }
+        return if (obj == null || decision == null) {
+            null
+        } else {
+            AdmissionReport(decision = decision, verifierRan = booleanField(obj, VERIFIER_RAN))
         }
     }
 
-    private fun decisionText(body: String): String? {
-        if (body.isBlank()) return null
-        val element = runCatching { CommonJson.parseToJsonElement(body) }.getOrNull()
-        val obj = element?.let { runCatching { it.jsonObject }.getOrNull() }
-        val primitive = obj?.get(DECISION)?.let { value ->
+    private fun jsonObject(body: String) =
+        if (body.isBlank()) {
+            null
+        } else {
+            val element = runCatching { CommonJson.parseToJsonElement(body) }.getOrNull()
+            element?.let { runCatching { it.jsonObject }.getOrNull() }
+        }
+
+    private fun stringField(obj: JsonObject, name: String): String? {
+        val primitive = obj[name]?.let { value ->
             runCatching { value.jsonPrimitive }.getOrNull()
         }
         return primitive?.takeIf(JsonPrimitive::isString)?.content
     }
 
+    private fun booleanField(obj: JsonObject, name: String): Boolean? {
+        val primitive = obj[name]?.let { value ->
+            runCatching { value.jsonPrimitive }.getOrNull()
+        }
+        return primitive?.booleanOrNull
+    }
+
+    private fun decisionOf(text: String?): AdmissionDecision? =
+        when (text) {
+            ACCEPT -> AdmissionDecision.Accept
+            DENY -> AdmissionDecision.Deny
+            else -> null
+        }
+
     private const val ACCEPT = "accept"
     private const val DENY = "deny"
     private const val DECISION = "decision"
+    private const val VERIFIER_RAN = "verifier_ran"
     private val SIGNATURE = Regex("""^[0-9a-f]{128}$""")
 
     @Serializable

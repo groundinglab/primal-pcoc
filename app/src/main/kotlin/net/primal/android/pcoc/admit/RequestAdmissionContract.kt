@@ -21,10 +21,10 @@ interface RequestAdmissionContract {
         NotAServiceUrl,
     }
 
-    enum class Outcome {
-        Accepted,
-        Denied,
-        Failed,
+    sealed interface Outcome {
+        data class Decided(val accepted: Boolean, val verifierRan: Boolean?) : Outcome
+
+        data object Failed : Outcome
     }
 
     sealed class UiEvent {

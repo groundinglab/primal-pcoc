@@ -3,6 +3,8 @@ package net.primal.android.pcoc.admit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.aakira.napier.Napier
+import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -122,25 +124,45 @@ class RequestAdmissionViewModel @Inject constructor(
         setState { copy(submitting = true, outcome = null) }
         viewModelScope.launch {
             val userId = activeAccountStore.activeUserId()
-            val key = withContext(dispatchers.io()) { producerPrivateKey(credentialsStore, userId) }
-            val outcome = try {
-                if (key == null) {
-                    AdmissionSubmitOutcome.NotSubmitted
-                } else {
-                    withContext(dispatchers.io()) {
-                        request.submit(exactUrl = url, accountHex = userId, privateKey = key)
-                    }
-                }
+            val outcome = submitCaught(exactUrl = url, userId = userId)
+            try {
+                refreshAccount(userId)
+            } catch (error: IOException) {
+                Napier.w(error) { "Service admission account refresh failed." }
             } finally {
-                key?.fill(0)
+                setState {
+                    copy(
+                        submitting = false,
+                        outcome = outcome.toOutcome(),
+                    )
+                }
             }
-            refreshAccount(userId)
-            setState {
-                copy(
-                    submitting = false,
-                    outcome = outcome.toOutcome(),
-                )
+        }
+    }
+
+    private suspend fun submitCaught(exactUrl: String, userId: String): AdmissionSubmitOutcome {
+        var key: ByteArray? = null
+        return try {
+            key = withContext(dispatchers.io()) { producerPrivateKey(credentialsStore, userId) }
+            if (key == null) {
+                AdmissionSubmitOutcome.NotSubmitted
+            } else {
+                val signingKey = key
+                withContext(dispatchers.io()) {
+                    request.submit(exactUrl = exactUrl, accountHex = userId, privateKey = signingKey)
+                }
             }
+        } catch (error: IOException) {
+            Napier.w(error) { "Service admission request failed." }
+            AdmissionSubmitOutcome.Failed
+        } catch (error: IllegalArgumentException) {
+            Napier.w(error) { "Service admission request failed." }
+            AdmissionSubmitOutcome.Failed
+        } catch (error: IllegalStateException) {
+            Napier.w(error) { "Service admission request failed." }
+            AdmissionSubmitOutcome.Failed
+        } finally {
+            key?.fill(0)
         }
     }
 }
@@ -157,10 +179,10 @@ private fun AdmissionQrParse.toScanProblem(): ScanProblem? =
 
 private fun AdmissionSubmitOutcome.toOutcome(): Outcome? =
     when (this) {
-        is AdmissionSubmitOutcome.Decision -> when (decision) {
-            AdmissionDecision.Accept -> Outcome.Accepted
-            AdmissionDecision.Deny -> Outcome.Denied
-        }
+        is AdmissionSubmitOutcome.Decision -> Outcome.Decided(
+            accepted = decision == AdmissionDecision.Accept,
+            verifierRan = verifierRan,
+        )
         AdmissionSubmitOutcome.Failed -> Outcome.Failed
         AdmissionSubmitOutcome.NotSubmitted -> null
     }

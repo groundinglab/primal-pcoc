@@ -76,6 +76,24 @@ class RequestServiceAdmissionTest {
         request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Failed
     }
 
+    @Test
+    fun `verifier ran is forwarded with the decision`() {
+        val store = memoryStore()
+        store.write(account, objectBytes)
+        val request = RequestServiceAdmission(
+            store = store,
+            poster = AdmissionPoster { _, _, _ ->
+                AdmissionPostResult.Decision(decision = AdmissionDecision.Deny, verifierRan = false)
+            },
+            signHash = { _, _ -> "cd".repeat(64) },
+        )
+
+        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Decision(
+            decision = AdmissionDecision.Deny,
+            verifierRan = false,
+        )
+    }
+
     private fun memoryStore() =
         object : EnrolledPcocStore {
             private val files = mutableMapOf<String, ByteArray>()
