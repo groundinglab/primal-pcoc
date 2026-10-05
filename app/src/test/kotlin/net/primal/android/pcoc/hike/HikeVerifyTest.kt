@@ -324,7 +324,11 @@ class HikeVerifyTest {
         return HikeObject.Hike(ByteArray(32), ByteArray(32), stages)
     }
 
-    private fun indexDocument(natural: ByteArray, height: Long, timestamp: Long): String {
+    private fun indexDocument(
+        natural: ByteArray,
+        height: Long,
+        timestamp: Long,
+    ): String {
         val display = ByteArray(32)
         for (i in 0 until 32) {
             display[i] = natural[31 - i]
