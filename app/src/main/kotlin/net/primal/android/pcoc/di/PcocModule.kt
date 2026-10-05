@@ -16,6 +16,7 @@ import net.primal.android.pcoc.enroll.FileEnrolledPcocStore
 import net.primal.android.pcoc.hike.HikeYieldedPublicKeyNative
 import net.primal.android.pcoc.hike.HikeYieldedPublicKeyReader
 import net.primal.android.pcoc.hike.LinkedHikeYieldedPublicKeyReader
+import net.primal.android.pcoc.hike.LiveIndex
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -37,6 +38,10 @@ object PcocModule {
     @Provides
     @Singleton
     fun admissionSiteClient(): AdmissionSiteClient = AdmissionSiteClient(http = newAdmissionHttpClient())
+
+    @Provides
+    @Singleton
+    fun liveIndex(): LiveIndex = LiveIndex(LiveIndex.newClient())
 
     private const val OBJECT_DIRECTORY = "pcoc-enrolled-objects"
 }

@@ -6,9 +6,9 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC and Request service admission work. Verify any PCOC and Create a PCOC are copy shells. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
+**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC, Verify any PCOC, and Request service admission work. Create a PCOC is a copy shell. Verify any is full section 14 then section 15, as [FEATURES-v0.1.md](FEATURES-v0.1.md) locks. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
 
-**Later** (in-app produce, local verify, screen-off tip observe, Option B admit) stay behind their own asks. In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
+**Later** (in-app produce, screen-off tip observe, Option B admit) stay behind their own asks. Verify any is the Java verifier in [FEATURES-v0.1.md](FEATURES-v0.1.md). In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
 Issue #87 was not readable here (HTTP 404). Docs still owes the BIP-340 one-liner there. The phone door signs the 32 hash bytes with `CryptoUtils.sign`, as locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The earlier “POST the gate from the phone” sentence is superseded for these doors.
 
@@ -56,11 +56,9 @@ If the artifact is not published, or the call site is still unnamed, this phase 
 
 ### 7. Later — local verify
 
-The Account door **Verify any PCOC** is a copy shell. It does not run `hike::verify` and it does not show a verify success. A real verify surface stays blocked until the ask list names it and the tip client.
+The Account door **Verify any PCOC** runs the Java port of section 14 then section 15. It shows valid or invalid only. Measurements stay hidden. VivoBook bare metal is the timing host. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
 
-Do not turn that shell into an execution route. Do not pass a sample object plus headers held by the app. There is no header client in this tree.
-
-When Christian names the surface, that surface calls the reference verifier. The screen does not own a verifier. The Option B admit gate does not own a second verifier and does not call verify. Tonight’s sign-in posts to the admission gate; the gate runs reference verify.
+The door reads the live index. It does not keep a header archive and it does not GET a tip. The Option B admit gate does not own a second verifier and does not call verify.
 
 `NostrNotary.verifySignature` and `Nip05VerificationService` stay on their current screens. They are not the reference verifier. The tip is a public sequencer tick. The app does not keep a header archive.
 

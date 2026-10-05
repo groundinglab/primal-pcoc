@@ -15,6 +15,7 @@ import net.primal.android.pcoc.create.CreatePcocScreen
 import net.primal.android.pcoc.enroll.EnrollPcocScreen
 import net.primal.android.pcoc.enroll.EnrollPcocViewModel
 import net.primal.android.pcoc.verify.VerifyPcocScreen
+import net.primal.android.pcoc.verify.VerifyPcocViewModel
 
 fun NavGraphBuilder.pcocNavigation(navController: NavController) {
     navigation(route = PCOC_GRAPH, startDestination = PCOC_HOME) {
@@ -51,9 +52,10 @@ fun NavGraphBuilder.pcocNavigation(navController: NavController) {
             popEnterTransition = { primalScaleIn },
             popExitTransition = { primalSlideOutHorizontallyToEnd },
         ) {
+            val viewModel = hiltViewModel<VerifyPcocViewModel>()
             ApplyEdgeToEdge()
             LockToOrientationPortrait()
-            VerifyPcocScreen(onClose = { navController.navigateUp() })
+            VerifyPcocScreen(viewModel = viewModel, onClose = { navController.navigateUp() })
         }
         composable(
             route = PCOC_CREATE,
