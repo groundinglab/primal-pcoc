@@ -1,5 +1,8 @@
 package net.primal.android.pcoc.hike;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 /**
  * One terrain room: {@link HikeConst#TERRAIN_BYTES} bytes stored as little-endian words.
  * The caller releases it. A later run must not keep this array.
@@ -30,17 +33,22 @@ final class TerrainRoom {
     }
 
     void copySlot(int slot, byte[] dest) {
-        int base = slot * HikeConst.WORDS_PER_SLOT;
-        for (int word = 0; word < HikeConst.WORDS_PER_SLOT; word++) {
-            Le.put(dest, word << 3, words[base + word]);
-        }
+        copyBytes(slot * HikeConst.SLOT_BYTES, dest);
     }
 
     /** Copies {@code dest.length} bytes starting at a byte offset. The offset need not be aligned. */
     void copyBytes(int offset, byte[] dest) {
-        int length = dest.length;
-        if (offset < 0 || length < 0 || offset > HikeConst.TERRAIN_BYTES - length) {
+        copyBytes(offset, dest, 0, dest.length);
+    }
+
+    /** Copies room bytes into a range of {@code dest}. The room offset need not be aligned. */
+    void copyBytes(int offset, byte[] dest, int destOffset, int length) {
+        if (offset < 0 || length < 0 || length > HikeConst.TERRAIN_BYTES
+            || offset > HikeConst.TERRAIN_BYTES - length) {
             throw new IllegalArgumentException("sample is outside the terrain");
+        }
+        if (destOffset < 0 || length > dest.length || destOffset > dest.length - length) {
+            throw new IllegalArgumentException("destination is too small");
         }
         int wordIndex = offset >>> 3;
         int shift = offset & 7;
@@ -49,14 +57,17 @@ final class TerrainRoom {
             long value = words[wordIndex];
             int take = Math.min(8 - shift, length);
             for (int bit = 0; bit < take; bit++) {
-                dest[bit] = (byte) (value >>> ((shift + bit) << 3));
+                dest[destOffset + bit] = (byte) (value >>> ((shift + bit) << 3));
             }
             written = take;
             wordIndex++;
         }
         int full = (length - written) >>> 3;
-        for (int i = 0; i < full; i++) {
-            Le.put(dest, written + (i << 3), words[wordIndex + i]);
+        if (full > 0) {
+            ByteBuffer.wrap(dest, destOffset + written, full << 3)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .asLongBuffer()
+                .put(words, wordIndex, full);
         }
         written += full << 3;
         wordIndex += full;
@@ -64,7 +75,7 @@ final class TerrainRoom {
         if (remain > 0) {
             long value = words[wordIndex];
             for (int bit = 0; bit < remain; bit++) {
-                dest[written + bit] = (byte) (value >>> (bit << 3));
+                dest[destOffset + written + bit] = (byte) (value >>> (bit << 3));
             }
         }
     }

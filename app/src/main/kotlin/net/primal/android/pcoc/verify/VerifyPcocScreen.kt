@@ -110,13 +110,15 @@ private fun VerifyPcocScreen(
 @Composable
 private fun UiState.stageLabel(): String =
     when (stage) {
+        Stage.File, null -> stringResource(id = R.string.pcoc_verify_stage_file)
+        Stage.Index -> stringResource(id = R.string.pcoc_verify_stage_index)
         Stage.Terrain -> stringResource(id = R.string.pcoc_verify_stage_terrain)
+        Stage.Checks -> stringResource(id = R.string.pcoc_verify_stage_checks)
         Stage.Legs -> stringResource(
             id = R.string.pcoc_verify_stage_legs,
             legsDone,
             legsTotal,
         )
-        Stage.Headers, null -> stringResource(id = R.string.pcoc_verify_stage_headers)
     }
 
 @Composable

@@ -2,7 +2,7 @@ package net.primal.android.pcoc.hike;
 
 import java.util.Arrays;
 
-/** Sections 11.3, 11.4, and 12.2. One sample buffer and one preimage buffer. */
+/** Sections 11.3, 11.4, and 12.2. */
 final class Bind {
 
     private Bind() {
@@ -12,20 +12,16 @@ final class Bind {
         return (int) Long.remainderUnsigned(Le.u64(previousCheckpoint, 0), HikeConst.OFFSET_MODULUS);
     }
 
-    static void copySample(TerrainRoom terrain, byte[] previousCheckpoint, byte[] sample) {
-        terrain.copyBytes(sampleOffset(previousCheckpoint), sample);
-    }
-
     static void fillCheckpointPreimage(
+        TerrainRoom terrain,
         byte[] preimage,
         byte[] previous,
         byte[] waypoint,
-        byte[] sample,
         byte[] legResultLimb
     ) {
         System.arraycopy(previous, 0, preimage, 0, 32);
         System.arraycopy(waypoint, 0, preimage, 32, 32);
-        System.arraycopy(sample, 0, preimage, 64, HikeConst.SAMPLE_BYTES);
+        terrain.copyBytes(sampleOffset(previous), preimage, 64, HikeConst.SAMPLE_BYTES);
         System.arraycopy(legResultLimb, 0, preimage, 64 + HikeConst.SAMPLE_BYTES, 8);
     }
 
