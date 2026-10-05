@@ -27,7 +27,10 @@ interface RequestAdmissionContract {
 
         data object Failed : Outcome
 
-        data object KeyMismatch : Outcome
+        data class KeyMismatch(
+            val loginPrefix: String,
+            val filePrefix: String,
+        ) : Outcome
 
         data object ObjectKeyUnreadable : Outcome
 

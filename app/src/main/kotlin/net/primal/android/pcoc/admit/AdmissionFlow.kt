@@ -17,26 +17,31 @@ internal enum class ReadyScanFollowUp {
 internal data class ReadyScanPlan(
     val followUp: ReadyScanFollowUp,
     val pubkeyMatch: Boolean?,
+    val keys: ObjectKeyReport? = null,
 )
 
 /**
- * A good scan opens Confirm only when the saved object's public key is the logged-in account.
- * A mismatch or a missing key never reaches Confirm and never becomes a service denial.
+ * A good scan opens Confirm when the saved object's public key is the logged-in account
+ * or the key that will sign. A mismatch or a missing key never reaches Confirm.
  */
 internal fun planReadyScan(
     canSign: Boolean,
     accountHex: String,
     objectBytes: ByteArray?,
+    signingKey: ByteArray? = null,
 ): ReadyScanPlan {
     if (objectBytes == null) {
         return ReadyScanPlan(followUp = ReadyScanFollowUp.NoObject, pubkeyMatch = null)
     }
-    val check = checkObjectKey(accountHex = accountHex, objectBytes = objectBytes)
-    val followUp = when (check) {
+    val keys = objectKeyReport(accountHex = accountHex, signingKey = signingKey, objectBytes = objectBytes)
+    val followUp = when (keys.check) {
         ObjectKeyCheck.Unreadable -> ReadyScanFollowUp.ObjectKeyUnreadable
         ObjectKeyCheck.Mismatch -> ReadyScanFollowUp.KeyMismatch
         ObjectKeyCheck.Match -> if (canSign) ReadyScanFollowUp.Confirm else ReadyScanFollowUp.WrongLogin
     }
-    val pubkeyMatch = check == ObjectKeyCheck.Match
-    return ReadyScanPlan(followUp = followUp, pubkeyMatch = pubkeyMatch)
+    return ReadyScanPlan(
+        followUp = followUp,
+        pubkeyMatch = keys.check == ObjectKeyCheck.Match,
+        keys = keys,
+    )
 }

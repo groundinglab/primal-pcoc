@@ -1,16 +1,21 @@
 package net.primal.android.pcoc.admit
 
-import fr.acinq.secp256k1.Hex
 import net.primal.android.user.credentials.CredentialsStore
-import net.primal.core.utils.runCatching
-import net.primal.domain.nostr.cryptography.utils.toNpub
+import net.primal.android.user.domain.Credential
+import net.primal.android.user.domain.CredentialType
 
 fun producerPrivateKey(credentialsStore: CredentialsStore, userIdHex: String): ByteArray? {
-    val npub = runCatching { Hex.decode(userIdHex).toNpub() }.getOrNull()
-    val credential = if (npub == null) {
-        null
-    } else {
-        runCatching { credentialsStore.findOrThrow(npub) }.getOrNull()
-    }
+    val credential = selectProducerCredential(credentialsStore.credentials.value, userIdHex)
     return credential?.admissionPrivateKeyOrNull()
+}
+
+/**
+ * Producer nsec for this login. npub-only, the internal signer, and an external signer are skipped.
+ * The account id may be hex or npub. Letter case is ignored.
+ */
+internal fun selectProducerCredential(credentials: Iterable<Credential>, userIdHex: String): Credential? {
+    val hex = canonicalAccountHex(userIdHex) ?: return null
+    return credentials.find { credential ->
+        credential.type == CredentialType.PrivateKey && canonicalAccountHex(credential.npub) == hex
+    }
 }

@@ -11,6 +11,13 @@ import net.primal.domain.nostr.cryptography.utils.toHex
 internal const val PRODUCER_KEY_SIZE = 32
 private const val SCHNORR_SIGNATURE_SIZE = 64
 
+/** X-only public key of the nsec that will sign. Not logged. */
+internal fun signingPublicKey(privateKey: ByteArray): ByteArray? {
+    if (privateKey.size != PRODUCER_KEY_SIZE) return null
+    val created = runCatching { CryptoUtils.publicKeyCreate(privateKey) }.getOrNull()
+    return created?.takeIf { it.size == PRODUCER_KEY_SIZE }
+}
+
 /**
  * Producer nsec only. npub-only, the internal signer, and an external signer are not this key.
  * The decoded bytes are not logged.

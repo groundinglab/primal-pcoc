@@ -194,6 +194,7 @@
     <string name="pcoc_admit_problem_other">That code is not a sign-in for a service.</string>
     <string name="pcoc_admit_failed">Request failed. This is not a denial.</string>
     <string name="pcoc_admit_key_mismatch">This saved PCOC is for a different login. It was not sent.</string>
+    <string name="pcoc_admit_key_mismatch_detail">This login starts with %1$s. The saved file starts with %2$s.</string>
     <string name="pcoc_admit_key_unreadable">This saved PCOC has no key the service can check. It was not sent.</string>
     <string name="pcoc_admit_not_sent">Nothing was sent.</string>
     <string name="drawer_followers_suffix">Followers</string>

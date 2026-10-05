@@ -13,14 +13,17 @@ sealed class AdmissionSubmitOutcome {
 
     data object NotSubmitted : AdmissionSubmitOutcome()
 
-    data object KeyMismatch : AdmissionSubmitOutcome()
+    data class KeyMismatch(
+        val loginPrefix: String,
+        val filePrefix: String,
+    ) : AdmissionSubmitOutcome()
 
     data object ObjectKeyUnreadable : AdmissionSubmitOutcome()
 }
 
 /**
  * Signs the 32 bytes of `h` and POSTs once.
- * No enrolled object, no producer key, a key that is not the object's `public_key`,
+ * No enrolled object, no producer key, a public key that is not this login,
  * or a QR that is not a ready HTTPS URL: nothing is submitted.
  */
 class RequestServiceAdmission(
@@ -35,7 +38,7 @@ class RequestServiceAdmission(
     ): AdmissionSubmitOutcome {
         val ready = AdmissionQr.parse(exactUrl) as? AdmissionQrParse.Ready
         val key = privateKey?.takeIf { it.size == PRODUCER_KEY_SIZE }
-        val objectBytes = if (ready != null && key != null) store.read(accountHex) else null
+        val objectBytes = if (ready != null && key != null) enrolledObject(store, accountHex) else null
         if (ready == null || key == null || objectBytes == null) {
             AdmissionTrace.refused(
                 reason = refuseReason(ready = ready, key = key, objectBytes = objectBytes),
@@ -54,29 +57,43 @@ class RequestServiceAdmission(
         accountHex: String,
         objectBytes: ByteArray,
     ): AdmissionSubmitOutcome {
-        val check = checkObjectKey(accountHex = accountHex, objectBytes = objectBytes)
+        val report = objectKeyReport(
+            accountHex = accountHex,
+            signingKey = signingPublicKey(key),
+            objectBytes = objectBytes,
+        )
         val target = admissionTarget(ready.exactUrl)
-        return refusal(check = check, ready = ready, target = target)
-            ?: signedPost(ready = ready, key = key, objectBytes = objectBytes, target = target)
+        return refusal(report = report, ready = ready, target = target)
+            ?: signedPost(
+                ready = ready,
+                key = key,
+                objectBytes = objectBytes,
+                target = target,
+                report = report,
+            )
     }
 
     private fun refusal(
-        check: ObjectKeyCheck,
+        report: ObjectKeyReport,
         ready: AdmissionQrParse.Ready,
         target: AdmissionTarget,
     ): AdmissionSubmitOutcome? {
-        val outcome = when (check) {
+        val outcome = when (report.check) {
             ObjectKeyCheck.Match -> null
-            ObjectKeyCheck.Mismatch -> AdmissionSubmitOutcome.KeyMismatch
+            ObjectKeyCheck.Mismatch -> AdmissionSubmitOutcome.KeyMismatch(
+                loginPrefix = report.loginPrefix.orEmpty(),
+                filePrefix = report.filePrefix.orEmpty(),
+            )
             ObjectKeyCheck.Unreadable -> AdmissionSubmitOutcome.ObjectKeyUnreadable
         }
         if (outcome != null) {
-            val reason = if (check == ObjectKeyCheck.Mismatch) "key-mismatch" else "object-key-unreadable"
+            val reason = if (report.check == ObjectKeyCheck.Mismatch) "key-mismatch" else "object-key-unreadable"
             AdmissionTrace.refused(
                 reason = reason,
                 pubkeyMatch = false,
                 hBytes = ready.hashBytes.size,
                 target = target,
+                keys = report,
             )
         }
         return outcome
@@ -87,8 +104,9 @@ class RequestServiceAdmission(
         key: ByteArray,
         objectBytes: ByteArray,
         target: AdmissionTarget,
+        report: ObjectKeyReport,
     ): AdmissionSubmitOutcome {
-        AdmissionTrace.sign(pubkeyMatch = true, hBytes = ready.hashBytes.size, target = target)
+        AdmissionTrace.sign(pubkeyMatch = true, hBytes = ready.hashBytes.size, target = target, keys = report)
         val signature = signOrNull(privateKey = key, hashHex = ready.hashHex)
         return if (signature == null) {
             AdmissionTrace.refused(
@@ -96,6 +114,7 @@ class RequestServiceAdmission(
                 pubkeyMatch = true,
                 hBytes = ready.hashBytes.size,
                 target = target,
+                keys = report,
             )
             AdmissionSubmitOutcome.Failed
         } else {

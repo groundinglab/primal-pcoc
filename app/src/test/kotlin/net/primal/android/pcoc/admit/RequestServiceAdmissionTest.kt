@@ -4,6 +4,7 @@ import fr.acinq.secp256k1.Hex
 import io.kotest.matchers.shouldBe
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
 import net.primal.domain.nostr.cryptography.utils.CryptoUtils
+import net.primal.domain.nostr.cryptography.utils.hexToNpubHrp
 import org.junit.Test
 
 class RequestServiceAdmissionTest {
@@ -96,7 +97,8 @@ class RequestServiceAdmissionTest {
             },
         )
 
-        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.KeyMismatch
+        val outcome = request.submit(url, account, privateKey)
+        outcome shouldBe AdmissionSubmitOutcome.KeyMismatch(loginPrefix = "11111111", filePrefix = "22222222")
         posts shouldBe 0
         signs shouldBe 0
     }
@@ -169,6 +171,58 @@ class RequestServiceAdmissionTest {
         json.contains(liveHash) shouldBe false
         gateResultText(AdmissionDecision.Deny, verifierRan = true) shouldBe
             "The service said:\ndecision: deny\nverifier_ran: true"
+    }
+
+    @Test
+    fun `the key that will sign is posted when the account text does not match`() {
+        val pair = CryptoUtils.generateHexEncodedKeypair()
+        val other = "22".repeat(32)
+        val liveObject = cborPublicKeyMap(Hex.decode(pair.pubKey))
+        val store = memoryStore()
+        store.write(other, liveObject)
+        val seen = mutableListOf<Post>()
+        val request = RequestServiceAdmission(
+            store = store,
+            poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
+                seen += Post(exactUrl, bytes, signatureHex)
+                AdmissionPostResult.Decision(AdmissionDecision.Accept, verifierRan = true)
+            },
+        )
+
+        request.submit(exactUrl = url, accountHex = other, privateKey = Hex.decode(pair.privateKey)) shouldBe
+            AdmissionSubmitOutcome.Decision(AdmissionDecision.Accept, verifierRan = true)
+        val posted = seen.single()
+        posted.bytes.contentEquals(liveObject) shouldBe true
+        CryptoUtils.verify(
+            signature = Hex.decode(posted.signature),
+            hash = Hex.decode(hash),
+            pubKey = Hex.decode(pair.pubKey),
+        ) shouldBe true
+    }
+
+    @Test
+    fun `a spaced or npub account id still signs the saved object`() {
+        val pair = CryptoUtils.generateHexEncodedKeypair()
+        val liveObject = cborPublicKeyMap(Hex.decode(pair.pubKey))
+        val store = memoryStore()
+        store.write(pair.pubKey, liveObject)
+        var posts = 0
+        val request = RequestServiceAdmission(
+            store = store,
+            poster = AdmissionPoster { _, _, _ ->
+                posts += 1
+                AdmissionPostResult.Decision(AdmissionDecision.Deny, verifierRan = false)
+            },
+        )
+
+        val npub = pair.pubKey.hexToNpubHrp()
+        request.submit(url, "  ${pair.pubKey.uppercase()}  ", Hex.decode(pair.privateKey)) shouldBe
+            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+        request.submit(url, "0x${pair.pubKey}", Hex.decode(pair.privateKey)) shouldBe
+            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+        request.submit(url, npub, Hex.decode(pair.privateKey)) shouldBe
+            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+        posts shouldBe 3
     }
 
     @Test

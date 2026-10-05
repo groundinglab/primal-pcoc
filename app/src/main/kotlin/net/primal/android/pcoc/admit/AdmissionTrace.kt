@@ -25,17 +25,23 @@ internal object AdmissionTrace {
         hBytes: Int,
         target: AdmissionTarget,
         followUp: String,
+        keys: ObjectKeyReport? = null,
     ) {
         Napier.i(tag = TAG) {
             "admission scan pubkeyMatch=${matchWord(pubkeyMatch)} hBytes=$hBytes " +
-                "host=${target.host} path=${target.path} followUp=$followUp"
+                "host=${target.host} path=${target.path} followUp=$followUp${keySuffix(keys)}"
         }
     }
 
-    fun sign(pubkeyMatch: Boolean, hBytes: Int, target: AdmissionTarget) {
+    fun sign(
+        pubkeyMatch: Boolean,
+        hBytes: Int,
+        target: AdmissionTarget,
+        keys: ObjectKeyReport? = null,
+    ) {
         Napier.i(tag = TAG) {
             "admission sign pubkeyMatch=${matchWord(pubkeyMatch)} hBytes=$hBytes " +
-                "host=${target.host} path=${target.path}"
+                "host=${target.host} path=${target.path}${keySuffix(keys)}"
         }
     }
 
@@ -61,6 +67,7 @@ internal object AdmissionTrace {
         pubkeyMatch: Boolean?,
         hBytes: Int?,
         target: AdmissionTarget?,
+        keys: ObjectKeyReport? = null,
     ) {
         val where = if (target == null) {
             "host=none path=none"
@@ -69,10 +76,30 @@ internal object AdmissionTrace {
         }
         Napier.i(tag = TAG) {
             "admission refused reason=$reason pubkeyMatch=${matchWord(pubkeyMatch)} " +
-                "hBytes=${hBytes ?: 0} $where"
+                "hBytes=${hBytes ?: 0} $where${keySuffix(keys)}"
         }
     }
 }
+
+internal fun admissionKeyLog(keys: ObjectKeyReport): String {
+    val account = shownKeyPrefix(keys.accountPrefix)
+    val extra = buildString {
+        if (account != NO_KEY) append(" account=$account")
+        if (keys.readersDisagree) append(" readersDisagree=true scan=${shownKeyPrefix(keys.scanPrefix)}")
+    }
+    return "login=${shownKeyPrefix(keys.loginPrefix)} file=${shownKeyPrefix(keys.filePrefix)} " +
+        "keySource=${keySourceWord(keys.keySource)}$extra"
+}
+
+private fun keySourceWord(source: String): String =
+    when (source) {
+        "object", "scan", NO_KEY -> source
+        else -> NO_KEY
+    }
+
+private const val NO_KEY = "none"
+
+private fun keySuffix(keys: ObjectKeyReport?): String = if (keys == null) "" else " ${admissionKeyLog(keys)}"
 
 internal fun admissionTarget(exactUrl: String): AdmissionTarget {
     val uri = try {
