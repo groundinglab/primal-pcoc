@@ -26,6 +26,7 @@ import kotlinx.coroutines.runInterruptible
 import net.primal.android.pcoc.hike.IndexUnreachable
 import net.primal.android.pcoc.hike.LiveIndex
 import net.primal.android.pcoc.hike.OsEntropy
+import net.primal.android.pcoc.hike.StageLog
 import net.primal.android.pcoc.hike.VerifyAny
 import net.primal.android.pcoc.hike.VerifyFlight
 import net.primal.android.pcoc.hike.VerifyProgress
@@ -84,7 +85,7 @@ class VerifyPcocViewModel @Inject constructor(
         flight.cancel()
         run?.cancel()
         run = viewModelScope.launch {
-            setState { UiState(busy = true, stage = Stage.Headers) }
+            setState { UiState(busy = true, stage = Stage.File) }
             delay(FRAME_PAUSE_MS)
             if (mine != ticket.get()) return@launch
             try {
@@ -106,7 +107,12 @@ class VerifyPcocViewModel @Inject constructor(
     }
 
     private suspend fun verifyFile(uri: Uri, mine: Int): Outcome {
-        val bytes = runInterruptible(dispatchers.io()) { readObject(uri) }
+        val fileStarted = System.nanoTime()
+        val bytes = try {
+            runInterruptible(dispatchers.io()) { readObject(uri) }
+        } finally {
+            StageLog.debug("file read", fileStarted)
+        }
         val word = if (bytes == null || mine != ticket.get()) {
             null
         } else {
@@ -121,12 +127,16 @@ class VerifyPcocViewModel @Inject constructor(
     }
 
     private fun progress(mine: Int) = object : VerifyProgress {
-        override fun headers() {
-            publish(mine) { copy(busy = true, stage = Stage.Headers, notice = null, word = null) }
+        override fun indexReads() {
+            publish(mine) { copy(busy = true, stage = Stage.Index, notice = null, word = null) }
         }
 
         override fun terrain() {
             publish(mine) { copy(busy = true, stage = Stage.Terrain, notice = null, word = null) }
+        }
+
+        override fun checks() {
+            publish(mine) { copy(busy = true, stage = Stage.Checks, notice = null, word = null) }
         }
 
         override fun leg(done: Int, total: Int) {

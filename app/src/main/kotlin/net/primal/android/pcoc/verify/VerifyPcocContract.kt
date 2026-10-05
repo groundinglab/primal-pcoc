@@ -14,8 +14,10 @@ interface VerifyPcocContract {
     )
 
     enum class Stage {
-        Headers,
+        File,
+        Index,
         Terrain,
+        Checks,
         Legs,
     }
 

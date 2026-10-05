@@ -122,6 +122,11 @@ class HikeVerifyTest {
             across.copyOfRange(0, 4).contentEquals(tail) shouldBe true
             room.copySlot(1, slot)
             across.copyOfRange(4, 16).contentEquals(slot.copyOfRange(0, 12)) shouldBe true
+            val ranged = ByteArray(24) { 0x55 }
+            room.copyBytes(HikeConst.SLOT_BYTES - 4, ranged, 4, across.size)
+            ranged.copyOfRange(4, 20).contentEquals(across) shouldBe true
+            ranged.copyOfRange(0, 4).toList() shouldBe List(4) { 0x55.toByte() }
+            ranged.copyOfRange(20, 24).toList() shouldBe List(4) { 0x55.toByte() }
         } finally {
             room.release()
         }
@@ -153,8 +158,9 @@ class HikeVerifyTest {
             pcocThreads() shouldBe 0
 
             val first = elapsed { finishQuiet(flight, bytes, quietIndex, noDraw) }
-            logs.any { it.startsWith("headers ") } shouldBe true
+            logs.any { it.startsWith("index reads ") } shouldBe true
             logs.any { it.startsWith("terrain ") } shouldBe true
+            logs.any { it.startsWith("file checks ") } shouldBe true
             nearBaseline(baselineMemory)
             pcocThreads() shouldBe 0
 
@@ -168,11 +174,13 @@ class HikeVerifyTest {
                             quietIndex,
                             Script((0 until 6).fold(ByteArray(0)) { acc, value -> acc + le(value.toLong()) }),
                             object : VerifyProgress {
-                                override fun headers() = Unit
+                                override fun indexReads() = Unit
 
                                 override fun terrain() {
                                     opened.countDown()
                                 }
+
+                                override fun checks() = Unit
 
                                 override fun leg(done: Int, total: Int) {
                                     legs.set(done)
