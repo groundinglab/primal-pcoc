@@ -56,35 +56,55 @@ class RequestServiceAdmission(
     ): AdmissionSubmitOutcome {
         val check = checkObjectKey(accountHex = accountHex, objectBytes = objectBytes)
         val target = admissionTarget(ready.exactUrl)
-        if (check != ObjectKeyCheck.Match) {
+        return refusal(check = check, ready = ready, target = target)
+            ?: signedPost(ready = ready, key = key, objectBytes = objectBytes, target = target)
+    }
+
+    private fun refusal(
+        check: ObjectKeyCheck,
+        ready: AdmissionQrParse.Ready,
+        target: AdmissionTarget,
+    ): AdmissionSubmitOutcome? {
+        val outcome = when (check) {
+            ObjectKeyCheck.Match -> null
+            ObjectKeyCheck.Mismatch -> AdmissionSubmitOutcome.KeyMismatch
+            ObjectKeyCheck.Unreadable -> AdmissionSubmitOutcome.ObjectKeyUnreadable
+        }
+        if (outcome != null) {
+            val reason = if (check == ObjectKeyCheck.Mismatch) "key-mismatch" else "object-key-unreadable"
             AdmissionTrace.refused(
-                reason = if (check == ObjectKeyCheck.Mismatch) "key-mismatch" else "object-key-unreadable",
+                reason = reason,
                 pubkeyMatch = false,
                 hBytes = ready.hashBytes.size,
                 target = target,
             )
-            return if (check == ObjectKeyCheck.Mismatch) {
-                AdmissionSubmitOutcome.KeyMismatch
-            } else {
-                AdmissionSubmitOutcome.ObjectKeyUnreadable
-            }
         }
+        return outcome
+    }
+
+    private fun signedPost(
+        ready: AdmissionQrParse.Ready,
+        key: ByteArray,
+        objectBytes: ByteArray,
+        target: AdmissionTarget,
+    ): AdmissionSubmitOutcome {
         AdmissionTrace.sign(pubkeyMatch = true, hBytes = ready.hashBytes.size, target = target)
         val signature = signOrNull(privateKey = key, hashHex = ready.hashHex)
-        if (signature == null) {
+        return if (signature == null) {
             AdmissionTrace.refused(
                 reason = "sign",
                 pubkeyMatch = true,
                 hBytes = ready.hashBytes.size,
                 target = target,
             )
-            return AdmissionSubmitOutcome.Failed
+            AdmissionSubmitOutcome.Failed
+        } else {
+            poster.post(
+                exactUrl = ready.exactUrl,
+                objectBytes = objectBytes,
+                signatureHex = signature,
+            ).toOutcome()
         }
-        return poster.post(
-            exactUrl = ready.exactUrl,
-            objectBytes = objectBytes,
-            signatureHex = signature,
-        ).toOutcome()
     }
 
     private fun AdmissionPostResult.toOutcome(): AdmissionSubmitOutcome =

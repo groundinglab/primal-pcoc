@@ -30,7 +30,8 @@ class AdmissionTraceTest {
     fun `response log keeps measurements and shortens a signature`() {
         val signature = "01234567" + "aa".repeat(56) + "89abcdef"
         val hash = "cd".repeat(32)
-        val body = """{"decision":"deny","verifier_ran":true,"measurements":{"section":15,"tip":"$hash"},"signature":"$signature","leak":"nsec1qqqqqqqqqqqqqqqqqqqq"}"""
+        val body = """{"decision":"deny","verifier_ran":true,"measurements":{"section":15,"tip":"$hash"},""" +
+            """"signature":"$signature","leak":"nsec1qqqqqqqqqqqqqqqqqqqq"}"""
         val log = admissionHttpLog(status = 200, body = body)
         log shouldContain "status=200"
         log shouldContain "\"verifier_ran\":true"

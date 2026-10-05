@@ -3,12 +3,6 @@ package net.primal.android.pcoc.admit
 import fr.acinq.secp256k1.Hex
 import java.security.MessageDigest
 
-internal enum class ObjectKeyCheck {
-    Match,
-    Mismatch,
-    Unreadable,
-}
-
 /**
  * Reads only the top-level CBOR `public_key` byte string.
  * This is not hike verify and not an enroll gate. Enroll still stores the file as-is.
@@ -21,10 +15,16 @@ internal fun enrolledObjectPublicKey(bytes: ByteArray): ByteArray? {
 }
 
 internal fun checkObjectKey(accountHex: String, objectBytes: ByteArray): ObjectKeyCheck {
-    val objectKey = enrolledObjectPublicKey(objectBytes) ?: return ObjectKeyCheck.Unreadable
-    val accountKey = accountPublicKey(accountHex) ?: return ObjectKeyCheck.Mismatch
-    val same = accountKey.size == PUBLIC_KEY_LEN && MessageDigest.isEqual(accountKey, objectKey)
-    return if (same) ObjectKeyCheck.Match else ObjectKeyCheck.Mismatch
+    val objectKey = enrolledObjectPublicKey(objectBytes)
+    val accountKey = if (objectKey == null) null else accountPublicKey(accountHex)
+    val same = objectKey != null &&
+        accountKey != null &&
+        MessageDigest.isEqual(accountKey, objectKey)
+    return when {
+        objectKey == null -> ObjectKeyCheck.Unreadable
+        same -> ObjectKeyCheck.Match
+        else -> ObjectKeyCheck.Mismatch
+    }
 }
 
 private fun accountPublicKey(accountHex: String): ByteArray? {
@@ -82,27 +82,25 @@ private class CborScan(private val data: ByteArray) {
     }
 
     private fun readTextKey(): ByteArray? {
-        val head = u8() ?: return null
-        if (major(head) != MAJOR_TEXT) {
-            skipAfterHead(head)
-            return null
-        }
-        return payload(head)
+        val head = u8()
+        val text = head != null && major(head) == MAJOR_TEXT
+        if (head != null && !text) skipAfterHead(head)
+        return if (head == null || !text) null else payload(head)
     }
 
     private fun readByteString(): ByteArray? {
-        val head = u8() ?: return null
-        if (major(head) != MAJOR_BYTES) {
+        val head = u8()
+        val bytes = head != null && major(head) == MAJOR_BYTES
+        if (head != null && !bytes) {
             skipAfterHead(head)
             broken = true
-            return null
         }
-        return payload(head)
+        return if (head == null || !bytes) null else payload(head)
     }
 
     private fun payload(head: Int): ByteArray? {
-        val length = count(additional(head)) ?: return null
-        return take(length)
+        val length = count(additional(head))
+        return if (length == null) null else take(length)
     }
 
     private fun skipItem() {
@@ -113,16 +111,9 @@ private class CborScan(private val data: ByteArray) {
     private fun skipAfterHead(head: Int) {
         when (major(head)) {
             MAJOR_UINT, MAJOR_NEGATIVE -> argument(additional(head))
-            MAJOR_BYTES, MAJOR_TEXT -> {
-                val length = count(additional(head)) ?: return
-                skip(length)
-            }
-            MAJOR_ARRAY -> {
-                val length = count(additional(head)) ?: return
-                repeat(length) { skipItem() }
-            }
-            MAJOR_MAP -> {
-                val length = count(additional(head)) ?: return
+            MAJOR_BYTES, MAJOR_TEXT -> skipCounted(additional(head)) { length -> skip(length) }
+            MAJOR_ARRAY -> skipCounted(additional(head)) { length -> repeat(length) { skipItem() } }
+            MAJOR_MAP -> skipCounted(additional(head)) { length ->
                 repeat(length) {
                     skipItem()
                     skipItem()
@@ -137,12 +128,17 @@ private class CborScan(private val data: ByteArray) {
         }
     }
 
+    private fun skipCounted(info: Int, block: (Int) -> Unit) {
+        val length = count(info)
+        if (length != null) block(length)
+    }
+
     private fun skipSimple(info: Int) {
         val extra = when (info) {
             in 0..SHORT_MAX -> 0
             ONE_BYTE -> 1
-            TWO_BYTES -> 2
-            FOUR_BYTES -> 4
+            TWO_BYTES -> TWO_BYTES_LEN
+            FOUR_BYTES -> FOUR_BYTES_LEN
             EIGHT_BYTES -> EIGHT
             else -> {
                 broken = true
@@ -153,12 +149,13 @@ private class CborScan(private val data: ByteArray) {
     }
 
     private fun count(info: Int): Int? {
-        val length = argument(info) ?: return null
-        if (length < 0L || length > remaining()) {
+        val length = argument(info)
+        return if (length != null && length >= 0L && length <= remaining()) {
+            length.toInt()
+        } else {
             broken = true
-            return null
+            null
         }
-        return length.toInt()
     }
 
     private fun argument(info: Int): Long? {
@@ -175,16 +172,16 @@ private class CborScan(private val data: ByteArray) {
     }
 
     private fun readUnsigned(size: Int): Long? {
-        if (size > remaining()) {
-            broken = true
-            return null
-        }
+        val enough = !broken && size <= remaining()
+        if (!enough) broken = true
         var value = 0L
-        repeat(size) {
-            val byte = u8() ?: return null
-            value = (value shl BYTE_BITS) or byte.toLong()
+        if (enough) {
+            repeat(size) {
+                val byte = u8()
+                if (byte != null) value = (value shl BYTE_BITS) or byte.toLong()
+            }
         }
-        return value
+        return if (broken) null else value
     }
 
     private fun take(length: Int): ByteArray? {

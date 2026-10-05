@@ -1,5 +1,11 @@
 package net.primal.android.pcoc.admit
 
+internal enum class ObjectKeyCheck {
+    Match,
+    Mismatch,
+    Unreadable,
+}
+
 internal enum class ReadyScanFollowUp {
     Confirm,
     WrongLogin,

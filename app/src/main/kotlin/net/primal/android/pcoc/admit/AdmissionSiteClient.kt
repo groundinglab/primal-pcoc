@@ -20,6 +20,12 @@ fun interface AdmissionPoster {
     ): AdmissionPostResult
 }
 
+private data class OutboundPost(
+    val ready: AdmissionQrParse.Ready,
+    val encoded: String,
+    val request: Request,
+)
+
 sealed class AdmissionPostResult {
     data class Decision(
         val decision: AdmissionDecision,
@@ -59,6 +65,38 @@ class AdmissionSiteClient(
         objectBytes: ByteArray,
         signatureHex: String,
     ): AdmissionPostResult {
+        val outbound = outboundPost(
+            exactUrl = exactUrl,
+            objectBytes = objectBytes,
+            signatureHex = signatureHex,
+        )
+        return if (outbound == null) {
+            val ready = AdmissionQr.parse(exactUrl) as? AdmissionQrParse.Ready
+            AdmissionTrace.refused(
+                reason = "not-sent",
+                pubkeyMatch = null,
+                hBytes = ready?.hashBytes?.size,
+                target = admissionTarget(exactUrl),
+            )
+            AdmissionPostResult.NotSent
+        } else {
+            val fields = admissionBodyFields(outbound.encoded)
+            AdmissionTrace.post(
+                target = admissionTarget(exactUrl),
+                hBytes = outbound.ready.hashBytes.size,
+                hasObjectB64 = fields.hasObjectB64,
+                hasSignature = fields.hasSignature,
+                signatureHex = signatureHex,
+            )
+            execute(outbound.request)
+        }
+    }
+
+    private fun outboundPost(
+        exactUrl: String,
+        objectBytes: ByteArray,
+        signatureHex: String,
+    ): OutboundPost? {
         val ready = AdmissionQr.parse(exactUrl) as? AdmissionQrParse.Ready
         val encoded = ready?.let {
             runCatchingEncode(objectBytes = objectBytes, signatureHex = signatureHex)
@@ -69,31 +107,19 @@ class AdmissionSiteClient(
                 .post(body.toByteArray(Charsets.UTF_8).toRequestBody(JSON))
                 .build()
         }
-        val allowed = request != null &&
-            ready != null &&
-            encoded != null &&
-            requestTargets(requestUrl = request.url, exactUrl = exactUrl) &&
-            !AdmissionQr.isAdmissionGateHost(request.url.host)
-        return if (request == null || ready == null || encoded == null || !allowed) {
-            AdmissionTrace.refused(
-                reason = "not-sent",
-                pubkeyMatch = null,
-                hBytes = ready?.hashBytes?.size,
-                target = admissionTarget(exactUrl),
-            )
-            AdmissionPostResult.NotSent
+        val addressed = request?.let { canSend(request = it, exactUrl = exactUrl) } == true
+        return if (!addressed) {
+            null
+        } else if (ready != null && encoded != null && request != null) {
+            OutboundPost(ready = ready, encoded = encoded, request = request)
         } else {
-            val fields = admissionBodyFields(encoded)
-            AdmissionTrace.post(
-                target = admissionTarget(exactUrl),
-                hBytes = ready.hashBytes.size,
-                hasObjectB64 = fields.hasObjectB64,
-                hasSignature = fields.hasSignature,
-                signatureHex = signatureHex,
-            )
-            execute(request)
+            null
         }
     }
+
+    private fun canSend(request: Request, exactUrl: String): Boolean =
+        requestTargets(requestUrl = request.url, exactUrl = exactUrl) &&
+            !AdmissionQr.isAdmissionGateHost(request.url.host)
 
     private fun failedPost(error: Exception): AdmissionPostResult {
         Napier.w(error) { "Service admission request failed." }
