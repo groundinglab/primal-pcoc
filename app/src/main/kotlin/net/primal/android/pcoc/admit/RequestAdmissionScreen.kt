@@ -1,7 +1,9 @@
 package net.primal.android.pcoc.admit
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,12 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -51,54 +55,19 @@ private fun RequestAdmissionScreen(
         title = stringResource(id = R.string.pcoc_admit_title),
         onClose = onClose,
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-        ) {
-            if (!state.hasEnrolledObject) {
-                Text(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                    text = stringResource(id = R.string.pcoc_admit_need_pcoc),
-                    style = AppTheme.typography.bodyLarge,
-                    color = AppTheme.colorScheme.onPrimary,
-                )
-            } else if (state.scanning) {
-                Text(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    text = stringResource(id = R.string.pcoc_admit_hint),
-                    style = AppTheme.typography.bodyMedium,
-                    color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-                )
-                AdmissionQrScanner(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
-                )
-                AdmissionPasteButton(
-                    enabled = !state.readingObject && !state.submitting,
-                    onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
-                )
-            } else {
-                AdmissionScanResult(
-                    modifier = Modifier.weight(1f),
-                    state = state,
-                    eventPublisher = eventPublisher,
-                )
-            }
-            if (state.offerSignIn()) {
-                PrimalLoadingButton(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 16.dp)
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    text = stringResource(id = R.string.pcoc_admit_sign_in),
-                    enabled = !state.submitting,
-                    loading = false,
-                    onClick = { eventPublisher(UiEvent.RequestSign) },
-                )
-            }
+        if (state.showWelcome) {
+            SignInWelcome(
+                modifier = Modifier.padding(paddingValues),
+                dontShowAgain = state.dontShowAgain,
+                onDontShowAgainChange = { eventPublisher(UiEvent.DontShowAgainChanged(it)) },
+                onEnter = { eventPublisher(UiEvent.EnterSignIn) },
+            )
+        } else {
+            AdmissionSignInBody(
+                state = state,
+                eventPublisher = eventPublisher,
+                modifier = Modifier.padding(paddingValues),
+            )
         }
         if (state.confirming && !state.submitting) {
             ConfirmActionAlertDialog(
@@ -109,6 +78,121 @@ private fun RequestAdmissionScreen(
                 onDismissRequest = { eventPublisher(UiEvent.DismissSign) },
             )
         }
+    }
+}
+
+@Composable
+private fun AdmissionSignInBody(
+    state: UiState,
+    eventPublisher: (UiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        if (!state.hasEnrolledObject) {
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                text = stringResource(id = R.string.pcoc_admit_need_pcoc),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        } else if (state.scanning) {
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                text = stringResource(id = R.string.pcoc_admit_hint),
+                style = AppTheme.typography.bodyMedium,
+                color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+            )
+            AdmissionQrScanner(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
+            )
+            AdmissionPasteButton(
+                enabled = !state.readingObject && !state.submitting,
+                onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
+            )
+        } else {
+            AdmissionScanResult(
+                modifier = Modifier.weight(1f),
+                state = state,
+                eventPublisher = eventPublisher,
+            )
+        }
+        if (state.offerSignIn()) {
+            PrimalLoadingButton(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .fillMaxWidth()
+                    .height(56.dp),
+                text = stringResource(id = R.string.pcoc_admit_sign_in),
+                enabled = !state.submitting,
+                loading = false,
+                onClick = { eventPublisher(UiEvent.RequestSign) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SignInWelcome(
+    dontShowAgain: Boolean,
+    onDontShowAgainChange: (Boolean) -> Unit,
+    onEnter: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+        ) {
+            Text(
+                text = stringResource(id = R.string.pcoc_admit_welcome_need),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+            Text(
+                modifier = Modifier.padding(top = 16.dp),
+                text = stringResource(id = R.string.pcoc_admit_welcome_code),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+            Text(
+                modifier = Modifier.padding(top = 16.dp),
+                text = stringResource(id = R.string.pcoc_admit_welcome_cost),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+                .clickable { onDontShowAgainChange(!dontShowAgain) },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = dontShowAgain,
+                onCheckedChange = null,
+            )
+            Text(
+                text = stringResource(id = R.string.pcoc_admit_welcome_skip),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        }
+        PrimalLoadingButton(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .fillMaxWidth()
+                .height(56.dp),
+            text = stringResource(id = R.string.pcoc_admit_welcome_cta),
+            enabled = true,
+            loading = false,
+            onClick = onEnter,
+        )
     }
 }
 
@@ -127,8 +211,7 @@ private fun AdmissionPasteButton(enabled: Boolean, onPaste: (String) -> Unit) {
     )
 }
 
-private fun clipboardText(context: Context): String =
-    runCatching { context.pasteText() }.getOrNull().orEmpty()
+private fun clipboardText(context: Context): String = runCatching { context.pasteText() }.getOrNull().orEmpty()
 
 private fun UiState.offerSignIn(): Boolean =
     hasEnrolledObject &&

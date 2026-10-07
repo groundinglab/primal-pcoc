@@ -47,6 +47,7 @@ import net.primal.android.core.compose.bubble.anchor
 import net.primal.android.core.compose.icons.PrimalIcons
 import net.primal.android.core.compose.icons.primaliconpack.ExploreFilled
 import net.primal.android.core.compose.icons.primaliconpack.FeedPickerFilled
+import net.primal.android.core.compose.icons.primaliconpack.Key
 import net.primal.android.core.compose.icons.primaliconpack.LongReadFilled
 import net.primal.android.core.compose.icons.primaliconpack.NavWalletBoltFilled
 import net.primal.android.core.compose.icons.primaliconpack.NotificationsFilled
@@ -82,33 +83,36 @@ fun PrimalNavigationBar(
                 val horizontalPadding = 12.dp
                 val topPadding = 4.dp
                 val pillWidth = 72.dp
-                val itemWidth = (maxWidth - horizontalPadding * 2) / PrimalTopLevelDestination.entries.size
-                val selectedIndex = PrimalTopLevelDestination.entries.indexOf(activeDestination)
+                val destinations = mainBarDestinations
+                val itemWidth = (maxWidth - horizontalPadding * 2) / destinations.size
+                val selectedIndex = destinations.indexOf(activeDestination)
 
-                val pillOffset by animateDpAsState(
-                    targetValue = horizontalPadding + itemWidth * selectedIndex + (itemWidth - pillWidth) / 2,
-                    animationSpec = spring(
-                        dampingRatio = 0.75f,
-                        stiffness = Spring.StiffnessMedium,
-                    ),
-                    label = "pillOffset",
-                )
+                if (selectedIndex >= 0) {
+                    val pillOffset by animateDpAsState(
+                        targetValue = horizontalPadding + itemWidth * selectedIndex + (itemWidth - pillWidth) / 2,
+                        animationSpec = spring(
+                            dampingRatio = 0.75f,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                        label = "pillOffset",
+                    )
 
-                Box(
-                    modifier = Modifier
-                        .offset(x = pillOffset, y = topPadding)
-                        .fillMaxHeight(),
-                    contentAlignment = Alignment.Center,
-                ) {
                     Box(
                         modifier = Modifier
-                            .height(52.dp)
-                            .width(pillWidth)
-                            .background(
-                                color = AppTheme.extraColorScheme.surfaceVariantAlt1,
-                                shape = CircleShape,
-                            ),
-                    )
+                            .offset(x = pillOffset, y = topPadding)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .height(52.dp)
+                                .width(pillWidth)
+                                .background(
+                                    color = AppTheme.extraColorScheme.surfaceVariantAlt1,
+                                    shape = CircleShape,
+                                ),
+                        )
+                    }
                 }
 
                 Row(
@@ -117,7 +121,7 @@ fun PrimalNavigationBar(
                         .padding(horizontal = horizontalPadding)
                         .fillMaxSize(),
                 ) {
-                    PrimalTopLevelDestination.entries.forEach { destination ->
+                    destinations.forEach { destination ->
                         PrimalNavigationBarItem(
                             modifier = Modifier
                                 .weight(1f)
@@ -206,18 +210,20 @@ private fun Modifier.anchorIfExplore(destination: PrimalTopLevelDestination, han
 enum class PrimalTopLevelDestination {
     Feeds,
     Reads,
-    Wallet,
+    SignIn,
     Alerts,
     Explore,
+    Wallet,
 }
 
 private fun PrimalTopLevelDestination.imageVector(): ImageVector {
     return when (this) {
         PrimalTopLevelDestination.Feeds -> PrimalIcons.FeedPickerFilled
         PrimalTopLevelDestination.Reads -> PrimalIcons.LongReadFilled
-        PrimalTopLevelDestination.Wallet -> PrimalIcons.NavWalletBoltFilled
+        PrimalTopLevelDestination.SignIn -> PrimalIcons.Key
         PrimalTopLevelDestination.Alerts -> PrimalIcons.NotificationsFilled
         PrimalTopLevelDestination.Explore -> PrimalIcons.ExploreFilled
+        PrimalTopLevelDestination.Wallet -> PrimalIcons.NavWalletBoltFilled
     }
 }
 
@@ -226,9 +232,10 @@ private fun PrimalTopLevelDestination.label(): String {
     return when (this) {
         PrimalTopLevelDestination.Feeds -> stringResource(id = R.string.primary_destination_feed_label)
         PrimalTopLevelDestination.Reads -> stringResource(id = R.string.primary_destination_reads_label)
-        PrimalTopLevelDestination.Wallet -> stringResource(id = R.string.primary_destination_wallet_label)
+        PrimalTopLevelDestination.SignIn -> stringResource(id = R.string.primary_destination_sign_in_label)
         PrimalTopLevelDestination.Alerts -> stringResource(id = R.string.primary_destination_notifications_label)
         PrimalTopLevelDestination.Explore -> stringResource(id = R.string.primary_destination_explore_label)
+        PrimalTopLevelDestination.Wallet -> stringResource(id = R.string.primary_destination_wallet_label)
     }
 }
 

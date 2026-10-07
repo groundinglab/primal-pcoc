@@ -29,11 +29,18 @@ class RequestAdmissionViewModel @Inject constructor(
     private val store: EnrolledPcocStore,
     poster: AdmissionSiteClient,
     private val dispatchers: DispatcherProvider,
+    private val welcomeStore: SignInWelcomeStore,
 ) : ViewModel() {
 
     private val request = RequestServiceAdmission(store = store, poster = poster)
+    private val welcome = SignInWelcomeGate(skipWelcome = welcomeStore.skipWelcome())
 
-    private val _state = MutableStateFlow(UiState())
+    private val _state = MutableStateFlow(
+        UiState(
+            showWelcome = welcome.onOpen() == SignInWelcomeStep.Welcome,
+            dontShowAgain = welcome.skipWelcome,
+        ),
+    )
     val state = _state.asStateFlow()
     private fun setState(reducer: UiState.() -> UiState) = _state.getAndUpdate(reducer)
 
@@ -76,6 +83,8 @@ class RequestAdmissionViewModel @Inject constructor(
                         setState { copy(confirming = false) }
                     }
                     UiEvent.SignAndSubmit -> startSubmit()
+                    is UiEvent.DontShowAgainChanged -> onDontShowAgain(event.checked)
+                    UiEvent.EnterSignIn -> setState { copy(showWelcome = false) }
                 }
             }
         }
@@ -97,9 +106,15 @@ class RequestAdmissionViewModel @Inject constructor(
         }
     }
 
+    private fun onDontShowAgain(checked: Boolean) {
+        welcome.setDontShowAgain(checked)
+        welcomeStore.setSkipWelcome(welcome.skipWelcome)
+        setState { copy(dontShowAgain = welcome.skipWelcome) }
+    }
+
     private fun onPaste(raw: String) {
         val current = _state.value
-        if (!current.scanning || current.readingObject || current.submitting) return
+        if (current.showWelcome || !current.scanning || current.readingObject || current.submitting) return
         val url = (AdmissionPaste.parse(raw) as? AdmissionPasteParse.Ready)?.exactUrl
         if (url == null) {
             rejectPaste()
@@ -125,7 +140,7 @@ class RequestAdmissionViewModel @Inject constructor(
 
     private fun onQr(raw: String) {
         val current = _state.value
-        if (!current.scanning || current.readingObject || current.submitting) return
+        if (current.showWelcome || !current.scanning || current.readingObject || current.submitting) return
         val parsed = AdmissionQr.parse(raw)
         val ready = parsed as? AdmissionQrParse.Ready
         if (ready == null) {
