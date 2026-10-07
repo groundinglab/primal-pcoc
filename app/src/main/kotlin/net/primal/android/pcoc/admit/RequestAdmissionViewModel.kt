@@ -316,10 +316,8 @@ private fun AdmissionQrParse.toScanProblem(): ScanProblem? =
 
 private fun AdmissionSubmitOutcome.toOutcome(): Outcome =
     when (this) {
-        is AdmissionSubmitOutcome.Decision -> Outcome.FromGate(
-            decision = decision,
-            verifierRan = verifierRan,
-        )
+        AdmissionSubmitOutcome.Delivered -> Outcome.Delivered
+        AdmissionSubmitOutcome.BadSignature -> Outcome.BadSignature
         AdmissionSubmitOutcome.Failed -> Outcome.Failed
         is AdmissionSubmitOutcome.KeyMismatch -> Outcome.KeyMismatch(
             loginPrefix = loginPrefix,

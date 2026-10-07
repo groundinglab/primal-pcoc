@@ -26,8 +26,13 @@ interface RequestAdmissionContract {
     }
 
     sealed interface Outcome {
-        data class FromGate(val decision: AdmissionDecision, val verifierRan: Boolean?) : Outcome
+        /** POST reached the scanned page. Not welcome, refused, or progress. */
+        data object Delivered : Outcome
 
+        /** The site named `bad_signature`. Not a policy refusal. */
+        data object BadSignature : Outcome
+
+        /** The POST did not arrive. Not a policy refusal. */
         data object Failed : Outcome
 
         data class KeyMismatch(

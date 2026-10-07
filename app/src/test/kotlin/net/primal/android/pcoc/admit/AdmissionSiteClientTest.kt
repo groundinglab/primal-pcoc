@@ -30,10 +30,7 @@ class AdmissionSiteClientTest {
 
         val result = client.post(exactUrl = exact, objectBytes = objectBytes, signatureHex = signature)
 
-        result shouldBe AdmissionPostResult.Decision(
-            decision = AdmissionDecision.Accept,
-            verifierRan = true,
-        )
+        result shouldBe AdmissionPostResult.Delivered
         factory.requests.single().url.toString() shouldBe exact
         val recorded = factory.requests.single()
         recorded.method shouldBe "POST"
@@ -50,21 +47,59 @@ class AdmissionSiteClientTest {
     }
 
     @Test
-    fun `deny comes only from decision`() {
-        val factory = scripted(body = """{"decision":"deny","verifier_ran":true,"measurements":[1]}""")
-        val client = AdmissionSiteClient(factory)
-
-        client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
-            AdmissionPostResult.Decision(decision = AdmissionDecision.Deny, verifierRan = true)
+    fun `a delivered post is not a policy verdict`() {
+        listOf(
+            """{"decision":"accept","verifier_ran":true}""",
+            """{"decision":"deny","verifier_ran":true,"measurements":[1]}""",
+            """{"decision":"deny","phase":"fast","reasons":["B9 shape"]}""",
+            """{"decision":"deny","verifier_ran":false}""",
+            """{"decision":"provisional","phase":"fast","seq":1}""",
+            """{"decision":"checking"}""",
+            """{"status":"revoke"}""",
+            "",
+            "not-json",
+            "{}",
+            """{"decision":"maybe"}""",
+            """{"decision":"Accept"}""",
+        ).forEach { body ->
+            val client = AdmissionSiteClient(scripted(body = body))
+            client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
+                AdmissionPostResult.Delivered
+        }
     }
 
     @Test
-    fun `empty garbage and other decisions are failed requests`() {
-        listOf("", "not-json", "{}", """{"decision":"maybe"}""", """{"decision":"Accept"}""").forEach { body ->
-            val client = AdmissionSiteClient(scripted(body = body))
+    fun `a provisional 2xx on the live sign-in url is delivered`() {
+        val exact = "https://pcoc.app/sign-in/?h=$hash"
+        val body = """{"decision":"provisional","phase":"fast","seq":4,"submission_sha256":"$hash"}"""
+        val factory = scripted(code = 200, body = body)
+        val client = AdmissionSiteClient(factory)
+
+        client.post(exactUrl = exact, objectBytes = objectBytes, signatureHex = signature) shouldBe
+            AdmissionPostResult.Delivered
+        factory.requests.single().url.toString() shouldBe exact
+    }
+
+    @Test
+    fun `bad signature is an error and not a refusal`() {
+        listOf(
+            403 to """{"error":{"code":"bad_signature","message":"the signature does not verify"}}""",
+            200 to """{"error":"bad_signature"}""",
+            400 to """{"decision":"deny","reason":"bad_signature"}""",
+        ).forEach { (code, body) ->
+            val client = AdmissionSiteClient(scripted(code = code, body = body))
             client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
-                AdmissionPostResult.Failed
+                AdmissionPostResult.BadSignature
         }
+    }
+
+    @Test
+    fun `a non 2xx body that is not bad_signature is a delivery failure`() {
+        val body = """{"decision":"deny","error":{"code":"bad_gateway","message":"the admission gate did not answer"}}"""
+        val client = AdmissionSiteClient(scripted(code = 502, body = body))
+
+        client.post(exactUrl = serviceUrl(), objectBytes = objectBytes, signatureHex = signature) shouldBe
+            AdmissionPostResult.Failed
     }
 
     @Test
@@ -116,7 +151,7 @@ class AdmissionSiteClientTest {
         val client = AdmissionSiteClient(factory)
 
         client.post(exactUrl = exact, objectBytes = objectBytes, signatureHex = signature) shouldBe
-            AdmissionPostResult.Decision(decision = AdmissionDecision.Accept, verifierRan = false)
+            AdmissionPostResult.Delivered
         factory.requests.single().url.toString() shouldBe exact
     }
 

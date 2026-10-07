@@ -53,6 +53,10 @@ class AdmissionTraceTest {
         xml.contains("The check ran") shouldBe false
         xml.contains("This saved PCOC is for a different login. It was not sent.") shouldBe true
         xml.contains("Sending…") shouldBe true
+        xml.contains("name=\"pcoc_admit_delivered\"") shouldBe true
+        xml.contains("name=\"pcoc_admit_failed\">The sign-in was not delivered. This is not a refusal.") shouldBe true
+        xml.contains("Request failed. This is not a denial.") shouldBe false
+        xml.contains("The service said:") shouldBe false
         val detail = Regex("""name="pcoc_admit_key_mismatch_detail">([^<]+)</string>""")
             .find(xml)
             ?.groupValues
