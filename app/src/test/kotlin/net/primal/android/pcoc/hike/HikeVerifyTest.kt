@@ -298,9 +298,14 @@ class HikeVerifyTest {
     }
 
     @Test
-    fun `a bad object is invalid and a short hike does not stop at the first beacon`() {
-        VerifyAny.finish(ByteArray(0), IndexSource { _ -> error("read") }, Draw.Entropy { _ -> error("drew") }) shouldBe
-            VerifyAny.Word.INVALID
+    fun `an undecodable buffer is unread and a short hike still writes a record`() {
+        val empty = VerifyAny.finish(
+            ByteArray(0),
+            IndexSource { _ -> error("read") },
+            Draw.Entropy { _ -> error("drew") },
+        )
+        empty.record shouldBe null
+        empty.unread shouldBe true
 
         val heights = mutableListOf<Long>()
         val measurements = HikeVerify.verify(
@@ -312,6 +317,7 @@ class HikeVerifyTest {
             Draw.Entropy { _ -> error("drew") },
         )
         heights shouldBe listOf(1L, 2L)
+        measurements.decoded shouldBe true
         measurements.shape shouldBe false
         measurements.checkpoints!!.mismatch shouldBe true
         measurements.checkpoints!!.beaconMatchesIndex.toList() shouldBe listOf(false, false)
@@ -321,8 +327,17 @@ class HikeVerifyTest {
         measurements.sixLegs.kind shouldBe HikeVerify.SixKind.COULD_NOT_DRAW
         measurements.stages!!.last().gap shouldBe HikeVerify.GapKind.NOT_DEFINED
         HikeVerify.admit(measurements) shouldBe false
-        VerifyAny.finish(quiet(2), IndexSource { _ -> null }, Draw.Entropy { _ -> error("drew") }) shouldBe
-            VerifyAny.Word.INVALID
+        val recorded = VerifyAny.record(measurements)
+        recorded.profile shouldBe VerifyAny.LIVE_PROFILE
+        recorded.shape shouldBe VerifyAny.MISMATCH
+        recorded.checkpoints shouldBe VerifyAny.MISMATCH
+        recorded.waypoints shouldBe VerifyAny.NOT_READ
+        recorded.legRate shouldBe VerifyAny.NOT_READ
+        recorded.sixLeg shouldBe VerifyAny.NOT_DEFINED
+        val finished = VerifyAny.finish(quiet(2), IndexSource { _ -> null }, Draw.Entropy { _ -> error("drew") })
+        finished.unread shouldBe false
+        finished.record!!.shape shouldBe VerifyAny.MISMATCH
+        finished.record!!.sixLeg shouldBe VerifyAny.NOT_DEFINED
     }
 
     @Test
@@ -384,6 +399,7 @@ class HikeVerifyTest {
                 0L,
                 passing.sixLegs,
                 null,
+                true,
             ),
         ) shouldBe false
 
@@ -408,16 +424,74 @@ class HikeVerifyTest {
         ) shouldBe true
     }
 
+    @Test
+    fun `the record uses measurement words and does not follow section 15`() {
+        val passing = passing()
+        val recorded = VerifyAny.record(passing)
+        recorded.profile shouldBe "production"
+        recorded.shape shouldBe "match"
+        recorded.checkpoints shouldBe "match"
+        recorded.waypoints shouldBe "match"
+        recorded.legRate shouldBe "not read"
+        recorded.sixLeg shouldBe "match"
+        words(recorded).forEach { word ->
+            listOf("match", "mismatch", "not read", "not defined").contains(word) shouldBe true
+        }
+
+        VerifyAny.record(copy(passing, shape = false)).shape shouldBe "mismatch"
+        VerifyAny.record(
+            HikeVerify.Measurements(
+                true,
+                null,
+                null,
+                HikeVerify.LegRate.NOT_READ,
+                0L,
+                HikeVerify.SixLegs(HikeVerify.SixKind.NOT_OBTAINED, null, null),
+                null,
+                true,
+            ),
+        ).let { row ->
+            row.checkpoints shouldBe "not read"
+            row.waypoints shouldBe "not read"
+            row.sixLeg shouldBe "not read"
+        }
+        VerifyAny.record(
+            measurements(passing, six = HikeVerify.SixLegs(HikeVerify.SixKind.DRAW_NOT_OBTAINED, null, null)),
+        ).sixLeg shouldBe "not read"
+        VerifyAny.record(
+            measurements(passing, six = HikeVerify.SixLegs(HikeVerify.SixKind.COULD_NOT_DRAW, null, null)),
+        ).sixLeg shouldBe "not defined"
+        val badWalk = HikeVerify.SixLegs(
+            HikeVerify.SixKind.REWALKED,
+            longArrayOf(0, 1, 2, 3, 4, 5),
+            booleanArrayOf(true, true, false, true, true, true),
+        )
+        VerifyAny.record(measurements(passing, six = badWalk)).sixLeg shouldBe "mismatch"
+
+        val opening = HikeVerify.Waypoints(false, BooleanArray(17), 0L, false)
+        VerifyAny.record(measurements(passing, waypoints = opening)).waypoints shouldBe "mismatch"
+        HikeVerify.admit(measurements(passing, waypoints = opening)) shouldBe true
+        val badSuccessor = HikeVerify.Waypoints(true, BooleanArray(17).also { it[3] = true }, 0L, false)
+        VerifyAny.record(measurements(passing, waypoints = badSuccessor)).waypoints shouldBe "mismatch"
+        val badPlant = HikeVerify.Waypoints(true, BooleanArray(17), 1L, true)
+        VerifyAny.record(measurements(passing, waypoints = badPlant)).waypoints shouldBe "mismatch"
+    }
+
+    private fun words(record: VerifyAny.Record): List<String> =
+        listOf(record.shape, record.checkpoints, record.waypoints, record.legRate, record.sixLeg)
+
     private fun finishQuiet(
         flight: VerifyFlight,
         bytes: ByteArray,
         index: IndexSource,
         entropy: Draw.Entropy,
     ) {
-        val word = flight.call {
+        val finish = flight.call {
             VerifyAny.finish(bytes, index, entropy, null)
         }
-        word shouldBe VerifyAny.Word.INVALID
+        finish.unread shouldBe false
+        finish.record shouldNotBe null
+        finish.record!!.profile shouldBe VerifyAny.LIVE_PROFILE
     }
 
     private fun elapsed(block: () -> Unit): Long {
@@ -502,6 +576,7 @@ class HikeVerifyTest {
                 BooleanArray(6) { true },
             ),
             null,
+            true,
         )
 
     private fun copy(measurements: HikeVerify.Measurements, shape: Boolean) =
@@ -513,6 +588,7 @@ class HikeVerifyTest {
             measurements.pathsIncluded,
             measurements.sixLegs,
             measurements.stages,
+            measurements.decoded,
         )
 
     private fun measurements(
@@ -527,6 +603,7 @@ class HikeVerifyTest {
         0L,
         six,
         null,
+        true,
     )
 
     private fun quiet(stages: Int): ByteArray {

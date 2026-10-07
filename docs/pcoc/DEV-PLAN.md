@@ -6,7 +6,7 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC, Verify any PCOC, and Request service admission work. Create a PCOC is a copy shell. Verify any is full section 14 then section 15, as [FEATURES-v0.1.md](FEATURES-v0.1.md) locks. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
+**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC, Verify any PCOC, and Request service admission work. Create a PCOC is a copy shell. Verify any is the section 14 measurement record, as [FEATURES-v0.1.md](FEATURES-v0.1.md) locks. It does not apply section 15 and it does not show valid or invalid. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
 
 **Later** (in-app produce, screen-off tip observe, Option B admit) stay behind their own asks. Verify any is the Java verifier in [FEATURES-v0.1.md](FEATURES-v0.1.md). In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
@@ -56,7 +56,7 @@ If the artifact is not published, or the call site is still unnamed, this phase 
 
 ### 7. Later — local verify
 
-The Account door **Verify any PCOC** runs the Java port of section 14 then section 15. It shows valid or invalid only. Measurements stay hidden. VivoBook bare metal is the timing host. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
+The Account door **Verify any PCOC** runs the Java port of section 14 and shows the measurement record: Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. It does not apply section 15 and it does not show valid or invalid. VivoBook bare metal is the timing host. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
 
 The door reads the live index. It does not keep a header archive and it does not GET a tip. The Option B admit gate does not own a second verifier and does not call verify.
 

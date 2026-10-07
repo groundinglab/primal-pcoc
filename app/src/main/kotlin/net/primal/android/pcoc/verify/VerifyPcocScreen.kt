@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import net.primal.android.R
 import net.primal.android.core.compose.button.PrimalLoadingButton
 import net.primal.android.pcoc.PcocScaffold
-import net.primal.android.pcoc.hike.VerifyAny
+import net.primal.android.pcoc.verify.VerifyPcocContract.MeasureRow
 import net.primal.android.pcoc.verify.VerifyPcocContract.Notice
 import net.primal.android.pcoc.verify.VerifyPcocContract.Stage
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiEvent
@@ -39,7 +39,7 @@ fun VerifyPcocScreen(viewModel: VerifyPcocViewModel, onClose: () -> Unit) {
 }
 
 @Composable
-private fun VerifyPcocScreen(
+internal fun VerifyPcocScreen(
     state: UiState,
     onClose: () -> Unit,
     eventPublisher: (UiEvent) -> Unit,
@@ -84,14 +84,16 @@ private fun VerifyPcocScreen(
                     color = AppTheme.colorScheme.onPrimary,
                 )
             }
-            val word = state.word
-            if (word != null) {
+            if (!state.busy && state.recorded) {
                 Text(
                     modifier = Modifier.padding(top = 16.dp),
-                    text = word.text(),
+                    text = stringResource(id = R.string.pcoc_verify_recorded),
                     style = AppTheme.typography.titleLarge,
                     color = AppTheme.colorScheme.onPrimary,
                 )
+                state.rows.forEach { row ->
+                    MeasureLine(row = row)
+                }
             }
             PrimalLoadingButton(
                 modifier = Modifier
@@ -137,15 +139,32 @@ private fun UiState.stageLabel(): String =
     }
 
 @Composable
+private fun MeasureLine(row: MeasureRow) {
+    Text(
+        modifier = Modifier.padding(top = 16.dp),
+        text = stringResource(id = row.title),
+        style = AppTheme.typography.bodyMedium,
+        color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+    )
+    Text(
+        text = row.found,
+        style = AppTheme.typography.bodyLarge,
+        color = AppTheme.colorScheme.onPrimary,
+    )
+    if (row.rateUnread) {
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = stringResource(id = R.string.pcoc_verify_rate_note),
+            style = AppTheme.typography.bodyMedium,
+            color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+        )
+    }
+}
+
+@Composable
 private fun Notice.text(): String =
     when (this) {
         Notice.IndexUnreachable -> stringResource(id = R.string.pcoc_verify_index_error)
         Notice.DidNotFinish -> stringResource(id = R.string.pcoc_verify_unfinished)
-    }
-
-@Composable
-private fun VerifyAny.Word.text(): String =
-    when (this) {
-        VerifyAny.Word.VALID -> stringResource(id = R.string.pcoc_verify_valid)
-        VerifyAny.Word.INVALID -> stringResource(id = R.string.pcoc_verify_invalid)
+        Notice.CouldNotRead -> stringResource(id = R.string.pcoc_verify_unread)
     }

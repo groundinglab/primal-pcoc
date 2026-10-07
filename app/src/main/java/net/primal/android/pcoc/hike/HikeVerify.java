@@ -11,7 +11,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Section 14 in order, then section 15 is {@link #admit}. A mismatch does not skip a later record.
+ * Section 14 in order. {@link #admit} is section 15 and is not the Verify door.
+ * A mismatch does not skip a later record.
  * The pool of {@link HikeConst#REWALK_THREADS} is built inside the leg check, only after a successful draw.
  */
 public final class HikeVerify {
@@ -127,6 +128,8 @@ public final class HikeVerify {
         public final SixLegs sixLegs;
         /** Null when the stored-beacon table was not read. Not section 14.4 and not section 15. */
         public final StoredStage[] stages;
+        /** False when the bytes did not decode. An undecodable buffer is not a record. */
+        public final boolean decoded;
 
         Measurements(
             boolean shape,
@@ -135,7 +138,8 @@ public final class HikeVerify {
             LegRate legRate,
             Long pathsIncluded,
             SixLegs sixLegs,
-            StoredStage[] stages
+            StoredStage[] stages,
+            boolean decoded
         ) {
             this.shape = shape;
             this.checkpoints = checkpoints;
@@ -144,6 +148,7 @@ public final class HikeVerify {
             this.pathsIncluded = pathsIncluded;
             this.sixLegs = sixLegs;
             this.stages = stages;
+            this.decoded = decoded;
         }
     }
 
@@ -223,7 +228,16 @@ public final class HikeVerify {
                     sixLegs = measureSix(hike, terrain, entropy, progress);
                 }
             }
-            return new Measurements(shape, checkpoints, waypoints, LegRate.NOT_READ, pathsIncluded, sixLegs, stages);
+            return new Measurements(
+                shape,
+                checkpoints,
+                waypoints,
+                LegRate.NOT_READ,
+                pathsIncluded,
+                sixLegs,
+                stages,
+                hike != null
+            );
         } finally {
             if (terrain != null) {
                 terrain.release();
@@ -231,7 +245,10 @@ public final class HikeVerify {
         }
     }
 
-    /** Section 15. An unread leg rate does not fail. An absent path does not fail. */
+    /**
+     * Section 15. The Verify door does not call this.
+     * An unread leg rate does not decide it. An absent path does not.
+     */
     public static boolean admit(Measurements measurements) {
         if (!measurements.shape) {
             return false;
