@@ -20,6 +20,7 @@ interface RequestAdmissionContract {
         BadHash,
         GateUrl,
         NotAServiceUrl,
+        PasteRejected,
     }
 
     sealed interface Outcome {
@@ -39,6 +40,8 @@ interface RequestAdmissionContract {
 
     sealed class UiEvent {
         data class QrCodeDetected(val value: String) : UiEvent()
+
+        data class CodePasted(val value: String) : UiEvent()
 
         data object ScanAgain : UiEvent()
 

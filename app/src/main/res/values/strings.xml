@@ -184,7 +184,9 @@
     <string name="pcoc_verify_row_leg_rate">Leg rate</string>
     <string name="pcoc_verify_row_six_leg">Six leg</string>
     <string name="pcoc_create_body">Create a PCOC does not run on this phone.\n\nA live object is produced elsewhere. This screen does not plant a hike, gossip it, call Bari, grow a seed list, or run produce. It does not create an object and it does not show an admission result.</string>
-    <string name="pcoc_admit_hint">Scan the QR code on the service you want to get into.</string>
+    <string name="pcoc_admit_hint">Scan the QR code on the service you want to get into. If the camera cannot scan, paste the sign-in code.</string>
+    <string name="pcoc_admit_paste">Paste code</string>
+    <string name="pcoc_admit_paste_error">That is not a sign-in code.</string>
     <string name="pcoc_admit_need_pcoc">You need a PCOC first. Create one in this app (it enrolls automatically when done), or make one on your desktop, copy it to this phone, and use Enroll your PCOC.</string>
     <string name="pcoc_admit_wrong_login">This login cannot sign in.</string>
     <string name="pcoc_admit_scan_again">Scan again</string>

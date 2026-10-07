@@ -1,5 +1,6 @@
 package net.primal.android.pcoc.admit
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,17 +16,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.primal.android.R
 import net.primal.android.core.compose.ConfirmActionAlertDialog
 import net.primal.android.core.compose.button.PrimalLoadingButton
+import net.primal.android.core.utils.pasteText
 import net.primal.android.pcoc.PcocScaffold
 import net.primal.android.pcoc.admit.RequestAdmissionContract.Outcome
 import net.primal.android.pcoc.admit.RequestAdmissionContract.ScanProblem
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiEvent
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiState
 import net.primal.android.theme.AppTheme
+import net.primal.core.utils.runCatching
 
 @Composable
 fun RequestAdmissionScreen(viewModel: RequestAdmissionViewModel, onClose: () -> Unit) {
@@ -72,6 +76,10 @@ private fun RequestAdmissionScreen(
                         .fillMaxWidth(),
                     onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
                 )
+                AdmissionPasteButton(
+                    enabled = !state.readingObject && !state.submitting,
+                    onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
+                )
             } else {
                 AdmissionScanResult(
                     modifier = Modifier.weight(1f),
@@ -103,6 +111,24 @@ private fun RequestAdmissionScreen(
         }
     }
 }
+
+@Composable
+private fun AdmissionPasteButton(enabled: Boolean, onPaste: (String) -> Unit) {
+    val context = LocalContext.current
+    PrimalLoadingButton(
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .fillMaxWidth()
+            .height(56.dp),
+        text = stringResource(id = R.string.pcoc_admit_paste),
+        enabled = enabled,
+        loading = false,
+        onClick = { onPaste(clipboardText(context)) },
+    )
+}
+
+private fun clipboardText(context: Context): String =
+    runCatching { context.pasteText() }.getOrNull().orEmpty()
 
 private fun UiState.offerSignIn(): Boolean =
     hasEnrolledObject &&
@@ -174,6 +200,7 @@ private fun ScanProblem.text(): String =
         ScanProblem.BadHash -> stringResource(id = R.string.pcoc_admit_problem_bad_hash)
         ScanProblem.GateUrl -> stringResource(id = R.string.pcoc_admit_problem_gate)
         ScanProblem.NotAServiceUrl -> stringResource(id = R.string.pcoc_admit_problem_other)
+        ScanProblem.PasteRejected -> stringResource(id = R.string.pcoc_admit_paste_error)
     }
 
 @Composable
