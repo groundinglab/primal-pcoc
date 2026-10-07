@@ -52,8 +52,8 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2734
-val appVersionName = "3.5.37"
+val appVersionCode = 2735
+val appVersionName = "3.5.38"
 
 tasks.register("generateReleaseProperties") {
     doLast {
@@ -245,6 +245,9 @@ android {
     }
 
     testOptions {
+        // Verify screen tests resolve string resources. robolectric.properties
+        // keeps PrimalApp, and its native sqlcipher load, off this JVM.
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.maxHeapSize = "1536m"
         }

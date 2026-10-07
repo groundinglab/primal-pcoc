@@ -91,7 +91,9 @@ class VerifyPcocViewModel @Inject constructor(
             try {
                 when (val outcome = verifyFile(uri, mine)) {
                     Outcome.Stopped -> Unit
-                    is Outcome.Verdict -> publish(mine) { outcome.toState() }
+                    Outcome.Unread -> publish(mine) { measurementUiState(record = null, unread = true) }
+                    Outcome.Unfinished -> publish(mine) { measurementUiState(record = null, unread = false) }
+                    is Outcome.Recorded -> publish(mine) { measurementUiState(outcome.record, unread = false) }
                 }
             } catch (cancelled: CancellationException) {
                 if (mine == ticket.get()) setState { UiState() }
@@ -113,7 +115,7 @@ class VerifyPcocViewModel @Inject constructor(
         } finally {
             StageLog.debug("file read", fileStarted)
         }
-        val word = if (bytes == null || mine != ticket.get()) {
+        val finish = if (bytes == null || mine != ticket.get()) {
             null
         } else {
             runInterruptible(dispatchers.io()) {
@@ -123,23 +125,39 @@ class VerifyPcocViewModel @Inject constructor(
             }
         }
         val stopped = mine != ticket.get() || !coroutineContext.isActive
-        return if (stopped) Outcome.Stopped else Outcome.Verdict(word)
+        if (stopped) {
+            return Outcome.Stopped
+        }
+        if (bytes == null) {
+            return Outcome.Unread
+        }
+        val record = finish?.record
+        return when {
+            record != null -> Outcome.Recorded(record)
+            finish?.unread == true -> Outcome.Unread
+            else -> Outcome.Unfinished
+        }
     }
 
     private fun progress(mine: Int): VerifyProgress {
-        fun show(stage: Stage) {
-            publish(mine) { copy(busy = true, stage = stage, notice = null, word = null) }
-        }
-
-        fun showStep(stage: Stage, done: Int, total: Int) {
+        fun show(
+            stage: Stage,
+            stepDone: Int = 0,
+            stepTotal: Int = 0,
+            legsDone: Int = 0,
+            legsTotal: Int = 6,
+        ) {
             publish(mine) {
                 copy(
                     busy = true,
                     stage = stage,
-                    stepDone = done,
-                    stepTotal = total,
+                    stepDone = stepDone,
+                    stepTotal = stepTotal,
+                    legsDone = legsDone,
+                    legsTotal = legsTotal,
                     notice = null,
-                    word = null,
+                    recorded = false,
+                    rows = emptyList(),
                 )
             }
         }
@@ -151,24 +169,16 @@ class VerifyPcocViewModel @Inject constructor(
 
             override fun checks() = show(Stage.Checks)
 
-            override fun checkpoints(done: Int, total: Int) = showStep(Stage.Checkpoints, done, total)
+            override fun checkpoints(done: Int, total: Int) =
+                show(Stage.Checkpoints, stepDone = done, stepTotal = total)
 
-            override fun waypoints(done: Int, total: Int) = showStep(Stage.Waypoints, done, total)
+            override fun waypoints(done: Int, total: Int) =
+                show(Stage.Waypoints, stepDone = done, stepTotal = total)
 
-            override fun paths(done: Int, total: Int) = showStep(Stage.Paths, done, total)
+            override fun paths(done: Int, total: Int) =
+                show(Stage.Paths, stepDone = done, stepTotal = total)
 
-            override fun leg(done: Int, total: Int) {
-                publish(mine) {
-                    copy(
-                        busy = true,
-                        stage = Stage.Legs,
-                        legsDone = done,
-                        legsTotal = total,
-                        notice = null,
-                        word = null,
-                    )
-                }
-            }
+            override fun leg(done: Int, total: Int) = show(Stage.Legs, legsDone = done, legsTotal = total)
         }
     }
 
@@ -213,15 +223,12 @@ class VerifyPcocViewModel @Inject constructor(
 private sealed interface Outcome {
     data object Stopped : Outcome
 
-    data class Verdict(val word: VerifyAny.Word?) : Outcome
-}
+    data object Unread : Outcome
 
-private fun Outcome.Verdict.toState(): UiState =
-    UiState(
-        busy = false,
-        word = word,
-        notice = if (word == null) Notice.DidNotFinish else null,
-    )
+    data object Unfinished : Outcome
+
+    data class Recorded(val record: VerifyAny.Record) : Outcome
+}
 
 private fun Exception.toNotice(): Notice =
     if (this is IndexUnreachable) Notice.IndexUnreachable else Notice.DidNotFinish

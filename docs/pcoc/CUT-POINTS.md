@@ -121,7 +121,7 @@ No produce call site exists. Do not place one on Wallet. Where an in-app produce
 
 ### Local verify
 
-Account → PCOC **Verify any PCOC** (`VerifyPcocScreen`) runs the Java port of section 14 then section 15. The door shows valid or invalid only. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
+Account → PCOC **Verify any PCOC** (`VerifyPcocScreen`) runs the Java port of section 14 and shows the measurement record. It does not apply section 15 and it does not show valid or invalid. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
 
 The tip client is also absent. Verify reads `https://index.pcoc.app`. It does not keep a header archive.
 
@@ -205,6 +205,6 @@ Recorded so a later change does not fill them in from Primal primitives:
 - Register step after produce.
 - Option B admit bytes. Account → Request service admission is the locked `{object_b64, signature}` POST to the scanned HTTPS URL, not Option B and not a phone→gate POST.
 - A client that reads the public Bitcoin tip. The app does not keep a header archive. No start/stop bound to a leg. `PrimalNwcService` stays the NWC service.
-- A second verifier on the admit gate. Verify any is the Java section 14 then section 15 door.
+- A second verifier on the admit gate. Verify any is the Java section 14 measurement door. It does not apply section 15.
 - Live/TEST profile switch (`TEST` paused; assume live). The verify door has no synth and no `test-*` host.
 - A per-stage table. `STAGES` is 18.
