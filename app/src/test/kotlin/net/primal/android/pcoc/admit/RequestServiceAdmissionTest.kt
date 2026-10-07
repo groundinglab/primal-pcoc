@@ -24,7 +24,7 @@ class RequestServiceAdmissionTest {
             store = store,
             poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
                 seen += Post(exactUrl, bytes, signatureHex)
-                AdmissionPostResult.Decision(AdmissionDecision.Accept)
+                AdmissionPostResult.Delivered
             },
             signHash = { _, hashHex ->
                 hashHex shouldBe hash
@@ -33,7 +33,7 @@ class RequestServiceAdmissionTest {
         )
 
         request.submit(exactUrl = url, accountHex = account, privateKey = privateKey) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Accept)
+            AdmissionSubmitOutcome.Delivered
         seen.single().url shouldBe url
         seen.single().bytes.contentEquals(objectBytes) shouldBe true
         seen.single().signature shouldBe "cd".repeat(64)
@@ -112,7 +112,7 @@ class RequestServiceAdmissionTest {
             store = store,
             poster = AdmissionPoster { _, _, _ ->
                 posts += 1
-                AdmissionPostResult.Decision(AdmissionDecision.Deny, verifierRan = false)
+                AdmissionPostResult.Delivered
             },
             signHash = { _, _ -> "cd".repeat(64) },
         )
@@ -137,18 +137,12 @@ class RequestServiceAdmissionTest {
             store = store,
             poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
                 seen += Post(exactUrl, bytes, signatureHex)
-                AdmissionPostResult.Decision(
-                    decision = AdmissionDecision.Deny,
-                    verifierRan = true,
-                )
+                AdmissionPostResult.Delivered
             },
         )
 
         val outcome = request.submit(exactUrl = exact, accountHex = liveAccount, privateKey = liveKey)
-        outcome shouldBe AdmissionSubmitOutcome.Decision(
-            decision = AdmissionDecision.Deny,
-            verifierRan = true,
-        )
+        outcome shouldBe AdmissionSubmitOutcome.Delivered
         val posted = seen.single()
         posted.url shouldBe exact
         posted.bytes.contentEquals(liveObject) shouldBe true
@@ -169,8 +163,6 @@ class RequestServiceAdmissionTest {
         fields.hasObjectB64 shouldBe true
         fields.hasSignature shouldBe true
         json.contains(liveHash) shouldBe false
-        gateResultText(AdmissionDecision.Deny, verifierRan = true) shouldBe
-            "The service said:\ndecision: deny\nverifier_ran: true"
     }
 
     @Test
@@ -185,12 +177,12 @@ class RequestServiceAdmissionTest {
             store = store,
             poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
                 seen += Post(exactUrl, bytes, signatureHex)
-                AdmissionPostResult.Decision(AdmissionDecision.Accept, verifierRan = true)
+                AdmissionPostResult.Delivered
             },
         )
 
         request.submit(exactUrl = url, accountHex = other, privateKey = Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Accept, verifierRan = true)
+            AdmissionSubmitOutcome.Delivered
         val posted = seen.single()
         posted.bytes.contentEquals(liveObject) shouldBe true
         CryptoUtils.verify(
@@ -211,36 +203,31 @@ class RequestServiceAdmissionTest {
             store = store,
             poster = AdmissionPoster { _, _, _ ->
                 posts += 1
-                AdmissionPostResult.Decision(AdmissionDecision.Deny, verifierRan = false)
+                AdmissionPostResult.Delivered
             },
         )
 
         val npub = pair.pubKey.hexToNpubHrp()
         request.submit(url, "  ${pair.pubKey.uppercase()}  ", Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+            AdmissionSubmitOutcome.Delivered
         request.submit(url, "0x${pair.pubKey}", Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+            AdmissionSubmitOutcome.Delivered
         request.submit(url, npub, Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+            AdmissionSubmitOutcome.Delivered
         posts shouldBe 3
     }
 
     @Test
-    fun `verifier ran is forwarded with the decision`() {
+    fun `a bad signature is not a refusal`() {
         val store = memoryStore()
         store.write(account, objectBytes)
         val request = RequestServiceAdmission(
             store = store,
-            poster = AdmissionPoster { _, _, _ ->
-                AdmissionPostResult.Decision(decision = AdmissionDecision.Deny, verifierRan = false)
-            },
+            poster = AdmissionPoster { _, _, _ -> AdmissionPostResult.BadSignature },
             signHash = { _, _ -> "cd".repeat(64) },
         )
 
-        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Decision(
-            decision = AdmissionDecision.Deny,
-            verifierRan = false,
-        )
+        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.BadSignature
     }
 
     private fun memoryStore() =

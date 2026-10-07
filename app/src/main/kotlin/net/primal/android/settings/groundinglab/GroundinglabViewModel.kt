@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import fr.acinq.secp256k1.Hex
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,20 +16,18 @@ import net.primal.android.settings.groundinglab.GroundinglabContract.SignInError
 import net.primal.android.settings.groundinglab.GroundinglabContract.Stage
 import net.primal.android.settings.groundinglab.GroundinglabContract.UiEvent
 import net.primal.android.settings.groundinglab.GroundinglabContract.UiState
-import net.primal.android.user.accounts.active.ActiveAccountStore
-import net.primal.android.user.credentials.CredentialsStore
 import net.primal.core.utils.coroutines.DispatcherProvider
-import net.primal.core.utils.fold
 import net.primal.core.utils.runCatching
-import net.primal.domain.nostr.cryptography.utils.toNpub
 
+/**
+ * QUARANTINED. Settings does not open this screen.
+ * Sign-in does not POST [AdmissionGateClient]. Do not put this ViewModel back on a route.
+ * Request service admission posts to the scanned website URL.
+ */
 @HiltViewModel
 class GroundinglabViewModel @Inject constructor(
     private val dispatcherProvider: DispatcherProvider,
     private val contentResolver: ContentResolver,
-    private val activeAccountStore: ActiveAccountStore,
-    private val credentialsStore: CredentialsStore,
-    private val admissionGateClient: AdmissionGateClient,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(UiState())
@@ -39,9 +36,6 @@ class GroundinglabViewModel @Inject constructor(
 
     private val events = MutableSharedFlow<UiEvent>()
     fun setEvent(event: UiEvent) = viewModelScope.launch { events.emit(event) }
-
-    /** CBOR held for `object_b64`. The file is not compared to the account key here. */
-    private var objectBytes: ByteArray? = null
 
     init {
         observeEvents()
@@ -71,7 +65,6 @@ class GroundinglabViewModel @Inject constructor(
                 bytes == null -> setState { copy(error = SignInError.UnreadableFile) }
                 bytes.isEmpty() -> setState { copy(error = SignInError.EmptyFile) }
                 else -> {
-                    objectBytes = bytes
                     setState {
                         copy(
                             objectByteCount = bytes.size,
@@ -100,61 +93,12 @@ class GroundinglabViewModel @Inject constructor(
         }
     }
 
-    private fun signIn() {
-        val bytes = objectBytes
-        val tipHash = _state.value.tipHash
-        if (bytes == null || tipHash == null || _state.value.signingIn) return
-
-        viewModelScope.launch {
-            setState { copy(signingIn = true, decision = null, error = null) }
-            val privateKey = withContext(dispatcherProvider.io()) { loadProducerPrivateKey() }
-            if (privateKey == null) {
-                setState { copy(signingIn = false, error = SignInError.ProducerKeyRequired) }
-                return@launch
-            }
-            val outcome = withContext(dispatcherProvider.io()) {
-                runCatching {
-                    val signature = TipHashSigner.sign(privateKey = privateKey, tipHashHex = tipHash)
-                    admissionGateClient.signIn(objectBytes = bytes, signatureHex = signature)
-                }
-            }
-            outcome.fold(
-                onSuccess = { result ->
-                    when (result) {
-                        is AdmissionSignInResult.Decision ->
-                            setState { copy(signingIn = false, decision = result.decision, error = null) }
-
-                        AdmissionSignInResult.EmptyBody ->
-                            setState { copy(signingIn = false, error = SignInError.EmptyBody) }
-
-                        AdmissionSignInResult.MissingDecision ->
-                            setState { copy(signingIn = false, error = SignInError.MissingDecision) }
-
-                        AdmissionSignInResult.TransportFailure ->
-                            setState { copy(signingIn = false, error = SignInError.Transport) }
-                    }
-                },
-                onFailure = { error ->
-                    val mapped = if (error is IllegalArgumentException) {
-                        SignInError.NotTipHash
-                    } else {
-                        SignInError.Transport
-                    }
-                    setState { copy(signingIn = false, error = mapped) }
-                },
-            )
-        }
-    }
-
     /**
-     * The logged-in producer nsec. Does not create or read the internal signer.
+     * Does not sign and does not POST the admission gate.
+     * The settings row that used to call this is gone.
      */
-    private fun loadProducerPrivateKey(): ByteArray? {
-        val userId = activeAccountStore.activeUserId()
-        if (userId.isBlank()) return null
-        return runCatching {
-            val npub = Hex.decode(userId).toNpub()
-            credentialsStore.findOrThrow(npub = npub).producerPrivateKeyOrNull()
-        }.getOrNull()
+    private fun signIn() {
+        if (_state.value.signingIn) return
+        setState { copy(signingIn = false, decision = null, error = null) }
     }
 }

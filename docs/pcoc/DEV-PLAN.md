@@ -32,7 +32,7 @@ Build gate: `./gradlew :app:assembleAospDebug` (see the baseline notes in [CUT-P
 
 ### 3. Request service admission
 
-On Account → PCOC: scan one HTTPS URL. Query `h` is 64 hex (highest stored header hash, Bitcoin display order), not a bare hash and not the gossip tip. Explicit Sign and submit. BIP-340-sign those 32 bytes with `CryptoUtils.sign` and the producer nsec. POST `{object_b64, signature}` to the exact scanned URL. Do not POST `https://admission.pcoc.app/v1/sign-in`. Do not follow a redirect to another host. Show accept or deny only from `decision`, and whether the check ran when `verifier_ran` is present. Timeout, empty, or garbage is a failed request, not a denial. No poll. No Option B. The centre stays Wallet.
+On Account → PCOC: scan one HTTPS URL. Query `h` is 64 hex (highest stored header hash, Bitcoin display order), not a bare hash and not the gossip tip. Explicit Sign and submit. BIP-340-sign those 32 bytes with `CryptoUtils.sign` and the producer nsec. POST `{object_b64, signature}` to the exact scanned URL. Do not POST `https://admission.pcoc.app/v1/sign-in`. Do not follow a redirect to another host. After a delivered POST the phone says delivery was OK and the signature was made as the correct signatory, and it points at the website page for welcome, refused, or progress. `bad_signature` and a delivery failure are clear errors, not a refusal. No poll. No provisional, checking, or revoke on the phone. No Option B. The centre stays Wallet.
 
 ### 4. Later — Groundinglab badge
 

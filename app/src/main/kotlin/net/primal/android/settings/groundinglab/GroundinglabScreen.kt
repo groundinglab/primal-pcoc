@@ -42,6 +42,11 @@ import net.primal.android.settings.groundinglab.GroundinglabContract.UiState
 import net.primal.android.theme.AppTheme
 import net.primal.android.theme.domain.PrimalTheme
 
+/**
+ * QUARANTINED. Not registered in settings navigation.
+ * This screen used to import a file, scan a bare tip hash, and POST the admission gate.
+ * Do not add it back to the settings list.
+ */
 @Composable
 fun GroundinglabScreen(viewModel: GroundinglabViewModel, onClose: () -> Unit) {
     val state by viewModel.state.collectAsState()

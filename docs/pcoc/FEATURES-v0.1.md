@@ -29,7 +29,7 @@ When a file is saved, the stored state is plain text: “Saved. This PCOC will b
 
 Clear asks for confirmation, then deletes the stored object bytes only. It does not touch the account or the nsec. Enroll does not store an nsec or a mnemonic.
 
-No enrolled object, or a login without the producer nsec (npub-only, internal signer, or external signer), means Request service admission does not submit. The admission site decides accept or deny.
+No enrolled object, or a login without the producer nsec (npub-only, internal signer, or external signer), means Request service admission does not submit. The website page decides welcome or refused. The phone does not.
 
 ## 3. Request service admission
 
@@ -41,7 +41,13 @@ Explicit confirm, then the phone signs only those 32 bytes with BIP-340 via `Cry
 
 POST body only `{object_b64, signature}` to the **exact** scanned URL. No redirect to another host. Never send the nsec. The phone never POSTs the admission gate. Optional `sid` is phone↔site only and is not sent by this phone. No Option B fields (`id`, `challenge_id`, `/v1/challenge`, `/v1/admit`).
 
-The phone shows accept or deny only from that response’s `decision`, and whether the check ran when `verifier_ran` is a boolean. Timeout, an empty body, or garbage is a failed request, not a denial. No polling and no Requested status channel. The phone does not show `result` or measurements.
+The phone is fire-and-forget after that POST. It does not show welcome, refused, or progress. It does not show `decision`, `verifier_ran`, `result`, or measurements. It does not poll. It does not follow provisional, accepted, or checking, and it does not revoke. There is no gate state machine on the phone.
+
+When the POST is delivered, the phone says it was delivered and that the signature was made as the correct signatory. It tells you to look at the website page for welcome, refused, or progress. Those words stay on the website page.
+
+A response whose error is `bad_signature` is a clear error. A timeout, a redirect, or any other delivery failure is a clear error. Neither error is a refusal. A policy deny in the body is not a phone refusal. The phone does not call it one.
+
+Settings does not offer Groundinglab sign-in. `AdmissionGateClient` still names `https://admission.pcoc.app/v1/sign-in` and is quarantined. No settings row calls it.
 
 ## 4. Verify any PCOC
 
@@ -94,7 +100,7 @@ These stay on the gate and the site. This phone package does not edit them.
 | Enroll your PCOC | This package | File picker (`OpenDocument`). `EnrolledPcocStore` keeps the picked object bytes per account hex, plus the file name and the date saved. | Pass: the picked file is stored for the signed-in account, with no local key check. The stored state says it will be checked by the service when you sign in, and shows the file name and the date saved. No key and no hex. Clear deletes object bytes only. The admission site decides. Fail: a local public-key read, a match against the account, a JNI or `.so` gate, storing an nsec or mnemonic, or copy that reads like the phone already approved the file. |
 | Verify any PCOC | This package | `VerifyPcocScreen`. Java section 14 measurement, off the main thread, one run at a time. Live index `https://index.pcoc.app` with `User-Agent: pcoc-hike`. Spinner, stage text, Cancel. Terrain is one `long[]` room, released when the run ends. | Pass: after the run finishes, the screen lists Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. Profile says production. The other rows say match, mismatch, not read, or not defined. Leg rate not read also says the rate was not read and that this is not a verdict. An unreadable or undecodable file says the object file could not be read, and that is not a verdict. Index fetch failure is a plain retry message. Cancel interrupts the run and releases the room. Debug timing for headers, terrain, and legs. VivoBook bare metal is the timing host. Phone wall time is not that clock. Fewer than 6 legs records Six leg as not defined. Allocation failure or an unfinished pool of 6 says verify did not finish. Fail: a valid or invalid headline, section 15 on this door, a shorter procedure, a second room kept after cancel, a gate POST, Bari, synth, a `test-*` host, or accept, deny, refuse, or revoke on this screen. |
 | Create a PCOC | Copy shell | `CreatePcocScreen`. | Pass: copy only. Fail: plant, gossip, Bari, a seed list, produce, a created object, or an admission result. |
-| Request service admission | This package | Camera QR after an enrolled object. Confirm sign in, OK or Cancel, no PIN. `AdmissionQr`, `AdmissionSigner` (`CryptoUtils.sign`), `AdmissionSiteClient`. | Pass: the page says to scan the service QR and does not show hash or header text. No enrolled object shows guidance instead of the scanner. The wire is still one HTTPS URL, `h` is 64 hex, BIP-340 over those 32 bytes, POST `{object_b64, signature}` to that URL, accept/deny only from `decision`, and whether the check ran when `verifier_ran` is a boolean. Fail: bare-hash QR, phone→gate POST, redirect to another host, nsec in the body, Option B, polling, or timeout/empty/garbage shown as deny. |
+| Request service admission | This package | Camera QR after an enrolled object. Confirm sign in, OK or Cancel, no PIN. `AdmissionQr`, `AdmissionSigner` (`CryptoUtils.sign`), `AdmissionSiteClient`. | Pass: the page says to scan the service QR and does not show hash or header text. No enrolled object shows guidance instead of the scanner. The wire is still one HTTPS URL, `h` is 64 hex, BIP-340 over those 32 bytes, POST `{object_b64, signature}` to that URL. After a delivered POST the phone says delivery was OK and the signature was made as the correct signatory, and it tells you to look at the website page for welcome, refused, or progress. `bad_signature` and a delivery failure are clear errors, not a refusal. Fail: bare-hash QR, phone→gate POST, a Settings row to `admission.pcoc.app/v1/sign-in`, redirect to another host, nsec in the body, Option B, polling, provisional or checking, revoke, or a gate decision shown as welcome or refused. |
 | Wrong login | This package | `Credential.admissionPrivateKeyOrNull` is `CredentialType.PrivateKey` only. | Pass: npub-only, internal signer, and external signer do not submit. |
 
 ## 8. Acceptance
@@ -102,14 +108,14 @@ These stay on the gate and the site. This phone package does not edit them.
 - [ ] Account → PCOC opens Enroll your PCOC, Verify any PCOC, Create a PCOC, and Request service admission.
 - [ ] Enroll uses the file picker only and stores the picked file for the signed-in account. It does no local key check. The stored state says: Saved. This PCOC will be checked by the service when you sign in. The file name and the date saved are shown. No key and no hex.
 - [ ] Clear confirms, then deletes stored object bytes only.
-- [ ] The admission site decides accept or deny. The phone does not.
+- [ ] The website page decides welcome or refused. The phone does not.
 - [ ] No enroll, or npub-only / internal signer (and any login without the producer nsec): Request service admission does not submit.
 - [ ] The admission page says to scan the QR code on the service. It does not show hash, header, or hex text. Sign in asks Confirm sign in, OK or Cancel, no PIN.
 - [ ] With no enrolled object, Request service admission does not open the scanner. It tells you to create a PCOC here or enroll one from the desktop.
 - [ ] The QR is one HTTPS URL whose query `h` is 64 hex. A bare hash is not signed and not submitted.
 - [ ] Sign and submit is explicit. The signed message is the 32 bytes of `h` via `CryptoUtils.sign`, not `signOrThrow`.
 - [ ] The POST body is only `{object_b64, signature}` to the exact scanned URL. The phone does not POST the admission gate and does not follow a redirect onto another host.
-- [ ] The phone shows accept or deny only from `decision`, and whether the check ran when `verifier_ran` is present. Timeout, empty, or garbage is a failed request, not a denial.
+- [ ] After a delivered POST the phone says it was delivered and that the signature was made as the correct signatory. It tells you to look at the website page for welcome, refused, or progress. `bad_signature` and a delivery failure are clear errors, not a refusal. The phone does not show `decision` or `verifier_ran`. It does not poll, and it does not run provisional, checking, or revoke.
 - [ ] Verify any runs the section 14 measurement off the main thread, one run at a time, with a spinner, stage text, and Cancel. Cancel interrupts the run and releases the terrain room. It does not apply section 15. When the object decodes, it says a measurement record was written and lists Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. Profile says production. The other rows say match, mismatch, not read, or not defined. Leg rate not read also says the rate was not read and that this is not a verdict. An unreadable or undecodable file says the object file could not be read. A failed index fetch is a plain retry message. Allocation failure or a run that does not finish says verify did not finish. Fewer than 6 legs records Six leg as not defined. VivoBook bare metal is the timing acceptance host. Phone wall time is not that clock. On an A34-class phone the terrain build is expected to take a few seconds. That is not the VivoBook clock.
 - [ ] Create is copy only. Create does not plant, gossip, call Bari, grow a seed list, or run produce.
 - [ ] The centre tab is still Wallet.

@@ -26,47 +26,35 @@ class AdmissionPayloadTest {
     }
 
     @Test
-    fun `decision is only accept or deny and extra fields are ignored`() {
-        val acceptBody = """{"decision":"accept","verifier_ran":true,"result":"ok","measurements":{}}"""
-        AdmissionPayload.parseDecision(acceptBody) shouldBe AdmissionDecision.Accept
-        AdmissionPayload.parseReport(acceptBody) shouldBe AdmissionReport(
-            decision = AdmissionDecision.Accept,
-            verifierRan = true,
-        )
-        AdmissionPayload.parseReport("""{"decision":"deny","verifier_ran":false}""") shouldBe
-            AdmissionReport(decision = AdmissionDecision.Deny, verifierRan = false)
-        AdmissionPayload.parseReport("""{"decision":"accept"}""") shouldBe
-            AdmissionReport(decision = AdmissionDecision.Accept, verifierRan = null)
-        AdmissionPayload.parseReport("""{"decision":"deny","verifier_ran":"yes"}""") shouldBe
-            AdmissionReport(decision = AdmissionDecision.Deny, verifierRan = null)
-        AdmissionPayload.parseDecision("") shouldBe null
-        AdmissionPayload.parseDecision("not-json") shouldBe null
-        AdmissionPayload.parseDecision("{}") shouldBe null
-        AdmissionPayload.parseDecision("""{"decision":"maybe"}""") shouldBe null
-        AdmissionPayload.parseDecision("""{"decision":1}""") shouldBe null
-        AdmissionPayload.parseDecision("""{"decision":"Accept"}""") shouldBe null
+    fun `bad signature is only the named error`() {
+        AdmissionPayload.isBadSignature(
+            """{"error":{"code":"bad_signature","message":"the signature does not verify"}}""",
+        ) shouldBe true
+        AdmissionPayload.isBadSignature("""{"error":"bad_signature"}""") shouldBe true
+        AdmissionPayload.isBadSignature("""{"reason":"bad_signature"}""") shouldBe true
+        AdmissionPayload.isBadSignature("""{"code":"bad_signature"}""") shouldBe true
+        AdmissionPayload.isBadSignature(
+            """{"decision":"deny","error":{"code":"bad_signature"}}""",
+        ) shouldBe true
     }
 
     @Test
-    fun `gate text keeps verifier_ran and does not invent a local check sentence`() {
-        val ran = """{"decision":"deny","verifier_ran":true,"result":"no","measurements":{"section":15}}"""
-        val early = """{"decision":"deny","verifier_ran":false,"measurements":{"n":1}}"""
-        val missing = """{"decision":"accept"}"""
-
-        val ranReport = AdmissionPayload.parseReport(ran)!!
-        val earlyReport = AdmissionPayload.parseReport(early)!!
-        val missingReport = AdmissionPayload.parseReport(missing)!!
-
-        gateResultText(ranReport.decision, ranReport.verifierRan) shouldBe
-            "The service said:\ndecision: deny\nverifier_ran: true"
-        gateResultText(earlyReport.decision, earlyReport.verifierRan) shouldBe
-            "The service said:\ndecision: deny\nverifier_ran: false"
-        gateResultText(missingReport.decision, missingReport.verifierRan) shouldBe
-            "The service said:\ndecision: accept\nverifier_ran: not in the response"
-        listOf(ranReport, earlyReport, missingReport).forEach { report ->
-            val text = gateResultText(report.decision, report.verifierRan)
-            text.contains("did not run") shouldBe false
-            text.contains("The check ran") shouldBe false
+    fun `policy words are not a bad signature`() {
+        listOf(
+            "",
+            "not-json",
+            "{}",
+            """{"decision":"accept","verifier_ran":true,"result":"ok"}""",
+            """{"decision":"deny","verifier_ran":false}""",
+            """{"decision":"deny","verifier_ran":true}""",
+            """{"decision":"provisional"}""",
+            """{"decision":"checking"}""",
+            """{"decision":"revoke"}""",
+            """{"error":{"code":"bad_gateway","message":"the admission gate did not answer"}}""",
+            """{"error":{"code":"bad_request","message":"h is not 64 lowercase hex"}}""",
+            """{"error":{"message":"bad_signature"}}""",
+        ).forEach { body ->
+            AdmissionPayload.isBadSignature(body) shouldBe false
         }
     }
 }

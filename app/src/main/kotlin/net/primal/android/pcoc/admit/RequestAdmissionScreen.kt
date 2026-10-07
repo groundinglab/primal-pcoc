@@ -130,12 +130,16 @@ private fun AdmissionScanResult(
         if (headline != null) {
             Text(
                 text = headline,
-                style = if (state.submitting || state.outcome is Outcome.FromGate) {
+                style = if (state.submitting || state.outcome.isPostResult()) {
                     AppTheme.typography.titleLarge
                 } else {
                     AppTheme.typography.bodyLarge
                 },
-                color = AppTheme.colorScheme.onPrimary,
+                color = if (state.outcome.isPostError()) {
+                    AppTheme.colorScheme.error
+                } else {
+                    AppTheme.colorScheme.onPrimary
+                },
             )
         }
         if (state.submitting) {
@@ -176,10 +180,17 @@ private fun ScanProblem.text(): String =
         ScanProblem.NotAServiceUrl -> stringResource(id = R.string.pcoc_admit_problem_other)
     }
 
+private fun Outcome?.isPostResult(): Boolean =
+    this is Outcome.Delivered || this is Outcome.BadSignature || this is Outcome.Failed
+
+private fun Outcome?.isPostError(): Boolean =
+    this is Outcome.BadSignature || this is Outcome.Failed
+
 @Composable
 private fun Outcome.text(): String =
     when (this) {
-        is Outcome.FromGate -> gateResultText(decision = decision, verifierRan = verifierRan)
+        Outcome.Delivered -> stringResource(id = R.string.pcoc_admit_delivered)
+        Outcome.BadSignature -> stringResource(id = R.string.pcoc_admit_bad_signature)
         Outcome.Failed -> stringResource(id = R.string.pcoc_admit_failed)
         is Outcome.KeyMismatch -> mismatchCopy(loginPrefix = loginPrefix, filePrefix = filePrefix)
         Outcome.ObjectKeyUnreadable -> stringResource(id = R.string.pcoc_admit_key_unreadable)

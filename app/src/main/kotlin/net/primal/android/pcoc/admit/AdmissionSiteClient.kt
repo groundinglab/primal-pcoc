@@ -26,11 +26,15 @@ private data class OutboundPost(
     val request: Request,
 )
 
+/**
+ * What the phone may say after one POST.
+ * Delivered is not welcome or refused. BadSignature is not a policy refusal.
+ * There is no provisional, checking, or revoke state.
+ */
 sealed class AdmissionPostResult {
-    data class Decision(
-        val decision: AdmissionDecision,
-        val verifierRan: Boolean? = null,
-    ) : AdmissionPostResult()
+    data object Delivered : AdmissionPostResult()
+
+    data object BadSignature : AdmissionPostResult()
 
     data object Failed : AdmissionPostResult()
 
@@ -143,18 +147,23 @@ internal fun newAdmissionHttpClient(): OkHttpClient =
         .callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
+/**
+ * Fire-and-forget. A 2xx body is delivery, including accept, deny, provisional, or empty.
+ * `bad_signature` is the only named error. Anything else that is not a clean 2xx
+ * is a delivery failure. Redirects are not followed and are not a verdict.
+ */
 internal fun interpretAdmissionResponse(response: Response): AdmissionPostResult {
     val redirected = response.priorResponse != null || response.isRedirect
     val body = response.body?.string().orEmpty()
     AdmissionTrace.http(status = response.code, body = body)
-    val report = if (redirected || response.code in REDIRECT_START..REDIRECT_END) {
-        null
-    } else {
-        AdmissionPayload.parseReport(body)
+    val sawRedirect = redirected || response.code in REDIRECT_START..REDIRECT_END
+    val badSignature = !sawRedirect && AdmissionPayload.isBadSignature(body)
+    val delivered = !sawRedirect && !badSignature && response.code in SUCCESS_START..SUCCESS_END
+    return when {
+        badSignature -> AdmissionPostResult.BadSignature
+        delivered -> AdmissionPostResult.Delivered
+        else -> AdmissionPostResult.Failed
     }
-    return report?.let {
-        AdmissionPostResult.Decision(decision = it.decision, verifierRan = it.verifierRan)
-    } ?: AdmissionPostResult.Failed
 }
 
 internal fun requestTargets(requestUrl: HttpUrl, exactUrl: String): Boolean {
@@ -189,6 +198,8 @@ private fun runCatchingUri(exactUrl: String): URI? =
 private const val HTTPS_SCHEME = "https"
 private const val HTTPS_PORT = 443
 private const val UNSPECIFIED_PORT = -1
+private const val SUCCESS_START = 200
+private const val SUCCESS_END = 299
 private const val REDIRECT_START = 300
 private const val REDIRECT_END = 399
 private const val CONNECT_TIMEOUT_SECONDS = 20L

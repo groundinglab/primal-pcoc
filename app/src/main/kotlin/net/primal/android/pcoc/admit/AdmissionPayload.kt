@@ -5,25 +5,18 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.primal.core.utils.runCatching
 import net.primal.core.utils.serialization.CommonJson
 
-enum class AdmissionDecision {
-    Accept,
-    Deny,
-}
-
-data class AdmissionReport(
-    val decision: AdmissionDecision,
-    val verifierRan: Boolean?,
-)
-
 /**
  * Phone POST body. Fields are only `object_b64` and `signature`.
  * No hash, height, id, challenge_id, sid, or nsec.
+ *
+ * The phone does not read a policy verdict from the response.
+ * [isBadSignature] is the only body it treats as an error name.
+ * `decision`, `verifier_ran`, provisional, checking, and revoke are ignored.
  */
 object AdmissionPayload {
     fun encode(objectBytes: ByteArray, signatureHex: String): String {
@@ -38,16 +31,23 @@ object AdmissionPayload {
         )
     }
 
-    fun parseDecision(body: String): AdmissionDecision? = parseReport(body)?.decision
-
-    fun parseReport(body: String): AdmissionReport? {
+    /**
+     * True only for the error name `bad_signature`.
+     * A `decision` of deny, or `verifier_ran` false, is not this error.
+     */
+    fun isBadSignature(body: String): Boolean {
         val obj = jsonObject(body)
-        val decision = obj?.let { decisionOf(stringField(it, DECISION)) }
-        return if (obj == null || decision == null) {
-            null
-        } else {
-            AdmissionReport(decision = decision, verifierRan = booleanField(obj, VERIFIER_RAN))
+        val error = obj?.get(ERROR)
+        val nested = error?.let { value -> runCatching { value.jsonObject }.getOrNull() }
+        val errorText = error?.let { value ->
+            runCatching { value.jsonPrimitive }.getOrNull()?.takeIf(JsonPrimitive::isString)?.content
         }
+        return obj != null && (
+            stringField(obj, REASON) == BAD_SIGNATURE ||
+                stringField(obj, CODE) == BAD_SIGNATURE ||
+                errorText == BAD_SIGNATURE ||
+                nested?.let { stringField(it, CODE) } == BAD_SIGNATURE
+            )
     }
 
     private fun jsonObject(body: String) =
@@ -65,24 +65,10 @@ object AdmissionPayload {
         return primitive?.takeIf(JsonPrimitive::isString)?.content
     }
 
-    private fun booleanField(obj: JsonObject, name: String): Boolean? {
-        val primitive = obj[name]?.let { value ->
-            runCatching { value.jsonPrimitive }.getOrNull()
-        }
-        return primitive?.booleanOrNull
-    }
-
-    private fun decisionOf(text: String?): AdmissionDecision? =
-        when (text) {
-            ACCEPT -> AdmissionDecision.Accept
-            DENY -> AdmissionDecision.Deny
-            else -> null
-        }
-
-    private const val ACCEPT = "accept"
-    private const val DENY = "deny"
-    private const val DECISION = "decision"
-    private const val VERIFIER_RAN = "verifier_ran"
+    private const val BAD_SIGNATURE = "bad_signature"
+    private const val ERROR = "error"
+    private const val CODE = "code"
+    private const val REASON = "reason"
     private val SIGNATURE = Regex("""^[0-9a-f]{128}$""")
 
     @Serializable

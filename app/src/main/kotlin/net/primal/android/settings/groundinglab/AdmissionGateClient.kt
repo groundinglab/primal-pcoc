@@ -2,8 +2,6 @@ package net.primal.android.settings.groundinglab
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
-import javax.inject.Singleton
 import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -11,16 +9,21 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * Dedicated client for `admission.pcoc.app`. Not the primal.net Retrofit client,
- * not [net.primal.android.networking.di.SocketModule], and not MempoolApiService.
+ * QUARANTINED. Do not call this from Settings or any product screen.
+ *
+ * This client POSTs `https://admission.pcoc.app/v1/sign-in`. That gate-direct
+ * path is not sign-in. Request service admission uses [net.primal.android.pcoc.admit.AdmissionSiteClient]
+ * and the exact scanned website URL. Settings no longer opens this client.
+ * The class remains so the old wire can be read. It is not a sign-in path.
+ *
+ * Not the primal.net Retrofit client, not [net.primal.android.networking.di.SocketModule],
+ * and not MempoolApiService.
  */
-@Singleton
 class AdmissionGateClient(
     private val http: Call.Factory,
     private val signInUrl: String,
 ) {
 
-    @Inject
     constructor() : this(
         http = OkHttpClient.Builder()
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)

@@ -199,7 +199,9 @@
     <string name="pcoc_admit_problem_bad_hash">That code is not a sign-in for a service.</string>
     <string name="pcoc_admit_problem_gate">That code is not a sign-in for a service.</string>
     <string name="pcoc_admit_problem_other">That code is not a sign-in for a service.</string>
-    <string name="pcoc_admit_failed">Request failed. This is not a denial.</string>
+    <string name="pcoc_admit_delivered">Delivered. The signature was made as the correct signatory. Look at the website page for welcome, refused, or progress.</string>
+    <string name="pcoc_admit_bad_signature">The signature did not match. This is not a refusal.</string>
+    <string name="pcoc_admit_failed">The sign-in was not delivered. This is not a refusal.</string>
     <string name="pcoc_admit_key_mismatch">This saved PCOC is for a different login. It was not sent.</string>
     <string name="pcoc_admit_key_mismatch_detail">This login starts with %1$s. The saved file starts with %2$s.</string>
     <string name="pcoc_admit_key_unreadable">This saved PCOC has no key the service can check. It was not sent.</string>
