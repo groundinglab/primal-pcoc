@@ -129,6 +129,7 @@
     <string name="primary_destination_feed_label">Feeds</string>
     <string name="primary_destination_reads_label">Reads</string>
     <string name="primary_destination_wallet_label">Wallet</string>
+    <string name="primary_destination_sign_in_label">Sign in</string>
     <string name="primary_destination_notifications_label">Alerts</string>
     <string name="primary_destination_explore_label">Explore</string>
 
@@ -146,7 +147,12 @@
     <string name="pcoc_enroll_title">Enroll your PCOC</string>
     <string name="pcoc_verify_title">Verify any PCOC</string>
     <string name="pcoc_create_title">Create a PCOC</string>
-    <string name="pcoc_admit_title">Request service admission</string>
+    <string name="pcoc_admit_title">Sign in</string>
+    <string name="pcoc_admit_welcome_need">You need a PCOC first. Produce one, or import one you already have.</string>
+    <string name="pcoc_admit_welcome_code">Scan the code on the website, or paste it.</string>
+    <string name="pcoc_admit_welcome_cost">A PCOC is a cost-backed credential. It costs real resources to make, and a service checks that cost.</string>
+    <string name="pcoc_admit_welcome_skip">Don\'t show again</string>
+    <string name="pcoc_admit_welcome_cta">Sign in</string>
     <string name="pcoc_enroll_choose_file">Choose a file</string>
     <string name="pcoc_enroll_clear">Clear enrolled object</string>
     <string name="pcoc_enroll_stored_status">Saved. This PCOC will be checked by the service when you sign in.</string>

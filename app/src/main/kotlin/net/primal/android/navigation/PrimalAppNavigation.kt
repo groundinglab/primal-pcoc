@@ -1015,6 +1015,7 @@ private fun PrimalAppNavigation(
         )
 
         pcocNavigation(navController = navController)
+        signInDestination(navController = navController)
 
         settingsNavigation(route = "settings", navController = navController)
 

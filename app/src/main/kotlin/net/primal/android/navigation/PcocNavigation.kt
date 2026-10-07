@@ -68,20 +68,26 @@ fun NavGraphBuilder.pcocNavigation(navController: NavController) {
             LockToOrientationPortrait()
             CreatePcocScreen(onClose = { navController.navigateUp() })
         }
-        composable(
-            route = PCOC_ADMIT,
-            enterTransition = { primalSlideInHorizontallyFromEnd },
-            exitTransition = { primalScaleOut },
-            popEnterTransition = { primalScaleIn },
-            popExitTransition = { primalSlideOutHorizontallyToEnd },
-        ) {
-            val viewModel = hiltViewModel<RequestAdmissionViewModel>()
-            ApplyEdgeToEdge()
-            LockToOrientationPortrait()
-            RequestAdmissionScreen(viewModel = viewModel, onClose = { navController.navigateUp() })
-        }
     }
 }
+
+/** Sign in (camera and paste). A root route so Back returns to the screen that opened it. */
+fun NavGraphBuilder.signInDestination(navController: NavController) {
+    composable(
+        route = PCOC_ADMIT,
+        enterTransition = { primalSlideInHorizontallyFromEnd },
+        exitTransition = { primalScaleOut },
+        popEnterTransition = { primalScaleIn },
+        popExitTransition = { primalSlideOutHorizontallyToEnd },
+    ) {
+        val viewModel = hiltViewModel<RequestAdmissionViewModel>()
+        ApplyEdgeToEdge()
+        LockToOrientationPortrait()
+        RequestAdmissionScreen(viewModel = viewModel, onClose = { navController.navigateUp() })
+    }
+}
+
+fun NavController.navigateToSignIn() = navigate(route = PCOC_ADMIT)
 
 private fun PcocDoor.route(): String =
     when (this) {

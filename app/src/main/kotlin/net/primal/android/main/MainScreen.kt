@@ -83,6 +83,7 @@ import net.primal.android.navigation.navigateToHome
 import net.primal.android.navigation.navigateToNoteEditor
 import net.primal.android.navigation.navigateToProfileQrCodeViewer
 import net.primal.android.navigation.navigateToSearch
+import net.primal.android.navigation.navigateToSignIn
 import net.primal.android.navigation.noteCallbacksHandler
 import net.primal.android.notes.feed.note.ui.events.NoteCallbacks
 import net.primal.android.notifications.list.ui.NotificationUi
@@ -116,8 +117,9 @@ fun MainScreen(
     LaunchedEffect(requestedTab.value) {
         val tabName = requestedTab.value ?: return@LaunchedEffect
         val destination = PrimalTopLevelDestination.entries.find { it.name == tabName }
-        if (destination != null && destination != activeTab) {
-            activeTab = destination
+        when {
+            destination == PrimalTopLevelDestination.SignIn -> navController.navigateToSignIn()
+            destination != null && destination != activeTab -> activeTab = destination
         }
         navBackStackEntry.savedStateHandle[REQUESTED_TAB_KEY] = null
     }
@@ -168,7 +170,9 @@ fun MainScreen(
     }
 
     val onTabChanged: (PrimalTopLevelDestination) -> Unit = { destination ->
-        if (destination != activeTab) {
+        if (destination == PrimalTopLevelDestination.SignIn) {
+            navController.navigateToSignIn()
+        } else if (destination != activeTab) {
             activeTab = destination
         }
     }
@@ -331,6 +335,8 @@ private fun MainScreenTopAppBar(
             subtitleOverride = subtitleOverride,
             chevronExpanded = chevronExpanded,
         )
+
+        PrimalTopLevelDestination.SignIn -> Unit
     }
 }
 
@@ -495,6 +501,8 @@ private fun MainScreenContent(
                     paddingValues = paddingValues,
                     navController = navController,
                 )
+
+                PrimalTopLevelDestination.SignIn -> Unit
             }
         }
     }
@@ -873,6 +881,7 @@ private fun rememberPerTabTopAppBarState(
         PrimalTopLevelDestination.Explore -> exploreTopAppBarState
         PrimalTopLevelDestination.Alerts -> notificationsTopAppBarState
         PrimalTopLevelDestination.Wallet -> walletTopAppBarState
+        PrimalTopLevelDestination.SignIn -> homeTopAppBarState
     }
 }
 

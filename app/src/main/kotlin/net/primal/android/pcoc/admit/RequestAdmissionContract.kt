@@ -12,6 +12,8 @@ interface RequestAdmissionContract {
         val submitting: Boolean = false,
         val confirming: Boolean = false,
         val outcome: Outcome? = null,
+        val showWelcome: Boolean = true,
+        val dontShowAgain: Boolean = false,
     )
 
     enum class ScanProblem {
@@ -50,5 +52,9 @@ interface RequestAdmissionContract {
         data object DismissSign : UiEvent()
 
         data object SignAndSubmit : UiEvent()
+
+        data class DontShowAgainChanged(val checked: Boolean) : UiEvent()
+
+        data object EnterSignIn : UiEvent()
     }
 }
