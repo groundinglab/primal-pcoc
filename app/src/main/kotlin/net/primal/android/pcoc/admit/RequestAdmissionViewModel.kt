@@ -67,6 +67,7 @@ class RequestAdmissionViewModel @Inject constructor(
             events.collect { event ->
                 when (event) {
                     is UiEvent.QrCodeDetected -> onQr(event.value)
+                    is UiEvent.CodePasted -> onPaste(event.value)
                     UiEvent.ScanAgain -> onScanAgain()
                     UiEvent.RequestSign -> if (canConfirm()) {
                         setState { copy(confirming = true) }
@@ -92,6 +93,32 @@ class RequestAdmissionViewModel @Inject constructor(
                 hashHex = null,
                 scanProblem = null,
                 outcome = null,
+            )
+        }
+    }
+
+    private fun onPaste(raw: String) {
+        val current = _state.value
+        if (!current.scanning || current.readingObject || current.submitting) return
+        val url = (AdmissionPaste.parse(raw) as? AdmissionPasteParse.Ready)?.exactUrl
+        if (url == null) {
+            rejectPaste()
+        } else {
+            // Same `h` and submit path as scanning this URL.
+            onQr(url)
+        }
+    }
+
+    private fun rejectPaste() {
+        setState {
+            copy(
+                scanning = false,
+                readingObject = false,
+                confirming = false,
+                outcome = null,
+                readyUrl = null,
+                hashHex = null,
+                scanProblem = ScanProblem.PasteRejected,
             )
         }
     }
