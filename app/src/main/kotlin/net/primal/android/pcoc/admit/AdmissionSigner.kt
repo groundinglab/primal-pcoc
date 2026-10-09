@@ -1,6 +1,5 @@
 package net.primal.android.pcoc.admit
 
-import fr.acinq.secp256k1.Hex
 import net.primal.android.user.domain.Credential
 import net.primal.android.user.domain.CredentialType
 import net.primal.core.utils.runCatching
@@ -9,6 +8,7 @@ import net.primal.domain.nostr.cryptography.utils.bechToBytesOrThrow
 import net.primal.domain.nostr.cryptography.utils.toHex
 
 internal const val PRODUCER_KEY_SIZE = 32
+private const val MESSAGE_SIZE = 32
 private const val SCHNORR_SIGNATURE_SIZE = 64
 
 /** X-only public key of the nsec that will sign. Not logged. */
@@ -31,19 +31,21 @@ fun Credential.admissionPrivateKeyOrNull(): ByteArray? {
 }
 
 /**
- * BIP-340 over the 32 display-order hash bytes via [CryptoUtils.sign].
- * Not the hex text, not a height, not the URL, and not Nostr `signOrThrow`.
+ * BIP-340 over `SHA-256(challenge_bytes)` via [CryptoUtils.sign], which signs its 32-byte input as the message.
+ * Not the link text, not a header hash, and not Nostr `signOrThrow`.
  */
 object AdmissionSigner {
-    fun sign(privateKey: ByteArray, hashHex: String): String {
+    fun sign(privateKey: ByteArray, link: SignInLink): String =
+        signMessage(
+            privateKey = privateKey,
+            message = SignInChallenge.bip340Message(SignInChallenge.challengeBytes(link)),
+        )
+
+    fun signMessage(privateKey: ByteArray, message: ByteArray): String {
         require(privateKey.size == PRODUCER_KEY_SIZE)
-        require(HASH_HEX.matches(hashHex)) { "signed message must be the 32 bytes of h" }
-        val hash = Hex.decode(hashHex)
-        require(hash.size == PRODUCER_KEY_SIZE) { "signed message must be the 32 bytes of h" }
-        val signature = CryptoUtils.sign(data = hash, privateKey = privateKey)
+        require(message.size == MESSAGE_SIZE) { "the BIP-340 message is the 32-byte SHA-256 of challenge_bytes" }
+        val signature = CryptoUtils.sign(data = message, privateKey = privateKey)
         require(signature.size == SCHNORR_SIGNATURE_SIZE)
         return signature.toHex().lowercase()
     }
 }
-
-private val HASH_HEX = Regex("""^[0-9a-fA-F]{64}$""")

@@ -48,31 +48,40 @@ class ObjectPublicKeyTest {
     }
 
     @Test
-    fun `a matching object opens confirm and a mismatch does not`() {
+    fun `a matching object submits and a mismatch does not`() {
         val key = ByteArray(PUBLIC_KEY_LEN) { 0x11 }
         val account = "11".repeat(32)
-        val match = planReadyScan(canSign = true, accountHex = account, objectBytes = cborPublicKeyMap(key))
-        match.followUp shouldBe ReadyScanFollowUp.Confirm
-        match.pubkeyMatch shouldBe true
+        val held = cborPublicKeyMap(key)
+        val match = planLink(link = linkFor(held), canSign = true, accountHex = account, objectBytes = held)
+        match.followUp shouldBe LinkFollowUp.Submit
+        match.keys?.check shouldBe ObjectKeyCheck.Match
 
-        val mismatch = planReadyScan(
+        val other = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x22 })
+        val mismatch = planLink(link = linkFor(other), canSign = true, accountHex = account, objectBytes = other)
+        mismatch.followUp shouldBe LinkFollowUp.KeyMismatch
+
+        val unsigned = planLink(link = linkFor(held), canSign = false, accountHex = account, objectBytes = held)
+        unsigned.followUp shouldBe LinkFollowUp.WrongLogin
+
+        val keyless = byteArrayOf(1)
+        val missing = planLink(link = linkFor(keyless), canSign = true, accountHex = account, objectBytes = keyless)
+        missing.followUp shouldBe LinkFollowUp.ObjectKeyUnreadable
+
+        planLink(link = linkFor(held), canSign = true, accountHex = account, objectBytes = null).followUp shouldBe
+            LinkFollowUp.NoObject
+    }
+
+    @Test
+    fun `a link for other object bytes stops before the key is read`() {
+        val held = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x11 })
+        val plan = planLink(
+            link = linkFor(held + byteArrayOf(0)),
             canSign = true,
-            accountHex = account,
-            objectBytes = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x22 }),
+            accountHex = "11".repeat(32),
+            objectBytes = held,
         )
-        mismatch.followUp shouldBe ReadyScanFollowUp.KeyMismatch
-        mismatch.pubkeyMatch shouldBe false
-
-        val unsigned = planReadyScan(canSign = false, accountHex = account, objectBytes = cborPublicKeyMap(key))
-        unsigned.followUp shouldBe ReadyScanFollowUp.WrongLogin
-        unsigned.pubkeyMatch shouldBe true
-
-        val missing = planReadyScan(canSign = true, accountHex = account, objectBytes = byteArrayOf(1))
-        missing.followUp shouldBe ReadyScanFollowUp.ObjectKeyUnreadable
-        missing.pubkeyMatch shouldBe false
-
-        planReadyScan(canSign = true, accountHex = account, objectBytes = null).followUp shouldBe
-            ReadyScanFollowUp.NoObject
+        plan.followUp shouldBe LinkFollowUp.ObjectNotHeld
+        plan.keys shouldBe null
     }
 
     @Test
@@ -95,26 +104,27 @@ class ObjectPublicKeyTest {
     }
 
     @Test
-    fun `a different signing key still matches the account and a matching signer opens confirm`() {
+    fun `a different signing key still matches the account and a matching signer submits`() {
         val account = "11".repeat(32)
         val objectBytes = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x11 })
         val other = ByteArray(PUBLIC_KEY_LEN) { 0x22 }
-        val withOtherSigner = planReadyScan(
+        val withOtherSigner = planLink(
+            link = linkFor(objectBytes),
             canSign = true,
             accountHex = account,
             objectBytes = objectBytes,
             signingKey = other,
         )
-        withOtherSigner.followUp shouldBe ReadyScanFollowUp.Confirm
-        withOtherSigner.pubkeyMatch shouldBe true
+        withOtherSigner.followUp shouldBe LinkFollowUp.Submit
 
-        val signerOnly = planReadyScan(
+        val signerOnly = planLink(
+            link = linkFor(objectBytes),
             canSign = true,
             accountHex = "22".repeat(32),
             objectBytes = objectBytes,
             signingKey = ByteArray(PUBLIC_KEY_LEN) { 0x11 },
         )
-        signerOnly.followUp shouldBe ReadyScanFollowUp.Confirm
+        signerOnly.followUp shouldBe LinkFollowUp.Submit
         signerOnly.keys?.loginPrefix shouldBe "11111111"
         signerOnly.keys?.filePrefix shouldBe "11111111"
     }

@@ -43,12 +43,10 @@ class QrTextTest {
 
     @Test
     fun prefersRawThenDisplayThenUrl() {
-        chooseQrText(raw = "https://pcoc.app/sign-in/?h=ab", display = "other", url = "url") shouldBe
-            "https://pcoc.app/sign-in/?h=ab"
-        chooseQrText(raw = "", display = "https://pcoc.app/sign-in/?h=ab", url = null) shouldBe
-            "https://pcoc.app/sign-in/?h=ab"
-        chooseQrText(raw = null, display = null, url = "https://pcoc.app/sign-in/?h=ab") shouldBe
-            "https://pcoc.app/sign-in/?h=ab"
+        val link = "https://pcoc.app/sign-in/?v=1&nonce=${"01".repeat(32)}&exp=1893456000&object=${"aa".repeat(32)}"
+        chooseQrText(raw = link, display = "other", url = "url") shouldBe link
+        chooseQrText(raw = "", display = link, url = null) shouldBe link
+        chooseQrText(raw = null, display = null, url = link) shouldBe link
         chooseQrText(raw = null, display = " ", url = null) shouldBe " "
     }
 }

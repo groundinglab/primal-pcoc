@@ -1,47 +1,50 @@
 package net.primal.android.pcoc.admit
 
+import java.security.MessageDigest
+
 internal enum class ObjectKeyCheck {
     Match,
     Mismatch,
     Unreadable,
 }
 
-internal enum class ReadyScanFollowUp {
-    Confirm,
+internal enum class LinkFollowUp {
+    Submit,
     WrongLogin,
     KeyMismatch,
     ObjectKeyUnreadable,
+    ObjectNotHeld,
     NoObject,
 }
 
-internal data class ReadyScanPlan(
-    val followUp: ReadyScanFollowUp,
-    val pubkeyMatch: Boolean?,
+internal data class LinkPlan(
+    val followUp: LinkFollowUp,
     val keys: ObjectKeyReport? = null,
 )
 
 /**
- * A good scan opens Confirm when the saved object's public key is the logged-in account
- * or the key that will sign. A mismatch or a missing key never reaches Confirm.
+ * Local stops before anything is signed. The phone signs only when it holds the bytes whose SHA-256
+ * is the link's `object`, the object's public key is this login, and the login holds an nsec.
+ * Every other link goes straight to sign and POST: showing the origin is the only confirmation.
  */
-internal fun planReadyScan(
+internal fun planLink(
+    link: SignInLink,
     canSign: Boolean,
     accountHex: String,
     objectBytes: ByteArray?,
     signingKey: ByteArray? = null,
-): ReadyScanPlan {
-    if (objectBytes == null) {
-        return ReadyScanPlan(followUp = ReadyScanFollowUp.NoObject, pubkeyMatch = null)
+): LinkPlan =
+    when {
+        objectBytes == null -> LinkPlan(followUp = LinkFollowUp.NoObject)
+        !MessageDigest.isEqual(sha256(objectBytes), link.objectSha256()) ->
+            LinkPlan(followUp = LinkFollowUp.ObjectNotHeld)
+        else -> {
+            val keys = objectKeyReport(accountHex = accountHex, signingKey = signingKey, objectBytes = objectBytes)
+            val followUp = when (keys.check) {
+                ObjectKeyCheck.Unreadable -> LinkFollowUp.ObjectKeyUnreadable
+                ObjectKeyCheck.Mismatch -> LinkFollowUp.KeyMismatch
+                ObjectKeyCheck.Match -> if (canSign) LinkFollowUp.Submit else LinkFollowUp.WrongLogin
+            }
+            LinkPlan(followUp = followUp, keys = keys)
+        }
     }
-    val keys = objectKeyReport(accountHex = accountHex, signingKey = signingKey, objectBytes = objectBytes)
-    val followUp = when (keys.check) {
-        ObjectKeyCheck.Unreadable -> ReadyScanFollowUp.ObjectKeyUnreadable
-        ObjectKeyCheck.Mismatch -> ReadyScanFollowUp.KeyMismatch
-        ObjectKeyCheck.Match -> if (canSign) ReadyScanFollowUp.Confirm else ReadyScanFollowUp.WrongLogin
-    }
-    return ReadyScanPlan(
-        followUp = followUp,
-        pubkeyMatch = keys.check == ObjectKeyCheck.Match,
-        keys = keys,
-    )
-}

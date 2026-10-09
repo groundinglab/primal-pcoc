@@ -8,7 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
 import javax.inject.Singleton
-import net.primal.android.pcoc.admit.AdmissionSiteClient
+import net.primal.android.pcoc.admit.AdmissionDoorClient
 import net.primal.android.pcoc.admit.newAdmissionHttpClient
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
 import net.primal.android.pcoc.enroll.FileEnrolledPcocStore
@@ -26,7 +26,7 @@ object PcocModule {
 
     @Provides
     @Singleton
-    fun admissionSiteClient(): AdmissionSiteClient = AdmissionSiteClient(http = newAdmissionHttpClient())
+    fun admissionDoorClient(): AdmissionDoorClient = AdmissionDoorClient(http = newAdmissionHttpClient())
 
     @Provides
     @Singleton

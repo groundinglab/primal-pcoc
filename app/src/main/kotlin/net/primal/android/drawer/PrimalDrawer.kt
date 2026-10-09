@@ -46,13 +46,13 @@ import net.primal.android.core.compose.NostrUserText
 import net.primal.android.core.compose.PrimalOverlayBottomBar
 import net.primal.android.core.compose.PrimalOverlayCloseButton
 import net.primal.android.core.compose.icons.PrimalIcons
-import net.primal.android.core.compose.icons.primaliconpack.Document
 import net.primal.android.core.compose.icons.primaliconpack.DrawerBookmarks
 import net.primal.android.core.compose.icons.primaliconpack.DrawerMessages
 import net.primal.android.core.compose.icons.primaliconpack.DrawerPremium
 import net.primal.android.core.compose.icons.primaliconpack.DrawerProfile
 import net.primal.android.core.compose.icons.primaliconpack.DrawerSettings
 import net.primal.android.core.compose.icons.primaliconpack.DrawerSignOut
+import net.primal.android.core.compose.icons.primaliconpack.Hiking
 import net.primal.android.core.compose.icons.primaliconpack.QrCode
 import net.primal.android.core.compose.icons.primaliconpack.RemoteLogin
 import net.primal.android.core.compose.preview.PrimalPreview
@@ -366,7 +366,7 @@ private fun DrawerScreenDestination.icon(): ImageVector {
         is DrawerScreenDestination.Bookmarks -> PrimalIcons.DrawerBookmarks
         DrawerScreenDestination.RemoteLogin -> PrimalIcons.RemoteLogin
         DrawerScreenDestination.ScanCode -> PrimalIcons.QrCode
-        DrawerScreenDestination.Pcoc -> PrimalIcons.Document
+        DrawerScreenDestination.Pcoc -> PrimalIcons.Hiking
         DrawerScreenDestination.Settings -> PrimalIcons.DrawerSettings
         is DrawerScreenDestination.SignOut -> PrimalIcons.DrawerSignOut
     }

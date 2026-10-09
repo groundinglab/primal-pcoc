@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import net.primal.android.pcoc.admit.RequestAdmissionContract.Outcome
+import net.primal.android.pcoc.admit.RequestAdmissionContract.CouldNotSubmitReason
+import net.primal.android.pcoc.admit.RequestAdmissionContract.LocalStop
 import net.primal.android.pcoc.admit.RequestAdmissionContract.ScanProblem
+import net.primal.android.pcoc.admit.RequestAdmissionContract.Sheet
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiEvent
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiState
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
@@ -27,7 +29,7 @@ class RequestAdmissionViewModel @Inject constructor(
     private val activeAccountStore: ActiveAccountStore,
     private val credentialsStore: CredentialsStore,
     private val store: EnrolledPcocStore,
-    poster: AdmissionSiteClient,
+    poster: AdmissionDoorClient,
     private val dispatchers: DispatcherProvider,
     private val welcomeStore: SignInWelcomeStore,
 ) : ViewModel() {
@@ -73,16 +75,9 @@ class RequestAdmissionViewModel @Inject constructor(
         viewModelScope.launch {
             events.collect { event ->
                 when (event) {
-                    is UiEvent.QrCodeDetected -> onQr(event.value)
-                    is UiEvent.CodePasted -> onPaste(event.value)
+                    is UiEvent.QrCodeDetected -> onLinkText(event.value)
+                    is UiEvent.CodePasted -> onLinkText(event.value)
                     UiEvent.ScanAgain -> onScanAgain()
-                    UiEvent.RequestSign -> if (canConfirm()) {
-                        setState { copy(confirming = true) }
-                    }
-                    UiEvent.DismissSign -> if (!_state.value.submitting) {
-                        setState { copy(confirming = false) }
-                    }
-                    UiEvent.SignAndSubmit -> startSubmit()
                     is UiEvent.DontShowAgainChanged -> onDontShowAgain(event.checked)
                     UiEvent.EnterSignIn -> setState { copy(showWelcome = false) }
                 }
@@ -92,18 +87,8 @@ class RequestAdmissionViewModel @Inject constructor(
 
     private fun onScanAgain() {
         val current = _state.value
-        if (current.submitting || current.readingObject) return
-        setState {
-            copy(
-                scanning = true,
-                readingObject = false,
-                confirming = false,
-                readyUrl = null,
-                hashHex = null,
-                scanProblem = null,
-                outcome = null,
-            )
-        }
+        if (current.submitting || current.sheet != null) return
+        setState { copy(scanning = true, origin = null, scanProblem = null, localStop = null) }
     }
 
     private fun onDontShowAgain(checked: Boolean) {
@@ -112,219 +97,80 @@ class RequestAdmissionViewModel @Inject constructor(
         setState { copy(dontShowAgain = welcome.skipWelcome) }
     }
 
-    private fun onPaste(raw: String) {
+    private fun onLinkText(raw: String) {
         val current = _state.value
-        if (current.showWelcome || !current.scanning || current.readingObject || current.submitting) return
-        val url = (AdmissionPaste.parse(raw) as? AdmissionPasteParse.Ready)?.exactUrl
-        if (url == null) {
-            rejectPaste()
-        } else {
-            // Same `h` and submit path as scanning this URL.
-            onQr(url)
+        if (current.showWelcome || !current.scanning || current.submitting) return
+        when (val parsed = SignInLinks.parse(raw)) {
+            is SignInLinkParse.Ready -> startSubmit(parsed.link)
+            SignInLinkParse.RetiredCode -> stopScan(ScanProblem.RetiredCode)
+            SignInLinkParse.NotASignInLink -> stopScan(ScanProblem.NotASignInLink)
         }
     }
 
-    private fun rejectPaste() {
+    private fun stopScan(problem: ScanProblem) {
+        setState { copy(scanning = false, origin = null, scanProblem = problem, localStop = null) }
+    }
+
+    private fun startSubmit(link: SignInLink) {
         setState {
-            copy(
-                scanning = false,
-                readingObject = false,
-                confirming = false,
-                outcome = null,
-                readyUrl = null,
-                hashHex = null,
-                scanProblem = ScanProblem.PasteRejected,
-            )
+            copy(scanning = false, origin = link.origin, submitting = true, scanProblem = null, localStop = null)
         }
-    }
-
-    private fun onQr(raw: String) {
-        val current = _state.value
-        if (current.showWelcome || !current.scanning || current.readingObject || current.submitting) return
-        val parsed = AdmissionQr.parse(raw)
-        val ready = parsed as? AdmissionQrParse.Ready
-        if (ready == null) {
-            setState {
-                copy(
-                    scanning = false,
-                    readingObject = false,
-                    confirming = false,
-                    outcome = null,
-                    readyUrl = null,
-                    hashHex = null,
-                    scanProblem = parsed.toScanProblem(),
-                )
-            }
-            return
-        }
-        setState {
-            copy(
-                readingObject = true,
-                outcome = null,
-                readyUrl = ready.exactUrl,
-                hashHex = ready.hashHex,
-                scanProblem = null,
-            )
-        }
-        viewModelScope.launch {
-            finishReadyScan(exactUrl = ready.exactUrl, hashBytes = ready.hashBytes.size)
-        }
-    }
-
-    private suspend fun finishReadyScan(exactUrl: String, hashBytes: Int) {
-        val userId = activeAccountStore.activeUserId()
-        val plan = try {
-            withContext(dispatchers.io()) { readyPlan(userId) }
-        } catch (error: IOException) {
-            Napier.w(error) { "Service admission could not read the saved PCOC." }
-            null
-        }
-        if (!_state.value.readingObject) return
-        if (plan == null) {
-            setState {
-                copy(
-                    scanning = false,
-                    readingObject = false,
-                    confirming = false,
-                    outcome = Outcome.NotSent,
-                )
-            }
-            return
-        }
-        AdmissionTrace.scan(
-            pubkeyMatch = plan.pubkeyMatch,
-            hBytes = hashBytes,
-            target = admissionTarget(exactUrl),
-            followUp = plan.followUp.name,
-            keys = plan.keys,
-        )
-        setState { afterReadyScan(plan) }
-    }
-
-    private fun canConfirm(): Boolean {
-        val current = _state.value
-        return current.hasEnrolledObject &&
-            current.canSign &&
-            current.readyUrl != null &&
-            current.outcome == null &&
-            !current.submitting &&
-            !current.readingObject
-    }
-
-    private fun startSubmit() {
-        val current = _state.value
-        val url = current.readyUrl
-        val blocked = !current.confirming || current.submitting || url == null
-        val cannotSign = !current.hasEnrolledObject || !current.canSign
-        if (blocked || cannotSign) return
-        setState { copy(confirming = false, submitting = true, outcome = null) }
         viewModelScope.launch {
             val userId = activeAccountStore.activeUserId()
-            val outcome = submitCaught(exactUrl = url, userId = userId)
-            try {
-                refreshAccount(userId)
-            } catch (error: IOException) {
-                Napier.w(error) { "Service admission account refresh failed." }
-            } finally {
-                setState {
-                    copy(
-                        submitting = false,
-                        outcome = outcome.toOutcome(),
-                    )
-                }
+            val outcome = submitCaught(link = link, userId = userId)
+            setState {
+                when (outcome) {
+                    is SubmitResult.Done -> withOutcome(outcome.outcome)
+                    SubmitResult.Unreadable -> copy(localStop = LocalStop.ObjectUnreadable)
+                }.copy(submitting = false)
             }
         }
     }
 
-    private suspend fun submitCaught(exactUrl: String, userId: String): AdmissionSubmitOutcome {
+    private suspend fun submitCaught(link: SignInLink, userId: String): SubmitResult {
         var key: ByteArray? = null
         return try {
-            key = withContext(dispatchers.io()) { producerPrivateKey(credentialsStore, userId) }
-            if (key == null) {
-                AdmissionSubmitOutcome.NotSubmitted
-            } else {
-                val signingKey = key
-                withContext(dispatchers.io()) {
-                    request.submit(exactUrl = exactUrl, accountHex = userId, privateKey = signingKey)
-                }
+            withContext(dispatchers.io()) {
+                key = producerPrivateKey(credentialsStore, userId)
+                SubmitResult.Done(request.submit(link = link, accountHex = userId, privateKey = key))
             }
         } catch (error: IOException) {
-            Napier.w(error) { "Service admission request failed." }
-            AdmissionSubmitOutcome.Failed
-        } catch (error: IllegalArgumentException) {
-            Napier.w(error) { "Service admission request failed." }
-            AdmissionSubmitOutcome.Failed
-        } catch (error: IllegalStateException) {
-            Napier.w(error) { "Service admission request failed." }
-            AdmissionSubmitOutcome.Failed
+            Napier.w(error) { "Sign-in could not read the saved PCOC." }
+            SubmitResult.Unreadable
         } finally {
             key?.fill(0)
         }
     }
 
-    private fun readyPlan(userId: String): ReadyScanPlan {
-        val privateKey = producerPrivateKey(credentialsStore, userId)
-        val canSign = privateKey != null
-        val signingKey = privateKey?.let(::signingPublicKey)
-        privateKey?.fill(0)
-        return planReadyScan(
-            canSign = canSign,
-            accountHex = userId,
-            objectBytes = enrolledObject(store, userId),
-            signingKey = signingKey,
-        )
+    private sealed interface SubmitResult {
+        data class Done(val outcome: AdmissionSubmitOutcome) : SubmitResult
+
+        data object Unreadable : SubmitResult
     }
 }
 
-private fun UiState.afterReadyScan(plan: ReadyScanPlan): UiState {
-    val base = copy(readingObject = false, scanProblem = null)
-    return when (plan.followUp) {
-        ReadyScanFollowUp.Confirm -> base.copy(scanning = false, confirming = true, outcome = null)
-        ReadyScanFollowUp.WrongLogin ->
-            base.copy(scanning = false, confirming = false, canSign = false, outcome = null)
-        ReadyScanFollowUp.KeyMismatch ->
-            base.copy(
-                scanning = false,
-                confirming = false,
-                outcome = Outcome.KeyMismatch(
-                    loginPrefix = plan.keys?.loginPrefix.orEmpty(),
-                    filePrefix = plan.keys?.filePrefix.orEmpty(),
-                ),
-            )
-        ReadyScanFollowUp.ObjectKeyUnreadable ->
-            base.copy(scanning = false, confirming = false, outcome = Outcome.ObjectKeyUnreadable)
-        ReadyScanFollowUp.NoObject ->
-            base.copy(
-                scanning = false,
-                confirming = false,
-                hasEnrolledObject = false,
-                readyUrl = null,
-                outcome = null,
-            )
-    }
-}
-
-private fun AdmissionQrParse.toScanProblem(): ScanProblem? =
-    when (this) {
-        is AdmissionQrParse.Ready -> null
-        AdmissionQrParse.NotHttps -> ScanProblem.NotHttps
-        AdmissionQrParse.BareHash -> ScanProblem.BareHash
-        AdmissionQrParse.MissingOrBadHash -> ScanProblem.BadHash
-        AdmissionQrParse.GateUrl -> ScanProblem.GateUrl
-        AdmissionQrParse.NotAServiceUrl -> ScanProblem.NotAServiceUrl
+private fun UiState.withOutcome(outcome: AdmissionSubmitOutcome): UiState =
+    when (outcome) {
+        AdmissionSubmitOutcome.Submitted -> copy(sheet = Sheet.Submitted)
+        AdmissionSubmitOutcome.BadSignature -> couldNotSubmit(CouldNotSubmitReason.BadSignature)
+        AdmissionSubmitOutcome.Malformed -> couldNotSubmit(CouldNotSubmitReason.Malformed)
+        is AdmissionSubmitOutcome.DeliveryFailed -> couldNotSubmit(outcome.failure.toReason())
+        AdmissionSubmitOutcome.NoObject -> copy(hasEnrolledObject = false, localStop = LocalStop.NoObject)
+        AdmissionSubmitOutcome.WrongLogin -> copy(canSign = false, localStop = LocalStop.WrongLogin)
+        AdmissionSubmitOutcome.ObjectNotHeld -> copy(localStop = LocalStop.ObjectNotHeld)
+        is AdmissionSubmitOutcome.KeyMismatch -> copy(
+            localStop = LocalStop.KeyMismatch(loginPrefix = outcome.loginPrefix, filePrefix = outcome.filePrefix),
+        )
+        AdmissionSubmitOutcome.ObjectKeyUnreadable -> copy(localStop = LocalStop.ObjectKeyUnreadable)
     }
 
-private fun AdmissionSubmitOutcome.toOutcome(): Outcome =
+private fun UiState.couldNotSubmit(reason: CouldNotSubmitReason): UiState = copy(sheet = Sheet.CouldNotSubmit(reason))
+
+private fun DeliveryFailure.toReason(): CouldNotSubmitReason =
     when (this) {
-        is AdmissionSubmitOutcome.Decision -> Outcome.FromGate(
-            decision = decision,
-            verifierRan = verifierRan,
-        )
-        AdmissionSubmitOutcome.Failed -> Outcome.Failed
-        is AdmissionSubmitOutcome.KeyMismatch -> Outcome.KeyMismatch(
-            loginPrefix = loginPrefix,
-            filePrefix = filePrefix,
-        )
-        AdmissionSubmitOutcome.ObjectKeyUnreadable -> Outcome.ObjectKeyUnreadable
-        AdmissionSubmitOutcome.NotSubmitted -> Outcome.NotSent
+        DeliveryFailure.NoConnection -> CouldNotSubmitReason.NoConnection
+        DeliveryFailure.TimedOut -> CouldNotSubmitReason.TimedOut
+        DeliveryFailure.Redirected -> CouldNotSubmitReason.Redirected
+        DeliveryFailure.UnexpectedResponse -> CouldNotSubmitReason.UnexpectedResponse
+        DeliveryFailure.NotSent -> CouldNotSubmitReason.NotSent
     }
