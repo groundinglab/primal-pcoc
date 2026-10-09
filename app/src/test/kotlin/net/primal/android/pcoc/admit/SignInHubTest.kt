@@ -6,6 +6,7 @@ import io.kotest.matchers.string.shouldNotContain
 import java.io.File
 import net.primal.android.core.compose.PrimalTopLevelDestination
 import net.primal.android.core.compose.mainBarDestinations
+import net.primal.android.pcoc.PcocDoor
 import org.junit.Test
 
 class SignInHubTest {
@@ -38,16 +39,13 @@ class SignInHubTest {
     }
 
     @Test
-    fun `center of the main five is sign in and wallet is not in that slot`() {
+    fun `center of the main five is sign in with the qr scanner icon`() {
         val bar = mainBarDestinations
         bar.size shouldBe 5
         bar[bar.size / 2] shouldBe PrimalTopLevelDestination.SignIn
         bar.contains(PrimalTopLevelDestination.Wallet) shouldBe false
 
-        val source = sourceFile(
-            "src/main/kotlin/net/primal/android/core/compose/PrimalNavigationBar.kt",
-            "app/src/main/kotlin/net/primal/android/core/compose/PrimalNavigationBar.kt",
-        )
+        val source = sourceFile("src/main/kotlin/net/primal/android/core/compose/PrimalNavigationBar.kt")
         source.contains("mainBarDestinations") shouldBe true
         source.contains("PrimalTopLevelDestination.entries.forEach") shouldBe false
         source.contains("PrimalTopLevelDestination.entries.size") shouldBe false
@@ -55,51 +53,128 @@ class SignInHubTest {
             .find(source)
             ?.groupValues
             ?.get(1)
-        signInIcon shouldBe "Key"
-        signInIcon.orEmpty().shouldNotContain("Bolt")
-        signInIcon.orEmpty().shouldNotContain("Zap")
-        signInIcon.orEmpty().shouldNotContain("Lightning")
+        signInIcon shouldBe "QrCodeScanner"
+        listOf("Key", "Bolt", "Zap", "Lightning").forEach { signInIcon.orEmpty().shouldNotContain(it) }
+
+        val icon = sourceFile("src/main/kotlin/net/primal/android/core/compose/icons/primaliconpack/QrCodeScanner.kt")
+        icon shouldContain "get() = Icons.Outlined.QrCodeScanner"
+    }
+
+    @Test
+    fun `pcoc drawer tile is the hiking icon and stays apart from remote login`() {
+        val source = sourceFile("src/main/kotlin/net/primal/android/drawer/PrimalDrawer.kt")
+        val tileIcon = Regex("""DrawerScreenDestination\.Pcoc -> PrimalIcons\.(\w+)""")
+            .find(source)
+            ?.groupValues
+            ?.get(1)
+        tileIcon shouldBe "Hiking"
+        Regex("""DrawerScreenDestination\.RemoteLogin -> PrimalIcons\.(\w+)""")
+            .find(source)
+            ?.groupValues
+            ?.get(1) shouldBe "RemoteLogin"
+        stringValue(stringsXml(), "drawer_destination_pcoc") shouldBe "PCOC"
+
+        val icon = sourceFile("src/main/kotlin/net/primal/android/core/compose/icons/primaliconpack/Hiking.kt")
+        icon shouldContain "get() = Icons.Outlined.Hiking"
+    }
+
+    @Test
+    fun `pcoc menu is import, create, verify, sign in`() {
+        PcocDoor.entries shouldBe listOf(PcocDoor.Enroll, PcocDoor.Create, PcocDoor.Verify, PcocDoor.Admit)
+        val xml = stringsXml()
+        stringValue(xml, "pcoc_enroll_title") shouldBe "Import PCOC"
+        stringValue(xml, "pcoc_create_title") shouldBe "Create new PCOC"
+        stringValue(xml, "pcoc_verify_title") shouldBe "Verify"
+        stringValue(xml, "pcoc_admit_title") shouldBe "Sign in"
+        xml.contains("Enroll your PCOC") shouldBe false
+        xml.contains("enrolls automatically") shouldBe false
+        stringValue(xml, "pcoc_admit_need_pcoc") shouldContain "Import PCOC"
+    }
+
+    @Test
+    fun `create new pcoc is a coming soon screen that states the requirements`() {
+        val xml = stringsXml()
+        stringValue(xml, "pcoc_create_soon_title") shouldBe "Coming soon: needs a measured phone"
+        val body = stringValue(xml, "pcoc_create_body")
+        listOf(
+            "npub",
+            "nsec",
+            "18 Bitcoin blocks",
+            "3 hours",
+            "Power and Wi-Fi",
+            "256 MiB",
+            "1/4 leg per second",
+            "Import PCOC",
+        ).forEach { body shouldContain it }
+        val screen = sourceFile("src/main/kotlin/net/primal/android/pcoc/create/CreatePcocScreen.kt")
+        screen.contains("ViewModel") shouldBe false
+        screen.contains("Service") shouldBe false
+    }
+
+    @Test
+    fun `acknowledgement sheet copy is the locked sentences`() {
+        val xml = stringsXml().replace("\\'", "'")
+        stringValue(xml, "pcoc_admit_submitted_title") shouldBe "Sign-in submitted"
+        stringValue(xml, "pcoc_admit_submitted_body") shouldBe "Check the site you're signing in to."
+        stringValue(xml, "pcoc_admit_could_not_submit_title") shouldBe "Couldn't submit"
+        stringValue(xml, "pcoc_admit_reason_bad_signature") shouldBe "bad signature"
+        stringValue(xml, "pcoc_admit_reason_malformed") shouldBe "malformed"
+        stringValue(xml, "pcoc_admit_origin_label") shouldBe "Signing in to"
+        stringValue(xml, "pcoc_admit_close") shouldBe "Close"
+    }
+
+    @Test
+    fun `sign in has no confirm, no result display, and no poll`() {
+        val xml = stringsXml()
+        listOf("pcoc_admit_confirm_title", "pcoc_admit_sign_in", "pcoc_admit_ready", "pcoc_admit_failed")
+            .forEach { xml.contains("name=\"$it\"") shouldBe false }
+        listOf("verifier_ran", "The service said", "decision:").forEach { xml.contains(it) shouldBe false }
+
+        val admit = File(moduleDir(), "src/main/kotlin/net/primal/android/pcoc/admit")
+        val sources = admit.listFiles().orEmpty().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
+        listOf("ConfirmActionAlertDialog", "verifier_ran", "\"decision\"", "latest.json", "/log/", "provisional")
+            .forEach { sources.contains(it) shouldBe false }
+    }
+
+    @Test
+    fun `groundinglab settings door is removed`() {
+        File(moduleDir(), "src/main/kotlin/net/primal/android/settings/groundinglab").exists() shouldBe false
+        sourceFile("src/main/kotlin/net/primal/android/navigation/SettingsNavigation.kt")
+            .contains("groundinglab") shouldBe false
+        stringsXml().contains("settings_groundinglab") shouldBe false
     }
 
     @Test
     fun `user facing admission entry and welcome copy`() {
         val xml = stringsXml()
         xml.contains("Request service admission") shouldBe false
-        stringValue(xml, "pcoc_admit_title") shouldBe "Sign in"
         stringValue(xml, "primary_destination_sign_in_label") shouldBe "Sign in"
         stringValue(xml, "pcoc_admit_welcome_cta") shouldBe "Sign in"
         stringValue(xml, "pcoc_admit_welcome_skip").replace("\\'", "'") shouldBe "Don't show again"
         stringValue(xml, "pcoc_admit_paste") shouldBe "Paste code"
-        stringValue(xml, "pcoc_admit_paste_error") shouldBe "That is not a sign-in code."
+        stringValue(xml, "pcoc_admit_problem_not_link") shouldBe "That is not a sign-in link. Nothing was sent."
+        stringValue(xml, "pcoc_admit_problem_retired") shouldContain "older sign-in code"
 
-        val need = stringValue(xml, "pcoc_admit_welcome_need")
-        need.shouldContain("PCOC")
-        need.shouldContain("Produce")
-        need.shouldContain("import")
-
-        val code = stringValue(xml, "pcoc_admit_welcome_code")
-        code.shouldContain("Scan")
-        code.shouldContain("paste")
-
-        val cost = stringValue(xml, "pcoc_admit_welcome_cost")
-        cost.shouldContain("cost-backed credential")
+        stringValue(xml, "pcoc_admit_welcome_need").let {
+            it shouldContain "PCOC"
+            it shouldContain "import"
+        }
+        stringValue(xml, "pcoc_admit_welcome_code") shouldContain "Scan"
+        stringValue(xml, "pcoc_admit_welcome_cost") shouldContain "cost-backed credential"
     }
 
     @Test
-    fun `version name is 3_5_39`() {
-        val gradle = sourceFile("build.gradle.kts", "app/build.gradle.kts")
-        gradle.contains("val appVersionName = \"3.5.39\"") shouldBe true
-        gradle.contains("val appVersionCode = 2736") shouldBe true
+    fun `version name is 3_5_40`() {
+        val gradle = sourceFile("build.gradle.kts")
+        gradle.contains("val appVersionName = \"3.5.40\"") shouldBe true
+        gradle.contains("val appVersionCode = 2737") shouldBe true
     }
 
-    private fun stringsXml(): String =
-        sourceFile(
-            "src/main/res/values/strings.xml",
-            "app/src/main/res/values/strings.xml",
-        )
+    private fun stringsXml(): String = sourceFile("src/main/res/values/strings.xml")
 
-    private fun sourceFile(modulePath: String, repoPath: String): String =
-        listOf(File(modulePath), File(repoPath)).first { it.isFile }.readText()
+    private fun moduleDir(): File = listOf(File("."), File("app")).first { File(it, "src/main").isDirectory }
+
+    private fun sourceFile(modulePath: String): String = File(moduleDir(), modulePath).readText()
 
     private fun stringValue(xml: String, name: String): String =
         Regex("""name="$name">([^<]*)</string>""")
