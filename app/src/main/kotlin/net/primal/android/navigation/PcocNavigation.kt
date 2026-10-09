@@ -105,8 +105,8 @@ private fun NavController.closeSignInToPcocMenu() {
 private fun PcocDoor.route(): String =
     when (this) {
         PcocDoor.Enroll -> PCOC_ENROLL
-        PcocDoor.Verify -> PCOC_VERIFY
         PcocDoor.Create -> PCOC_CREATE
+        PcocDoor.Verify -> PCOC_VERIFY
         PcocDoor.Admit -> PCOC_ADMIT
     }
 

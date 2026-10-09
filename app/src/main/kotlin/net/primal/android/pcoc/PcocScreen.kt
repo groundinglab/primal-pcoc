@@ -73,7 +73,7 @@ private fun PcocDoorRow(door: PcocDoor, onClick: () -> Unit) {
 private fun PcocDoor.title(): String =
     when (this) {
         PcocDoor.Enroll -> stringResource(id = R.string.pcoc_enroll_title)
-        PcocDoor.Verify -> stringResource(id = R.string.pcoc_verify_title)
         PcocDoor.Create -> stringResource(id = R.string.pcoc_create_title)
+        PcocDoor.Verify -> stringResource(id = R.string.pcoc_verify_title)
         PcocDoor.Admit -> stringResource(id = R.string.pcoc_admit_title)
     }

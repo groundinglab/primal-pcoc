@@ -144,9 +144,9 @@
     <string name="drawer_destination_sign_out">Sign Out</string>
 
     <string name="pcoc_title">PCOC</string>
-    <string name="pcoc_enroll_title">Enroll your PCOC</string>
-    <string name="pcoc_verify_title">Verify any PCOC</string>
-    <string name="pcoc_create_title">Create a PCOC</string>
+    <string name="pcoc_enroll_title">Import PCOC</string>
+    <string name="pcoc_verify_title">Verify</string>
+    <string name="pcoc_create_title">Create new PCOC</string>
     <string name="pcoc_admit_title">Sign in</string>
     <string name="pcoc_admit_welcome_need">You need a PCOC first. Produce one, or import one you already have.</string>
     <string name="pcoc_admit_welcome_code">Scan the code on the website, or paste it.</string>
@@ -154,7 +154,7 @@
     <string name="pcoc_admit_welcome_skip">Don\'t show again</string>
     <string name="pcoc_admit_welcome_cta">Sign in</string>
     <string name="pcoc_enroll_choose_file">Choose a file</string>
-    <string name="pcoc_enroll_clear">Clear enrolled object</string>
+    <string name="pcoc_enroll_clear">Clear imported object</string>
     <string name="pcoc_enroll_stored_status">Saved. This PCOC will be checked by the service when you sign in.</string>
     <string name="pcoc_enroll_saved_date">Date saved %1$s</string>
     <string name="pcoc_enroll_empty_status">No object is stored for this account.</string>
@@ -163,7 +163,7 @@
     <string name="pcoc_enroll_outcome_unreadable">Stopped. The file could not be read. Nothing was stored and nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_not_stored">Stopped. The object bytes were not stored. Nothing was submitted.</string>
     <string name="pcoc_enroll_outcome_cleared">Cleared the stored object bytes for this account. The account and its private key were not removed.</string>
-    <string name="pcoc_enroll_clear_title">Clear enrolled object?</string>
+    <string name="pcoc_enroll_clear_title">Clear imported object?</string>
     <string name="pcoc_enroll_clear_text">This deletes the stored object bytes for this account. It does not remove the account or the private key.</string>
     <string name="pcoc_enroll_clear_confirm">Clear</string>
     <string name="pcoc_enroll_clear_dismiss">Cancel</string>
