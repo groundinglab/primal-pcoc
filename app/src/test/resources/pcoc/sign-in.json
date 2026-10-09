@@ -1,124 +1,253 @@
 {
-  "about": "Stand-in for groundinglab/pcoc conformance/v2.0/sign-in.json, which this build could not fetch. Built from SPEC 15.1 and IMPLEMENTATION-PLAN PR-A with the BIP-340 reference algorithm. The spec-15.1-example entry is the published EXAMPLE. The test key is not a production key. Replace this file with the pcoc vector when it is reachable.",
+  "id": "sign-in",
+  "spec": "Satoshi Hike v2.0 section 15.1",
+  "label": "Locked sign-in wire. Not a section 14 record. Not produced by the hike pack generator.",
   "domain": "pcoc-gate-signin-v1",
   "origin": "https://pcoc.app",
+  "lifetime_s": 120,
+  "skew_s": 5,
   "door": "https://admission.pcoc.app/v1/sign-in",
-  "vectors": [
+  "method": "POST",
+  "content_type": "application/json",
+  "client_ok": "Sign-in submitted",
+  "client_codes": [
+    "bad_signature",
+    "malformed"
+  ],
+  "website_outcomes": [
+    "pending",
+    "accepted",
+    "malformed",
+    "bad_signature",
+    "too_short",
+    "rejected",
+    "earlier_version",
+    "too_few_waypoints_anchored"
+  ],
+  "responses": {
+    "delivery_ok": {
+      "delivery": "ok"
+    },
+    "bad_signature": {
+      "error": {
+        "code": "bad_signature"
+      }
+    },
+    "malformed": {
+      "error": {
+        "code": "malformed"
+      }
+    }
+  },
+  "example": {
+    "origin": "https://pcoc.app",
+    "nonce_hex": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "expiry_unix_s": 1893456000,
+    "object_sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "object_sha256_note": "The 32-byte field of 0xaa. Not the hash of a file of 32 0xaa bytes.",
+    "file_of_0xaa_sha256": "e0e77a507412b120f6ede61f62295b1a7b2ff19d3dcc8f7253e51663470c888e",
+    "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "challenge_bytes_hex": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd880aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "challenge_bytes_len": 109,
+    "bip340_message_32_hex": "69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a",
+    "double_hash_hex": "0dec1e7c6b2f72406b9bbcc338f6b09b93ea151e5fdbb67f9783ca051ffe4d65",
+    "secret_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+    "public_key_hex": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+    "parity": "even",
+    "aux_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "signature_hex": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0",
+    "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
+    "hash_matches_object_field": false,
+    "window_now_2026_10_10": 1791590400,
+    "window_accepts_example_at_2026_10_10": false,
+    "test_key_note": "Not a production key. Do not use it on a deployed gate."
+  },
+  "links": [
     {
-      "name": "spec-15.1-example",
-      "origin": "https://pcoc.app",
-      "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "exp": 1893456000,
-      "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd880aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "bip340_message_32": "69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a"
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "link",
+      "note": "canonical"
     },
     {
-      "name": "signed-spec-nonce",
-      "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
-      "public_key": "dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
-      "aux_rand": "0000000000000000000000000000000000000000000000000000000000000000",
-      "origin": "https://pcoc.app",
-      "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "exp": 1893456000,
-      "object_bytes_hex": "a16a7075626c69635f6b65795820dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
-      "object": "3330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
-      "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=3330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
-      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd8803330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
-      "bip340_message_32": "ee8e3ed04fe3752f7bafdca0b18682e037d2ffb9e1c311cee3d1827a6a10a230",
-      "signature": "56a640c3265ea782b860ea047e305a3243446d2ddd68c932092a3529ec96e2cefd096be71f1b2d07df42f356e93cfed67d5bc2a33957422a95bf6d739801b6e2",
+      "input": " \thttps://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n",
+      "class": "link",
+      "note": "ASCII trim"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=0&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "link",
+      "note": "exp 0 is the one leading-zero exception"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?h=69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a",
+      "class": "malformed",
+      "note": "retired ?h= form"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789Abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "uppercase hex"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&door=https://admission.pcoc.app/v1/sign-in",
+      "class": "malformed",
+      "note": "extra query"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "class": "malformed",
+      "note": "swapped parameter order"
+    },
+    {
+      "input": "http://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "http"
+    },
+    {
+      "input": "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "www host"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#x",
+      "class": "malformed",
+      "note": "fragment"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "leading zero on exp"
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "bare 64 hex"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "exp above u64"
+    },
+    {
+      "input": "\u00a0https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "leading U+00A0"
+    }
+  ],
+  "window": [
+    {
+      "now": 1000000,
+      "exp": 1000120,
+      "accept": true
+    },
+    {
+      "now": 1000120,
+      "exp": 1000120,
+      "accept": true
+    },
+    {
+      "now": 1000124,
+      "exp": 1000120,
+      "accept": true
+    },
+    {
+      "now": 1000125,
+      "exp": 1000120,
+      "accept": false
+    },
+    {
+      "now": 1000000,
+      "exp": 1000125,
+      "accept": true
+    },
+    {
+      "now": 1000000,
+      "exp": 1000126,
+      "accept": false
+    },
+    {
+      "now": 1000000,
+      "exp": 999996,
+      "accept": true
+    },
+    {
+      "now": 1000000,
+      "exp": 999995,
+      "accept": false
+    }
+  ],
+  "bodies": [
+    {
+      "class": "grammar_ok",
+      "note": "field grammar only; the example bytes do not hash to the object field",
       "body": {
         "origin": "https://pcoc.app",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": 1893456000,
-        "object": "3330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
-        "object_b64": "oWpwdWJsaWNfa2V5WCDf8dd/KmccXzYYNybbI0G+WP6uHaLezthDJA97UCumWQ==",
-        "signature": "56a640c3265ea782b860ea047e305a3243446d2ddd68c932092a3529ec96e2cefd096be71f1b2d07df42f356e93cfed67d5bc2a33957422a95bf6d739801b6e2"
+        "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
+        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0"
       }
     },
     {
-      "name": "signed-padded-base64",
-      "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
-      "public_key": "dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
-      "aux_rand": "0000000000000000000000000000000000000000000000000000000000000000",
-      "origin": "https://pcoc.app",
-      "nonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
-      "exp": 1791000120,
-      "object_bytes_hex": "a16a7075626c69635f6b65795820dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba65900",
-      "object": "772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
-      "link": "https://pcoc.app/sign-in/?v=1&nonce=000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f&exp=1791000120&object=772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
-      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e617070000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000000006ac07e38772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
-      "bip340_message_32": "3f5f17b182f46a2e95cc9cb77cf213942a3c57210957b20b1784cc301a9d9f54",
-      "signature": "578f9d921b48d07b3fa0de9b3111d57a73f2876fe436a933d18a581a32bc33ff122bfd27a05b4cfad8020aa159935f8dd28923ed060d17c12dc2422d921765b5",
+      "class": "malformed",
+      "note": "missing signature",
       "body": {
         "origin": "https://pcoc.app",
-        "nonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
-        "exp": 1791000120,
-        "object": "772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
-        "object_b64": "oWpwdWJsaWNfa2V5WCDf8dd/KmccXzYYNybbI0G+WP6uHaLezthDJA97UCumWQA=",
-        "signature": "578f9d921b48d07b3fa0de9b3111d57a73f2876fe436a933d18a581a32bc33ff122bfd27a05b4cfad8020aa159935f8dd28923ed060d17c12dc2422d921765b5"
+        "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "exp": 1893456000,
+        "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo="
       }
     },
     {
-      "name": "signed-max-exp",
-      "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
-      "public_key": "dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
-      "aux_rand": "0000000000000000000000000000000000000000000000000000000000000000",
-      "origin": "https://pcoc.app",
-      "nonce": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-      "exp": 18446744073709551615,
-      "object_bytes_hex": "a16a7075626c69635f6b65795820dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba6590102",
-      "object": "bb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
-      "link": "https://pcoc.app/sign-in/?v=1&nonce=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff&exp=18446744073709551615&object=bb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
-      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e617070ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
-      "bip340_message_32": "776b958d6efe99c744a5662c3f0c6a233376befa460b876863ba69315b3784c3",
-      "signature": "c2363e15ba00f255614430d39b9febe60762a0f5bfe9415bd505c7993d95805dc9431c446b3bd1c7b27e3ad892b77d7bb0cfa0dfda79a52942cc6e1ce277e628",
+      "class": "malformed",
+      "note": "unknown key",
       "body": {
         "origin": "https://pcoc.app",
-        "nonce": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-        "exp": 18446744073709551615,
-        "object": "bb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
-        "object_b64": "oWpwdWJsaWNfa2V5WCDf8dd/KmccXzYYNybbI0G+WP6uHaLezthDJA97UCumWQEC",
-        "signature": "c2363e15ba00f255614430d39b9febe60762a0f5bfe9415bd505c7993d95805dc9431c446b3bd1c7b27e3ad892b77d7bb0cfa0dfda79a52942cc6e1ce277e628"
+        "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "exp": 1893456000,
+        "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
+        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0",
+        "door": "https://admission.pcoc.app/v1/sign-in"
+      }
+    },
+    {
+      "class": "malformed",
+      "note": "exp as a string",
+      "body": {
+        "origin": "https://pcoc.app",
+        "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "exp": "1893456000",
+        "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
+        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0"
+      }
+    },
+    {
+      "class": "malformed",
+      "note": "uppercase signature",
+      "body": {
+        "origin": "https://pcoc.app",
+        "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "exp": 1893456000,
+        "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
+        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ffF"
+      }
+    },
+    {
+      "class": "malformed",
+      "note": "base64 without padding",
+      "body": {
+        "origin": "https://pcoc.app",
+        "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "exp": 1893456000,
+        "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo",
+        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0"
       }
     }
-  ],
-  "links": {
-    "accept": [
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "  https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
-      "\thttps://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n",
-      "https://pcoc.app/sign-in/?v=1&nonce=0000000000000000000000000000000000000000000000000000000000000000&exp=0&object=0000000000000000000000000000000000000000000000000000000000000000",
-      "https://pcoc.app/sign-in/?v=1&nonce=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff&exp=18446744073709551615&object=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    ],
-    "reject": [
-      "https://pcoc.app/sign-in/?h=abababababababababababababababababababababababababababababababab",
-      "https://pcoc.app/sign-in/?h=ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
-      "abababababababababababababababababababababababababababababababab",
-      "0xabababababababababababababababababababababababababababababababab",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=AAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&x=1",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#frag",
-      "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://admission.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "http://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://PCOC.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app:443/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=2&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=+1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&exp=1893456000&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "\u00a0https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u2003",
-      "",
-      "   "
-    ]
-  }
+  ]
 }
