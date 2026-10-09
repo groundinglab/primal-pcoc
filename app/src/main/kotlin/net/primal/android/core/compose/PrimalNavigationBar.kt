@@ -47,10 +47,10 @@ import net.primal.android.core.compose.bubble.anchor
 import net.primal.android.core.compose.icons.PrimalIcons
 import net.primal.android.core.compose.icons.primaliconpack.ExploreFilled
 import net.primal.android.core.compose.icons.primaliconpack.FeedPickerFilled
-import net.primal.android.core.compose.icons.primaliconpack.Key
 import net.primal.android.core.compose.icons.primaliconpack.LongReadFilled
 import net.primal.android.core.compose.icons.primaliconpack.NavWalletBoltFilled
 import net.primal.android.core.compose.icons.primaliconpack.NotificationsFilled
+import net.primal.android.core.compose.icons.primaliconpack.QrCodeScanner
 import net.primal.android.core.compose.preview.PrimalPreview
 import net.primal.android.theme.AppTheme
 import net.primal.android.user.domain.Badges
@@ -220,7 +220,7 @@ private fun PrimalTopLevelDestination.imageVector(): ImageVector {
     return when (this) {
         PrimalTopLevelDestination.Feeds -> PrimalIcons.FeedPickerFilled
         PrimalTopLevelDestination.Reads -> PrimalIcons.LongReadFilled
-        PrimalTopLevelDestination.SignIn -> PrimalIcons.Key
+        PrimalTopLevelDestination.SignIn -> PrimalIcons.QrCodeScanner
         PrimalTopLevelDestination.Alerts -> PrimalIcons.NotificationsFilled
         PrimalTopLevelDestination.Explore -> PrimalIcons.ExploreFilled
         PrimalTopLevelDestination.Wallet -> PrimalIcons.NavWalletBoltFilled
