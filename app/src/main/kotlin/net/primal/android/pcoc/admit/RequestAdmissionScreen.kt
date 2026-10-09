@@ -7,14 +7,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,23 +28,33 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.primal.android.R
-import net.primal.android.core.compose.ConfirmActionAlertDialog
 import net.primal.android.core.compose.button.PrimalLoadingButton
 import net.primal.android.core.utils.pasteText
 import net.primal.android.pcoc.PcocScaffold
-import net.primal.android.pcoc.admit.RequestAdmissionContract.Outcome
+import net.primal.android.pcoc.admit.RequestAdmissionContract.CouldNotSubmitReason
+import net.primal.android.pcoc.admit.RequestAdmissionContract.LocalStop
 import net.primal.android.pcoc.admit.RequestAdmissionContract.ScanProblem
+import net.primal.android.pcoc.admit.RequestAdmissionContract.Sheet
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiEvent
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiState
 import net.primal.android.theme.AppTheme
 import net.primal.core.utils.runCatching
 
+/**
+ * [onClose] is the top-bar back while scanning.
+ * [onCloseToMenu] is Close on the acknowledgement sheet: it always lands on the PCOC menu.
+ */
 @Composable
-fun RequestAdmissionScreen(viewModel: RequestAdmissionViewModel, onClose: () -> Unit) {
+fun RequestAdmissionScreen(
+    viewModel: RequestAdmissionViewModel,
+    onClose: () -> Unit,
+    onCloseToMenu: () -> Unit,
+) {
     val state by viewModel.state.collectAsState()
     RequestAdmissionScreen(
         state = state,
         onClose = onClose,
+        onCloseToMenu = onCloseToMenu,
         eventPublisher = { viewModel.setEvent(it) },
     )
 }
@@ -49,6 +63,7 @@ fun RequestAdmissionScreen(viewModel: RequestAdmissionViewModel, onClose: () -> 
 private fun RequestAdmissionScreen(
     state: UiState,
     onClose: () -> Unit,
+    onCloseToMenu: () -> Unit,
     eventPublisher: (UiEvent) -> Unit,
 ) {
     PcocScaffold(
@@ -69,14 +84,8 @@ private fun RequestAdmissionScreen(
                 modifier = Modifier.padding(paddingValues),
             )
         }
-        if (state.confirming && !state.submitting) {
-            ConfirmActionAlertDialog(
-                dialogTitle = stringResource(id = R.string.pcoc_admit_confirm_title),
-                confirmText = stringResource(id = R.string.pcoc_admit_confirm_ok),
-                dismissText = stringResource(id = R.string.pcoc_admit_confirm_cancel),
-                onConfirmation = { eventPublisher(UiEvent.SignAndSubmit) },
-                onDismissRequest = { eventPublisher(UiEvent.DismissSign) },
-            )
+        state.sheet?.let { sheet ->
+            AdmissionSheet(sheet = sheet, onClose = onCloseToMenu)
         }
     }
 }
@@ -88,51 +97,158 @@ private fun AdmissionSignInBody(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        if (!state.hasEnrolledObject) {
-            Text(
+        when {
+            !state.hasEnrolledObject && state.scanning -> Text(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                 text = stringResource(id = R.string.pcoc_admit_need_pcoc),
                 style = AppTheme.typography.bodyLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
-        } else if (state.scanning) {
-            Text(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                text = stringResource(id = R.string.pcoc_admit_hint),
-                style = AppTheme.typography.bodyMedium,
-                color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-            )
-            AdmissionQrScanner(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
-            )
-            AdmissionPasteButton(
-                enabled = !state.readingObject && !state.submitting,
-                onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
-            )
-        } else {
-            AdmissionScanResult(
+            state.scanning -> {
+                Text(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    text = stringResource(id = R.string.pcoc_admit_hint),
+                    style = AppTheme.typography.bodyMedium,
+                    color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+                )
+                AdmissionQrScanner(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
+                )
+                AdmissionPasteButton(
+                    enabled = !state.submitting,
+                    onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
+                )
+            }
+            else -> AdmissionLinkResult(
                 modifier = Modifier.weight(1f),
                 state = state,
                 eventPublisher = eventPublisher,
             )
         }
-        if (state.offerSignIn()) {
+    }
+}
+
+@Composable
+private fun AdmissionLinkResult(
+    state: UiState,
+    eventPublisher: (UiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+    ) {
+        if (state.origin != null) {
+            Text(
+                text = stringResource(id = R.string.pcoc_admit_origin_label),
+                style = AppTheme.typography.bodyMedium,
+                color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+            )
+            Text(
+                modifier = Modifier.padding(top = 4.dp),
+                text = state.origin,
+                style = AppTheme.typography.titleLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        }
+        if (state.submitting) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .size(28.dp),
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        }
+        val problem = state.scanProblem?.text() ?: state.localStop?.text()
+        if (problem != null) {
+            Text(
+                modifier = Modifier.padding(top = 16.dp),
+                text = problem,
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        }
+        if (!state.submitting && state.sheet == null) {
+            TextButton(
+                modifier = Modifier.padding(top = 8.dp),
+                onClick = { eventPublisher(UiEvent.ScanAgain) },
+            ) {
+                Text(text = stringResource(id = R.string.pcoc_admit_scan_again))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AdmissionSheet(sheet: Sheet, onClose: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        tonalElevation = 0.dp,
+        containerColor = AppTheme.extraColorScheme.surfaceVariantAlt2,
+        contentColor = AppTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = sheet.title(),
+                style = AppTheme.typography.titleLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+            Text(
+                modifier = Modifier.padding(top = 8.dp),
+                text = sheet.body(),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
             PrimalLoadingButton(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(top = 24.dp, bottom = 16.dp)
                     .fillMaxWidth()
                     .height(56.dp),
-                text = stringResource(id = R.string.pcoc_admit_sign_in),
-                enabled = !state.submitting,
+                text = stringResource(id = R.string.pcoc_admit_close),
+                enabled = true,
                 loading = false,
-                onClick = { eventPublisher(UiEvent.RequestSign) },
+                onClick = onClose,
             )
         }
     }
 }
+
+@Composable
+private fun Sheet.title(): String =
+    when (this) {
+        Sheet.Submitted -> stringResource(id = R.string.pcoc_admit_submitted_title)
+        is Sheet.CouldNotSubmit -> stringResource(id = R.string.pcoc_admit_could_not_submit_title)
+    }
+
+@Composable
+private fun Sheet.body(): String =
+    when (this) {
+        Sheet.Submitted -> stringResource(id = R.string.pcoc_admit_submitted_body)
+        is Sheet.CouldNotSubmit -> reason.text()
+    }
+
+@Composable
+private fun CouldNotSubmitReason.text(): String =
+    when (this) {
+        CouldNotSubmitReason.BadSignature -> stringResource(id = R.string.pcoc_admit_reason_bad_signature)
+        CouldNotSubmitReason.Malformed -> stringResource(id = R.string.pcoc_admit_reason_malformed)
+        CouldNotSubmitReason.NoConnection -> stringResource(id = R.string.pcoc_admit_reason_no_connection)
+        CouldNotSubmitReason.TimedOut -> stringResource(id = R.string.pcoc_admit_reason_timed_out)
+        CouldNotSubmitReason.Redirected -> stringResource(id = R.string.pcoc_admit_reason_redirected)
+        CouldNotSubmitReason.UnexpectedResponse -> stringResource(id = R.string.pcoc_admit_reason_unexpected)
+        CouldNotSubmitReason.NotSent -> stringResource(id = R.string.pcoc_admit_reason_not_sent)
+    }
 
 @Composable
 private fun SignInWelcome(
@@ -213,87 +329,22 @@ private fun AdmissionPasteButton(enabled: Boolean, onPaste: (String) -> Unit) {
 
 private fun clipboardText(context: Context): String = runCatching { context.pasteText() }.getOrNull().orEmpty()
 
-private fun UiState.offerSignIn(): Boolean =
-    hasEnrolledObject &&
-        canSign &&
-        readyUrl != null &&
-        scanProblem == null &&
-        outcome == null &&
-        !scanning &&
-        !confirming &&
-        !submitting &&
-        !readingObject
-
-@Composable
-private fun AdmissionScanResult(
-    state: UiState,
-    eventPublisher: (UiEvent) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-    ) {
-        val headline = state.headline()
-        if (headline != null) {
-            Text(
-                text = headline,
-                style = if (state.submitting || state.outcome is Outcome.FromGate) {
-                    AppTheme.typography.titleLarge
-                } else {
-                    AppTheme.typography.bodyLarge
-                },
-                color = AppTheme.colorScheme.onPrimary,
-            )
-        }
-        if (state.submitting) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .size(28.dp),
-                color = AppTheme.colorScheme.onPrimary,
-            )
-        }
-        TextButton(
-            onClick = { eventPublisher(UiEvent.ScanAgain) },
-            enabled = !state.submitting && !state.readingObject,
-        ) {
-            Text(text = stringResource(id = R.string.pcoc_admit_scan_again))
-        }
-    }
-}
-
-@Composable
-private fun UiState.headline(): String? =
-    when {
-        submitting -> stringResource(id = R.string.pcoc_admit_sending)
-        scanProblem != null -> scanProblem.text()
-        outcome != null -> outcome.text()
-        !canSign -> stringResource(id = R.string.pcoc_admit_wrong_login)
-        readyUrl != null && !confirming && !readingObject -> stringResource(id = R.string.pcoc_admit_ready)
-        else -> null
-    }
-
 @Composable
 private fun ScanProblem.text(): String =
     when (this) {
-        ScanProblem.NotHttps -> stringResource(id = R.string.pcoc_admit_problem_not_https)
-        ScanProblem.BareHash -> stringResource(id = R.string.pcoc_admit_problem_bare_hash)
-        ScanProblem.BadHash -> stringResource(id = R.string.pcoc_admit_problem_bad_hash)
-        ScanProblem.GateUrl -> stringResource(id = R.string.pcoc_admit_problem_gate)
-        ScanProblem.NotAServiceUrl -> stringResource(id = R.string.pcoc_admit_problem_other)
-        ScanProblem.PasteRejected -> stringResource(id = R.string.pcoc_admit_paste_error)
+        ScanProblem.NotASignInLink -> stringResource(id = R.string.pcoc_admit_problem_not_link)
+        ScanProblem.RetiredCode -> stringResource(id = R.string.pcoc_admit_problem_retired)
     }
 
 @Composable
-private fun Outcome.text(): String =
+private fun LocalStop.text(): String =
     when (this) {
-        is Outcome.FromGate -> gateResultText(decision = decision, verifierRan = verifierRan)
-        Outcome.Failed -> stringResource(id = R.string.pcoc_admit_failed)
-        is Outcome.KeyMismatch -> mismatchCopy(loginPrefix = loginPrefix, filePrefix = filePrefix)
-        Outcome.ObjectKeyUnreadable -> stringResource(id = R.string.pcoc_admit_key_unreadable)
-        Outcome.NotSent -> stringResource(id = R.string.pcoc_admit_not_sent)
+        LocalStop.NoObject -> stringResource(id = R.string.pcoc_admit_need_pcoc)
+        LocalStop.WrongLogin -> stringResource(id = R.string.pcoc_admit_wrong_login)
+        LocalStop.ObjectNotHeld -> stringResource(id = R.string.pcoc_admit_object_not_held)
+        is LocalStop.KeyMismatch -> mismatchCopy(loginPrefix = loginPrefix, filePrefix = filePrefix)
+        LocalStop.ObjectKeyUnreadable -> stringResource(id = R.string.pcoc_admit_key_unreadable)
+        LocalStop.ObjectUnreadable -> stringResource(id = R.string.pcoc_admit_object_unreadable)
     }
 
 @Composable

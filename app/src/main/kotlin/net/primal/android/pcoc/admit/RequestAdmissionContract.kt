@@ -5,39 +5,53 @@ interface RequestAdmissionContract {
         val hasEnrolledObject: Boolean = false,
         val canSign: Boolean = false,
         val scanning: Boolean = true,
-        val readingObject: Boolean = false,
-        val readyUrl: String? = null,
-        val hashHex: String? = null,
-        val scanProblem: ScanProblem? = null,
+        val origin: String? = null,
         val submitting: Boolean = false,
-        val confirming: Boolean = false,
-        val outcome: Outcome? = null,
+        val scanProblem: ScanProblem? = null,
+        val localStop: LocalStop? = null,
+        val sheet: Sheet? = null,
         val showWelcome: Boolean = true,
         val dontShowAgain: Boolean = false,
     )
 
     enum class ScanProblem {
-        NotHttps,
-        BareHash,
-        BadHash,
-        GateUrl,
-        NotAServiceUrl,
-        PasteRejected,
+        NotASignInLink,
+        RetiredCode,
     }
 
-    sealed interface Outcome {
-        data class FromGate(val decision: AdmissionDecision, val verifierRan: Boolean?) : Outcome
+    /** Stopped on the phone. Nothing was signed and nothing was sent. */
+    sealed interface LocalStop {
+        data object NoObject : LocalStop
 
-        data object Failed : Outcome
+        data object WrongLogin : LocalStop
+
+        data object ObjectNotHeld : LocalStop
 
         data class KeyMismatch(
             val loginPrefix: String,
             val filePrefix: String,
-        ) : Outcome
+        ) : LocalStop
 
-        data object ObjectKeyUnreadable : Outcome
+        data object ObjectKeyUnreadable : LocalStop
 
-        data object NotSent : Outcome
+        data object ObjectUnreadable : LocalStop
+    }
+
+    /** The one acknowledgement after the POST. */
+    sealed interface Sheet {
+        data object Submitted : Sheet
+
+        data class CouldNotSubmit(val reason: CouldNotSubmitReason) : Sheet
+    }
+
+    enum class CouldNotSubmitReason {
+        BadSignature,
+        Malformed,
+        NoConnection,
+        TimedOut,
+        Redirected,
+        UnexpectedResponse,
+        NotSent,
     }
 
     sealed class UiEvent {
@@ -46,12 +60,6 @@ interface RequestAdmissionContract {
         data class CodePasted(val value: String) : UiEvent()
 
         data object ScanAgain : UiEvent()
-
-        data object RequestSign : UiEvent()
-
-        data object DismissSign : UiEvent()
-
-        data object SignAndSubmit : UiEvent()
 
         data class DontShowAgainChanged(val checked: Boolean) : UiEvent()
 

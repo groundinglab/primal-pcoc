@@ -5,52 +5,43 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.primal.core.utils.runCatching
 import net.primal.core.utils.serialization.CommonJson
 
-enum class AdmissionDecision {
-    Accept,
-    Deny,
-}
-
-data class AdmissionReport(
-    val decision: AdmissionDecision,
-    val verifierRan: Boolean?,
-)
-
 /**
- * Phone POST body. Fields are only `object_b64` and `signature`.
- * No hash, height, id, challenge_id, sid, or nsec.
+ * SPEC §15.1 POST body: `origin`, `nonce`, `exp`, `object`, `object_b64`, `signature`.
+ * Standard base64 with padding, lowercase hex. No nsec, no header hash, no session id.
  */
 object AdmissionPayload {
-    fun encode(objectBytes: ByteArray, signatureHex: String): String {
+    fun encode(
+        link: SignInLink,
+        objectBytes: ByteArray,
+        signatureHex: String,
+    ): String {
         val signature = signatureHex.lowercase()
         require(SIGNATURE.matches(signature))
         return CommonJson.encodeToString(
-            AdmissionRequestBody.serializer(),
-            AdmissionRequestBody(
+            SignInRequestBody.serializer(),
+            SignInRequestBody(
+                origin = link.origin,
+                nonce = link.nonceHex,
+                exp = link.exp,
+                objectSha256 = link.objectHex,
                 objectB64 = Base64.getEncoder().encodeToString(objectBytes),
                 signature = signature,
             ),
         )
     }
 
-    fun parseDecision(body: String): AdmissionDecision? = parseReport(body)?.decision
-
-    fun parseReport(body: String): AdmissionReport? {
-        val obj = jsonObject(body)
-        val decision = obj?.let { decisionOf(stringField(it, DECISION)) }
-        return if (obj == null || decision == null) {
-            null
-        } else {
-            AdmissionReport(decision = decision, verifierRan = booleanField(obj, VERIFIER_RAN))
-        }
+    /** `error.code` of a JSON body, or null. The phone reads nothing else from a response. */
+    fun errorCode(body: String): String? {
+        val error = jsonObject(body)?.get(ERROR)?.let { runCatching { it.jsonObject }.getOrNull() }
+        return error?.let { stringField(it, CODE) }
     }
 
-    private fun jsonObject(body: String) =
+    private fun jsonObject(body: String): JsonObject? =
         if (body.isBlank()) {
             null
         } else {
@@ -65,28 +56,16 @@ object AdmissionPayload {
         return primitive?.takeIf(JsonPrimitive::isString)?.content
     }
 
-    private fun booleanField(obj: JsonObject, name: String): Boolean? {
-        val primitive = obj[name]?.let { value ->
-            runCatching { value.jsonPrimitive }.getOrNull()
-        }
-        return primitive?.booleanOrNull
-    }
-
-    private fun decisionOf(text: String?): AdmissionDecision? =
-        when (text) {
-            ACCEPT -> AdmissionDecision.Accept
-            DENY -> AdmissionDecision.Deny
-            else -> null
-        }
-
-    private const val ACCEPT = "accept"
-    private const val DENY = "deny"
-    private const val DECISION = "decision"
-    private const val VERIFIER_RAN = "verifier_ran"
+    private const val ERROR = "error"
+    private const val CODE = "code"
     private val SIGNATURE = Regex("""^[0-9a-f]{128}$""")
 
     @Serializable
-    private data class AdmissionRequestBody(
+    private data class SignInRequestBody(
+        val origin: String,
+        val nonce: String,
+        val exp: ULong,
+        @SerialName("object") val objectSha256: String,
         @SerialName("object_b64") val objectB64: String,
         val signature: String,
     )

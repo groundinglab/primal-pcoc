@@ -83,11 +83,24 @@ fun NavGraphBuilder.signInDestination(navController: NavController) {
         val viewModel = hiltViewModel<RequestAdmissionViewModel>()
         ApplyEdgeToEdge()
         LockToOrientationPortrait()
-        RequestAdmissionScreen(viewModel = viewModel, onClose = { navController.navigateUp() })
+        RequestAdmissionScreen(
+            viewModel = viewModel,
+            onClose = { navController.navigateUp() },
+            onCloseToMenu = { navController.closeSignInToPcocMenu() },
+        )
     }
 }
 
 fun NavController.navigateToSignIn() = navigate(route = PCOC_ADMIT)
+
+/** Leaves Sign in for the PCOC menu, whether Sign in was opened from the menu or from the bottom bar. */
+private fun NavController.closeSignInToPcocMenu() {
+    if (!popBackStack(route = PCOC_HOME, inclusive = false)) {
+        navigate(route = PCOC_GRAPH) {
+            popUpTo(route = PCOC_ADMIT) { inclusive = true }
+        }
+    }
+}
 
 private fun PcocDoor.route(): String =
     when (this) {

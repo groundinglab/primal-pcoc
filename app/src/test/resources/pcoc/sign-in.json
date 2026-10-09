@@ -1,0 +1,124 @@
+{
+  "about": "Stand-in for groundinglab/pcoc conformance/v2.0/sign-in.json, which this build could not fetch. Built from SPEC 15.1 and IMPLEMENTATION-PLAN PR-A with the BIP-340 reference algorithm. The spec-15.1-example entry is the published EXAMPLE. The test key is not a production key. Replace this file with the pcoc vector when it is reachable.",
+  "domain": "pcoc-gate-signin-v1",
+  "origin": "https://pcoc.app",
+  "door": "https://admission.pcoc.app/v1/sign-in",
+  "vectors": [
+    {
+      "name": "spec-15.1-example",
+      "origin": "https://pcoc.app",
+      "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "exp": 1893456000,
+      "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd880aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bip340_message_32": "69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a"
+    },
+    {
+      "name": "signed-spec-nonce",
+      "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
+      "public_key": "dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
+      "aux_rand": "0000000000000000000000000000000000000000000000000000000000000000",
+      "origin": "https://pcoc.app",
+      "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "exp": 1893456000,
+      "object_bytes_hex": "a16a7075626c69635f6b65795820dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
+      "object": "3330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
+      "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=3330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
+      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd8803330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
+      "bip340_message_32": "ee8e3ed04fe3752f7bafdca0b18682e037d2ffb9e1c311cee3d1827a6a10a230",
+      "signature": "56a640c3265ea782b860ea047e305a3243446d2ddd68c932092a3529ec96e2cefd096be71f1b2d07df42f356e93cfed67d5bc2a33957422a95bf6d739801b6e2",
+      "body": {
+        "origin": "https://pcoc.app",
+        "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "exp": 1893456000,
+        "object": "3330ea867e74184b372280ae19484d958b66c98e921181b83077345966fce66d",
+        "object_b64": "oWpwdWJsaWNfa2V5WCDf8dd/KmccXzYYNybbI0G+WP6uHaLezthDJA97UCumWQ==",
+        "signature": "56a640c3265ea782b860ea047e305a3243446d2ddd68c932092a3529ec96e2cefd096be71f1b2d07df42f356e93cfed67d5bc2a33957422a95bf6d739801b6e2"
+      }
+    },
+    {
+      "name": "signed-padded-base64",
+      "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
+      "public_key": "dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
+      "aux_rand": "0000000000000000000000000000000000000000000000000000000000000000",
+      "origin": "https://pcoc.app",
+      "nonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "exp": 1791000120,
+      "object_bytes_hex": "a16a7075626c69635f6b65795820dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba65900",
+      "object": "772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
+      "link": "https://pcoc.app/sign-in/?v=1&nonce=000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f&exp=1791000120&object=772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
+      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e617070000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000000006ac07e38772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
+      "bip340_message_32": "3f5f17b182f46a2e95cc9cb77cf213942a3c57210957b20b1784cc301a9d9f54",
+      "signature": "578f9d921b48d07b3fa0de9b3111d57a73f2876fe436a933d18a581a32bc33ff122bfd27a05b4cfad8020aa159935f8dd28923ed060d17c12dc2422d921765b5",
+      "body": {
+        "origin": "https://pcoc.app",
+        "nonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+        "exp": 1791000120,
+        "object": "772389a61b5296edf063917ec723d45e356eaea84a1f5a72accfaebd08a58bd3",
+        "object_b64": "oWpwdWJsaWNfa2V5WCDf8dd/KmccXzYYNybbI0G+WP6uHaLezthDJA97UCumWQA=",
+        "signature": "578f9d921b48d07b3fa0de9b3111d57a73f2876fe436a933d18a581a32bc33ff122bfd27a05b4cfad8020aa159935f8dd28923ed060d17c12dc2422d921765b5"
+      }
+    },
+    {
+      "name": "signed-max-exp",
+      "secret_key": "b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfef",
+      "public_key": "dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba659",
+      "aux_rand": "0000000000000000000000000000000000000000000000000000000000000000",
+      "origin": "https://pcoc.app",
+      "nonce": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "exp": 18446744073709551615,
+      "object_bytes_hex": "a16a7075626c69635f6b65795820dff1d77f2a671c5f36183726db2341be58feae1da2deced843240f7b502ba6590102",
+      "object": "bb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
+      "link": "https://pcoc.app/sign-in/?v=1&nonce=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff&exp=18446744073709551615&object=bb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
+      "challenge_bytes": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e617070ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
+      "bip340_message_32": "776b958d6efe99c744a5662c3f0c6a233376befa460b876863ba69315b3784c3",
+      "signature": "c2363e15ba00f255614430d39b9febe60762a0f5bfe9415bd505c7993d95805dc9431c446b3bd1c7b27e3ad892b77d7bb0cfa0dfda79a52942cc6e1ce277e628",
+      "body": {
+        "origin": "https://pcoc.app",
+        "nonce": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "exp": 18446744073709551615,
+        "object": "bb2f6bb565df057516d9b3ea2e3bb2f7ad09e87b4fa7f1ae9b42f7d4fec15745",
+        "object_b64": "oWpwdWJsaWNfa2V5WCDf8dd/KmccXzYYNybbI0G+WP6uHaLezthDJA97UCumWQEC",
+        "signature": "c2363e15ba00f255614430d39b9febe60762a0f5bfe9415bd505c7993d95805dc9431c446b3bd1c7b27e3ad892b77d7bb0cfa0dfda79a52942cc6e1ce277e628"
+      }
+    }
+  ],
+  "links": {
+    "accept": [
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "  https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "\thttps://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n",
+      "https://pcoc.app/sign-in/?v=1&nonce=0000000000000000000000000000000000000000000000000000000000000000&exp=0&object=0000000000000000000000000000000000000000000000000000000000000000",
+      "https://pcoc.app/sign-in/?v=1&nonce=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff&exp=18446744073709551615&object=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ],
+    "reject": [
+      "https://pcoc.app/sign-in/?h=abababababababababababababababababababababababababababababababab",
+      "https://pcoc.app/sign-in/?h=ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "abababababababababababababababababababababababababababababababab",
+      "0xabababababababababababababababababababababababababababababababab",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=AAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&x=1",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#frag",
+      "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://admission.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "http://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://PCOC.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app:443/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=2&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=+1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&exp=1893456000&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "\u00a0https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u2003",
+      "",
+      "   "
+    ]
+  }
+}

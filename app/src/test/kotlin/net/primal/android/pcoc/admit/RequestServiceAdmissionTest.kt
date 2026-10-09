@@ -10,238 +10,177 @@ import org.junit.Test
 class RequestServiceAdmissionTest {
 
     private val account = "11".repeat(32)
-    private val hash = "ab".repeat(32)
-    private val url = "https://service.example/door?h=$hash"
     private val objectBytes = cborPublicKeyMap(ByteArray(32) { 0x11 })
     private val privateKey = ByteArray(32) { 9 }
 
     @Test
-    fun `signs the hash and posts the object to the exact url`() {
-        val store = memoryStore()
-        store.write(account, objectBytes)
+    fun `a held object is signed and posted once with no confirm step`() {
+        val store = memoryStore().apply { write(account, objectBytes) }
+        val link = linkFor(objectBytes)
         val seen = mutableListOf<Post>()
         val request = RequestServiceAdmission(
             store = store,
-            poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
-                seen += Post(exactUrl, bytes, signatureHex)
-                AdmissionPostResult.Decision(AdmissionDecision.Accept)
-            },
-            signHash = { _, hashHex ->
-                hashHex shouldBe hash
+            poster = recording(seen, AdmissionPostResult.Submitted),
+            signLink = { _, signed ->
+                signed shouldBe link
                 "cd".repeat(64)
             },
         )
 
-        request.submit(exactUrl = url, accountHex = account, privateKey = privateKey) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Accept)
-        seen.single().url shouldBe url
+        request.submit(link = link, accountHex = account, privateKey = privateKey) shouldBe
+            AdmissionSubmitOutcome.Submitted
+        seen.single().link shouldBe link
         seen.single().bytes.contentEquals(objectBytes) shouldBe true
         seen.single().signature shouldBe "cd".repeat(64)
     }
 
     @Test
-    fun `no object, no key, bare hash, and the gate do not post`() {
+    fun `the signature is BIP-340 over SHA-256 of challenge_bytes`() {
+        val pair = CryptoUtils.generateHexEncodedKeypair()
+        val publicKey = Hex.decode(pair.pubKey)
+        val held = cborPublicKeyMap(publicKey)
+        val link = linkFor(held)
+        val seen = mutableListOf<Post>()
+        val request = RequestServiceAdmission(
+            store = memoryStore().apply { write(pair.pubKey, held) },
+            poster = recording(seen, AdmissionPostResult.Submitted),
+        )
+
+        request.submit(link, pair.pubKey, Hex.decode(pair.privateKey)) shouldBe AdmissionSubmitOutcome.Submitted
+
+        val signature = Hex.decode(seen.single().signature)
+        val challenge = SignInChallenge.challengeBytes(link)
+        val message = sha256(challenge)
+        CryptoUtils.verify(signature = signature, hash = message, pubKey = publicKey) shouldBe true
+        CryptoUtils.verify(signature = signature, hash = sha256(message), pubKey = publicKey) shouldBe false
+        CryptoUtils.verify(signature = signature, hash = link.objectSha256(), pubKey = publicKey) shouldBe false
+    }
+
+    @Test
+    fun `the three client classes pass through`() {
+        listOf(
+            AdmissionPostResult.Submitted to AdmissionSubmitOutcome.Submitted,
+            AdmissionPostResult.BadSignature to AdmissionSubmitOutcome.BadSignature,
+            AdmissionPostResult.Malformed to AdmissionSubmitOutcome.Malformed,
+            AdmissionPostResult.DeliveryFailed(DeliveryFailure.TimedOut) to
+                AdmissionSubmitOutcome.DeliveryFailed(DeliveryFailure.TimedOut),
+        ).forEach { (posted, expected) ->
+            val request = RequestServiceAdmission(
+                store = memoryStore().apply { write(account, objectBytes) },
+                poster = { _, _, _ -> posted },
+                signLink = { _, _ -> "cd".repeat(64) },
+            )
+            request.submit(linkFor(objectBytes), account, privateKey) shouldBe expected
+        }
+    }
+
+    @Test
+    fun `no object for the link hash means no signature and no post`() {
         val store = memoryStore()
         var posts = 0
         var signs = 0
         val request = RequestServiceAdmission(
             store = store,
-            poster = AdmissionPoster { _, _, _ ->
+            poster = { _, _, _ ->
                 posts += 1
-                AdmissionPostResult.Failed
+                AdmissionPostResult.Submitted
             },
-            signHash = { _, _ ->
+            signLink = { _, _ ->
                 signs += 1
                 "cd".repeat(64)
             },
         )
 
-        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.NotSubmitted
+        request.submit(linkFor(objectBytes), account, privateKey) shouldBe AdmissionSubmitOutcome.NoObject
         store.write(account, objectBytes)
-        request.submit(url, account, null) shouldBe AdmissionSubmitOutcome.NotSubmitted
-        request.submit(hash, account, privateKey) shouldBe AdmissionSubmitOutcome.NotSubmitted
-        request.submit("https://admission.pcoc.app/v1/sign-in?h=$hash", account, privateKey) shouldBe
-            AdmissionSubmitOutcome.NotSubmitted
+        request.submit(linkFor(objectBytes + byteArrayOf(0)), account, privateKey) shouldBe
+            AdmissionSubmitOutcome.ObjectNotHeld
+        request.submit(linkFor(objectBytes), account, null) shouldBe AdmissionSubmitOutcome.WrongLogin
+        request.submit(linkFor(objectBytes), account, ByteArray(31)) shouldBe AdmissionSubmitOutcome.WrongLogin
         posts shouldBe 0
         signs shouldBe 0
     }
 
     @Test
-    fun `a failed response is not a denial`() {
-        val store = memoryStore()
-        store.write(account, objectBytes)
+    fun `a different object public key is not signed or posted`() {
+        val other = cborPublicKeyMap(ByteArray(32) { 0x22 })
+        var calls = 0
         val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { _, _, _ -> AdmissionPostResult.Failed },
-            signHash = { _, _ -> "cd".repeat(64) },
-        )
-
-        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Failed
-    }
-
-    @Test
-    fun `a different object public key is not posted`() {
-        val store = memoryStore()
-        store.write(account, cborPublicKeyMap(ByteArray(32) { 0x22 }))
-        var posts = 0
-        var signs = 0
-        val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { _, _, _ ->
-                posts += 1
-                AdmissionPostResult.Failed
+            store = memoryStore().apply { write(account, other) },
+            poster = { _, _, _ ->
+                calls += 1
+                AdmissionPostResult.Submitted
             },
-            signHash = { _, _ ->
-                signs += 1
+            signLink = { _, _ ->
+                calls += 1
                 "cd".repeat(64)
             },
         )
 
-        val outcome = request.submit(url, account, privateKey)
-        outcome shouldBe AdmissionSubmitOutcome.KeyMismatch(loginPrefix = "11111111", filePrefix = "22222222")
-        posts shouldBe 0
-        signs shouldBe 0
+        request.submit(linkFor(other), account, privateKey) shouldBe
+            AdmissionSubmitOutcome.KeyMismatch(loginPrefix = "11111111", filePrefix = "22222222")
+        calls shouldBe 0
     }
 
     @Test
     fun `an object with no public key is not posted`() {
-        val store = memoryStore()
-        store.write(account, byteArrayOf(4, 5, 6))
+        val keyless = byteArrayOf(4, 5, 6)
         var posts = 0
         val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { _, _, _ ->
+            store = memoryStore().apply { write(account, keyless) },
+            poster = { _, _, _ ->
                 posts += 1
-                AdmissionPostResult.Decision(AdmissionDecision.Deny, verifierRan = false)
+                AdmissionPostResult.Submitted
             },
-            signHash = { _, _ -> "cd".repeat(64) },
+            signLink = { _, _ -> "cd".repeat(64) },
         )
 
-        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.ObjectKeyUnreadable
+        request.submit(linkFor(keyless), account, privateKey) shouldBe AdmissionSubmitOutcome.ObjectKeyUnreadable
         posts shouldBe 0
-    }
-
-    @Test
-    fun `live sign-in url signs the scanned h bytes and posts that object`() {
-        val pair = CryptoUtils.generateHexEncodedKeypair()
-        val liveAccount = pair.pubKey
-        val liveKey = Hex.decode(pair.privateKey)
-        val liveObject = cborPublicKeyMap(Hex.decode(pair.pubKey))
-        val liveHash = "01" + "ab".repeat(30) + "ff"
-        val exact = "https://pcoc.app/sign-in/?h=$liveHash"
-        val ready = AdmissionQr.parse(exact) as AdmissionQrParse.Ready
-        val store = memoryStore()
-        store.write(liveAccount, liveObject)
-        val seen = mutableListOf<Post>()
-        val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
-                seen += Post(exactUrl, bytes, signatureHex)
-                AdmissionPostResult.Decision(
-                    decision = AdmissionDecision.Deny,
-                    verifierRan = true,
-                )
-            },
-        )
-
-        val outcome = request.submit(exactUrl = exact, accountHex = liveAccount, privateKey = liveKey)
-        outcome shouldBe AdmissionSubmitOutcome.Decision(
-            decision = AdmissionDecision.Deny,
-            verifierRan = true,
-        )
-        val posted = seen.single()
-        posted.url shouldBe exact
-        posted.bytes.contentEquals(liveObject) shouldBe true
-        posted.signature.length shouldBe 128
-        posted.signature.matches(Regex("^[0-9a-f]{128}$")) shouldBe true
-        CryptoUtils.verify(
-            signature = Hex.decode(posted.signature),
-            hash = ready.hashBytes,
-            pubKey = Hex.decode(pair.pubKey),
-        ) shouldBe true
-        CryptoUtils.verify(
-            signature = Hex.decode(posted.signature),
-            hash = ready.hashBytes.reversedArray(),
-            pubKey = Hex.decode(pair.pubKey),
-        ) shouldBe false
-        val json = AdmissionPayload.encode(objectBytes = posted.bytes, signatureHex = posted.signature)
-        val fields = admissionBodyFields(json)
-        fields.hasObjectB64 shouldBe true
-        fields.hasSignature shouldBe true
-        json.contains(liveHash) shouldBe false
-        gateResultText(AdmissionDecision.Deny, verifierRan = true) shouldBe
-            "The service said:\ndecision: deny\nverifier_ran: true"
-    }
-
-    @Test
-    fun `the key that will sign is posted when the account text does not match`() {
-        val pair = CryptoUtils.generateHexEncodedKeypair()
-        val other = "22".repeat(32)
-        val liveObject = cborPublicKeyMap(Hex.decode(pair.pubKey))
-        val store = memoryStore()
-        store.write(other, liveObject)
-        val seen = mutableListOf<Post>()
-        val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { exactUrl, bytes, signatureHex ->
-                seen += Post(exactUrl, bytes, signatureHex)
-                AdmissionPostResult.Decision(AdmissionDecision.Accept, verifierRan = true)
-            },
-        )
-
-        request.submit(exactUrl = url, accountHex = other, privateKey = Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Accept, verifierRan = true)
-        val posted = seen.single()
-        posted.bytes.contentEquals(liveObject) shouldBe true
-        CryptoUtils.verify(
-            signature = Hex.decode(posted.signature),
-            hash = Hex.decode(hash),
-            pubKey = Hex.decode(pair.pubKey),
-        ) shouldBe true
     }
 
     @Test
     fun `a spaced or npub account id still signs the saved object`() {
         val pair = CryptoUtils.generateHexEncodedKeypair()
-        val liveObject = cborPublicKeyMap(Hex.decode(pair.pubKey))
-        val store = memoryStore()
-        store.write(pair.pubKey, liveObject)
+        val held = cborPublicKeyMap(Hex.decode(pair.pubKey))
         var posts = 0
         val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { _, _, _ ->
+            store = memoryStore().apply { write(pair.pubKey, held) },
+            poster = { _, _, _ ->
                 posts += 1
-                AdmissionPostResult.Decision(AdmissionDecision.Deny, verifierRan = false)
+                AdmissionPostResult.Submitted
             },
         )
 
-        val npub = pair.pubKey.hexToNpubHrp()
-        request.submit(url, "  ${pair.pubKey.uppercase()}  ", Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
-        request.submit(url, "0x${pair.pubKey}", Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
-        request.submit(url, npub, Hex.decode(pair.privateKey)) shouldBe
-            AdmissionSubmitOutcome.Decision(AdmissionDecision.Deny, verifierRan = false)
+        val key = Hex.decode(pair.privateKey)
+        request.submit(linkFor(held), "  ${pair.pubKey.uppercase()}  ", key) shouldBe AdmissionSubmitOutcome.Submitted
+        request.submit(linkFor(held), "0x${pair.pubKey}", key) shouldBe AdmissionSubmitOutcome.Submitted
+        request.submit(linkFor(held), pair.pubKey.hexToNpubHrp(), key) shouldBe AdmissionSubmitOutcome.Submitted
         posts shouldBe 3
     }
 
     @Test
-    fun `verifier ran is forwarded with the decision`() {
-        val store = memoryStore()
-        store.write(account, objectBytes)
+    fun `a signer failure is not sent`() {
+        var posts = 0
         val request = RequestServiceAdmission(
-            store = store,
-            poster = AdmissionPoster { _, _, _ ->
-                AdmissionPostResult.Decision(decision = AdmissionDecision.Deny, verifierRan = false)
+            store = memoryStore().apply { write(account, objectBytes) },
+            poster = { _, _, _ ->
+                posts += 1
+                AdmissionPostResult.Submitted
             },
-            signHash = { _, _ -> "cd".repeat(64) },
+            signLink = { _, _ -> throw IllegalArgumentException("no") },
         )
 
-        request.submit(url, account, privateKey) shouldBe AdmissionSubmitOutcome.Decision(
-            decision = AdmissionDecision.Deny,
-            verifierRan = false,
-        )
+        request.submit(linkFor(objectBytes), account, privateKey) shouldBe
+            AdmissionSubmitOutcome.DeliveryFailed(DeliveryFailure.NotSent)
+        posts shouldBe 0
     }
+
+    private fun recording(seen: MutableList<Post>, result: AdmissionPostResult) =
+        AdmissionPoster { link, bytes, signatureHex ->
+            seen += Post(link, bytes, signatureHex)
+            result
+        }
 
     private fun memoryStore() =
         object : EnrolledPcocStore {
@@ -256,5 +195,5 @@ class RequestServiceAdmissionTest {
             }
         }
 
-    private data class Post(val url: String, val bytes: ByteArray, val signature: String)
+    private data class Post(val link: SignInLink, val bytes: ByteArray, val signature: String)
 }

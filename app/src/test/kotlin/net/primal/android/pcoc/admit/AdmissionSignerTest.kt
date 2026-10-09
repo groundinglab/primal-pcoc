@@ -13,38 +13,29 @@ import org.junit.Test
 class AdmissionSignerTest {
 
     @Test
-    fun `signs the 32 hash bytes with BIP-340 and not the reversed bytes`() {
+    fun `signs SHA-256 of challenge_bytes once and not the object hash or a second hash`() {
         val pair = CryptoUtils.generateHexEncodedKeypair()
         val privateKey = Hex.decode(pair.privateKey)
         val publicKey = Hex.decode(pair.pubKey)
-        val hashBytes = ByteArray(32) { (it + 1).toByte() }
-        val hashHex = Hex.encode(hashBytes)
+        val link = linkFor(byteArrayOf(1, 2, 3))
+        val message = sha256(SignInChallenge.challengeBytes(link))
 
-        val signatureHex = AdmissionSigner.sign(privateKey = privateKey, hashHex = hashHex)
+        val signatureHex = AdmissionSigner.sign(privateKey = privateKey, link = link)
         val signature = Hex.decode(signatureHex)
 
-        signatureHex.length shouldBe 128
         signatureHex.matches(Regex("^[0-9a-f]{128}$")) shouldBe true
-        CryptoUtils.verify(signature = signature, hash = hashBytes, pubKey = publicKey) shouldBe true
-        CryptoUtils.verify(
-            signature = signature,
-            hash = hashBytes.reversedArray(),
-            pubKey = publicKey,
-        ) shouldBe false
+        CryptoUtils.verify(signature = signature, hash = message, pubKey = publicKey) shouldBe true
+        CryptoUtils.verify(signature = signature, hash = sha256(message), pubKey = publicKey) shouldBe false
+        CryptoUtils.verify(signature = signature, hash = link.objectSha256(), pubKey = publicKey) shouldBe false
+        CryptoUtils.verify(signature = signature, hash = link.nonce(), pubKey = publicKey) shouldBe false
     }
 
     @Test
-    fun `refuses to sign hex text, a height, or a url`() {
+    fun `the message must be 32 bytes and the key must be 32 bytes`() {
         val privateKey = ByteArray(32) { 3 }
-        shouldThrow<IllegalArgumentException> {
-            AdmissionSigner.sign(privateKey, "not-a-hash")
-        }
-        shouldThrow<IllegalArgumentException> {
-            AdmissionSigner.sign(privateKey, "100")
-        }
-        shouldThrow<IllegalArgumentException> {
-            AdmissionSigner.sign(privateKey, "https://service.example/door?h=" + "ab".repeat(32))
-        }
+        shouldThrow<IllegalArgumentException> { AdmissionSigner.signMessage(privateKey, ByteArray(31)) }
+        shouldThrow<IllegalArgumentException> { AdmissionSigner.signMessage(privateKey, ByteArray(109)) }
+        shouldThrow<IllegalArgumentException> { AdmissionSigner.signMessage(ByteArray(31), ByteArray(32)) }
     }
 
     @Test
