@@ -159,10 +159,10 @@ class SignInHubTest {
     }
 
     @Test
-    fun `version name is 3_5_43`() {
+    fun `version name is 3_5_44`() {
         val gradle = sourceFile("build.gradle.kts")
-        gradle.contains("val appVersionName = \"3.5.43\"") shouldBe true
-        gradle.contains("val appVersionCode = 2740") shouldBe true
+        gradle.contains("val appVersionName = \"3.5.44\"") shouldBe true
+        gradle.contains("val appVersionCode = 2741") shouldBe true
     }
 
     private fun stringsXml(): String = sourceFile("src/main/res/values/strings.xml")
