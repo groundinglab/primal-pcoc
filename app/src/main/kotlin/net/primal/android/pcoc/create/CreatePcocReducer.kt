@@ -20,7 +20,7 @@ internal sealed class ProduceEvent {
 
     data class Tip(val height: Long) : ProduceEvent()
 
-    data class StageClosed(val stage: Int, val legs: Long) : ProduceEvent()
+    data class StageClosed(val stage: Int, val legs: Long, val height: Long) : ProduceEvent()
 
     data class Posting(val beaconHeight: Long) : ProduceEvent()
 
@@ -53,7 +53,8 @@ internal fun parseProduceEvent(text: String): ProduceEvent? {
         "stage_closed" -> {
             val stage = obj.long("stage") ?: return null
             val legs = obj.long("legs") ?: return null
-            ProduceEvent.StageClosed(stage = stage.toInt(), legs = legs)
+            val height = obj.long("height") ?: return null
+            ProduceEvent.StageClosed(stage = stage.toInt(), legs = legs, height = height)
         }
         "posting" -> obj.long("beacon_height")?.let(ProduceEvent::Posting)
         "settling" -> ProduceEvent.Settling
@@ -71,7 +72,7 @@ internal fun parseProduceEvent(text: String): ProduceEvent? {
     }
 }
 
-internal fun reduce(state: CreateUiState, event: ProduceEvent): CreateUiState =
+internal fun reduce(state: CreateUiState, event: ProduceEvent, nowMs: Long = 0L): CreateUiState =
     when (event) {
         is ProduceEvent.Started -> state.copy(phase = ProducePhase.Running, outputPath = event.output)
         is ProduceEvent.Seed -> state.copy(
@@ -80,22 +81,36 @@ internal fun reduce(state: CreateUiState, event: ProduceEvent): CreateUiState =
             tipHeight = event.height,
         )
         ProduceEvent.Terrain -> state.appendLog("Terrain filled. 256 MiB held for the run.")
-        is ProduceEvent.Leg -> state.copy(
-            phase = if (state.phase == ProducePhase.Settling) state.phase else ProducePhase.Running,
-            stage = event.stage,
-            legsInStage = event.stored,
-            legsTotal = state.legsTotal + 1,
-        )
+        is ProduceEvent.Leg -> {
+            val ticks = noteLegTick(state.legTicks, nowMs)
+            state.copy(
+                phase = if (state.phase == ProducePhase.Settling) state.phase else ProducePhase.Running,
+                stage = event.stage,
+                legsInStage = event.stored,
+                legsTotal = state.legsTotal + 1,
+                legTicks = ticks,
+                legRatePerSecond = legsPerSecond(ticks),
+            )
+        }
         is ProduceEvent.Tip -> state.copy(tipHeight = event.height)
         is ProduceEvent.StageClosed -> state.copy(
             stagesClosed = event.stage + 1,
             stage = event.stage + 1,
             legsInStage = 0,
+            closedStages = state.closedStages + ClosedStage(stage = event.stage, blockHeight = event.height),
         ).appendLog("Stage ${event.stage} closed. ${event.legs} legs stored.")
-        is ProduceEvent.Posting -> state.appendLog("Posting a waypoint. Beacon height ${event.beaconHeight}.")
+        is ProduceEvent.Posting -> state.copy(
+            // Stage 0 is not posted. The first posting event is W_1.
+            waypoints = state.waypoints + WaypointRow(
+                index = state.waypoints.size + 1,
+                status = WaypointStatus.Posted,
+            ),
+        ).appendLog("Posting a waypoint. Beacon height ${event.beaconHeight}.")
         ProduceEvent.Settling -> state.copy(phase = ProducePhase.Settling)
         is ProduceEvent.Log -> state.appendLog(event.line)
-        is ProduceEvent.Paths -> state.appendLog(event.lines.joinToString("\n"))
+        is ProduceEvent.Paths -> state.copy(
+            waypoints = applyPathLines(state.waypoints, event.lines),
+        ).appendLog(event.lines.joinToString("\n"))
         is ProduceEvent.Written -> state.copy(
             phase = ProducePhase.Written,
             outputPath = event.path,

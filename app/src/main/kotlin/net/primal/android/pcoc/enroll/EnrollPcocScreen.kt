@@ -21,7 +21,10 @@ import java.util.Date
 import net.primal.android.R
 import net.primal.android.core.compose.ConfirmActionAlertDialog
 import net.primal.android.core.compose.button.PrimalLoadingButton
+import net.primal.android.pcoc.PcocExportAction
+import net.primal.android.pcoc.PcocExportActions
 import net.primal.android.pcoc.PcocScaffold
+import net.primal.android.pcoc.rememberStoredObjectExport
 import net.primal.android.pcoc.enroll.EnrollPcocContract.Notice
 import net.primal.android.pcoc.enroll.EnrollPcocContract.UiEvent
 import net.primal.android.pcoc.enroll.EnrollPcocContract.UiState
@@ -30,18 +33,21 @@ import net.primal.android.theme.AppTheme
 @Composable
 fun EnrollPcocScreen(viewModel: EnrollPcocViewModel, onClose: () -> Unit) {
     val state by viewModel.state.collectAsState()
+    val onExport = rememberStoredObjectExport { viewModel.storedObject() }
     EnrollPcocScreen(
         state = state,
         onClose = onClose,
         eventPublisher = { viewModel.setEvent(it) },
+        onExport = onExport,
     )
 }
 
 @Composable
-private fun EnrollPcocScreen(
+internal fun EnrollPcocScreen(
     state: UiState,
     onClose: () -> Unit,
     eventPublisher: (UiEvent) -> Unit,
+    onExport: (PcocExportAction) -> Unit = {},
 ) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) eventPublisher(UiEvent.FilePicked(uri))
@@ -97,6 +103,11 @@ private fun EnrollPcocScreen(
                 onClick = { picker.launch(arrayOf("*/*")) },
             )
             if (state.stored) {
+                PcocExportActions(
+                    showObject = true,
+                    showLog = false,
+                    onExport = { _, action -> onExport(action) },
+                )
                 PrimalLoadingButton(
                     modifier = Modifier
                         .padding(top = 12.dp)
