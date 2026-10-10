@@ -59,6 +59,8 @@ class ProduceSession @Inject constructor(
                 legsTotal = 0,
                 legsInStage = 0,
                 seedHeight = null,
+                seedTimeUnixS = null,
+                openBeaconHeight = null,
                 tipHeight = null,
                 closedStages = emptyList(),
                 waypoints = emptyList(),

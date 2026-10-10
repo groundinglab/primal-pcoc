@@ -39,6 +39,10 @@ data class CreateUiState(
     val legsTotal: Long = 0,
     val legsInStage: Long = 0,
     val seedHeight: Long? = null,
+    /** Bitcoin header nTime of the seed, unix seconds. Null when unread. */
+    val seedTimeUnixS: Long? = null,
+    /** Height of the header this stage started from. */
+    val openBeaconHeight: Long? = null,
     val tipHeight: Long? = null,
     val closedStages: List<ClosedStage> = emptyList(),
     val waypoints: List<WaypointRow> = emptyList(),
@@ -57,6 +61,33 @@ sealed class CreateUiEvent {
     data object Stop : CreateUiEvent()
 
     data object Reset : CreateUiEvent()
+}
+
+const val WAITING_FOR_HEADER = "Waiting for latest Bitcoin header…"
+
+/**
+ * What Produce is doing. Waiting, then the seed block, then stage k of 18.
+ * `nowEpochMs` is the app clock, used only for "mined X min ago".
+ */
+internal fun produceHeadline(state: CreateUiState, nowEpochMs: Long): String {
+    val seed = state.seedHeight ?: return WAITING_FOR_HEADER
+    if (state.legsTotal == 0L) {
+        val mins = minedMinutes(state.seedTimeUnixS, nowEpochMs)
+        return if (mins == null) {
+            "Started on block $seed"
+        } else {
+            "Started on block $seed (mined $mins min ago)"
+        }
+    }
+    val from = state.openBeaconHeight ?: seed
+    val tip = state.tipHeight ?: from
+    return "Stage ${state.stage} of $HIKE_STAGES · from block $from · tip $tip"
+}
+
+internal fun minedMinutes(seedTimeUnixS: Long?, nowEpochMs: Long): Long? {
+    val nTime = seedTimeUnixS ?: return null
+    if (nTime <= 0L) return null
+    return (nowEpochMs / 1000 - nTime).coerceAtLeast(0) / 60
 }
 
 /** Headers still to come, at ten minutes each. Null once every stage has closed. */

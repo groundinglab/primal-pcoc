@@ -12,7 +12,7 @@ import kotlinx.serialization.json.longOrNull
 internal sealed class ProduceEvent {
     data class Started(val output: String) : ProduceEvent()
 
-    data class Seed(val height: Long) : ProduceEvent()
+    data class Seed(val height: Long, val timeUnixS: Long?) : ProduceEvent()
 
     data object Terrain : ProduceEvent()
 
@@ -42,7 +42,9 @@ internal fun parseProduceEvent(text: String): ProduceEvent? {
     val kind = obj["kind"]?.jsonPrimitive?.contentOrNull ?: return null
     return when (kind) {
         "started" -> ProduceEvent.Started(output = obj.string("output").orEmpty())
-        "seed" -> obj.long("height")?.let(ProduceEvent::Seed)
+        "seed" -> obj.long("height")?.let { height ->
+            ProduceEvent.Seed(height = height, timeUnixS = obj.long("time")?.takeIf { it > 0L })
+        }
         "terrain" -> ProduceEvent.Terrain
         "leg" -> {
             val stage = obj.long("stage") ?: return null
@@ -78,6 +80,8 @@ internal fun reduce(state: CreateUiState, event: ProduceEvent, nowMs: Long = 0L)
         is ProduceEvent.Seed -> state.copy(
             phase = ProducePhase.Running,
             seedHeight = event.height,
+            seedTimeUnixS = event.timeUnixS,
+            openBeaconHeight = event.height,
             tipHeight = event.height,
         )
         ProduceEvent.Terrain -> state.appendLog("Terrain filled. 256 MiB held for the run.")
@@ -97,6 +101,7 @@ internal fun reduce(state: CreateUiState, event: ProduceEvent, nowMs: Long = 0L)
             stagesClosed = event.stage + 1,
             stage = event.stage + 1,
             legsInStage = 0,
+            openBeaconHeight = event.height,
             closedStages = state.closedStages + ClosedStage(stage = event.stage, blockHeight = event.height),
         ).appendLog("Stage ${event.stage} closed. ${event.legs} legs stored.")
         is ProduceEvent.Posting -> state.copy(

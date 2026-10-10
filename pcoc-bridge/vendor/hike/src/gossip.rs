@@ -491,6 +491,10 @@ fn session(
     let mut waiting_pong: Option<Instant> = None;
     let mut last_ping = Instant::now();
     let mut synced = false;
+    // A batch of exactly MAX_HEADERS asks for more. Silence after that batch,
+    // when the tip header is recent, means the peer has nothing newer. The
+    // seed Observe is that tip. It does not wait for the next block.
+    let mut asked_for_more = false;
     send_getheaders(opts, shared, &mut stream)?;
     loop {
         let read_for = if synced {
@@ -519,13 +523,18 @@ fn session(
                 if message.command == "headers" {
                     match apply_headers(opts, shared, &message.payload)? {
                         HeadersApply::Reorg => return Ok(SessionEnd::Reorg),
-                        HeadersApply::Gap => send_getheaders(opts, shared, &mut stream)?,
+                        HeadersApply::Gap => {
+                            asked_for_more = false;
+                            send_getheaders(opts, shared, &mut stream)?;
+                        }
                         HeadersApply::Batch { count } => {
                             if !synced {
                                 if count < MAX_HEADERS {
                                     mark_live(shared);
                                     synced = true;
+                                    asked_for_more = false;
                                 } else {
+                                    asked_for_more = true;
                                     send_getheaders(opts, shared, &mut stream)?;
                                 }
                             }
@@ -533,6 +542,11 @@ fn session(
                     }
                     continue;
                 }
+            }
+            Err("timeout") if !synced && asked_for_more && tip_is_recent(shared) => {
+                mark_live(shared);
+                synced = true;
+                asked_for_more = false;
             }
             Err("timeout") if !synced => return Err("peer_silence"),
             Err("timeout") => {
@@ -559,6 +573,29 @@ fn mark_live(shared: &Arc<(Mutex<Shared>, Condvar)>) {
     let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
     guard.live = true;
     cv.notify_all();
+}
+
+/// The tip header is close to now, so this is the peer's tip rather than an
+/// initial-sync cursor from years ago. A header mined minutes ago still counts.
+/// A historical header does not: silence during that sync is a stall, and the
+/// session reconnects instead of opening stage 0 on the cursor.
+fn tip_is_recent(shared: &Arc<(Mutex<Shared>, Condvar)>) -> bool {
+    let (lock, _) = &**shared;
+    let guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    if guard.chain.tip_height == 0 {
+        return false;
+    }
+    let Some(node) = guard.chain.nodes.get(&guard.chain.tip) else {
+        return false;
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let n_time = u64::from(node.n_time);
+    const DAY: u64 = 24 * 60 * 60;
+    const TWO_HOURS: u64 = 2 * 60 * 60;
+    now.saturating_add(TWO_HOURS) >= n_time && n_time.saturating_add(DAY) >= now
 }
 
 fn send_getheaders(
@@ -2151,5 +2188,89 @@ mod tests {
             }
             IpAddr::V6(ip) => ip.octets(),
         }
+    }
+
+    /// Genesis plus `n` extensions. The tip header's `nTime` is `age` before now.
+    fn recent_regtest_chain(n: usize, age: Duration) -> Vec<[u8; 80]> {
+        let network = GossipNetwork::Regtest;
+        let mut headers = vec![network.genesis_header()];
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as u32;
+        let tip_time = now.saturating_sub(age.as_secs() as u32);
+        let start = tip_time.saturating_sub(n as u32);
+        for i in 0..n {
+            let prev = sha256d(headers.last().unwrap());
+            headers.push(mine_extension(
+                prev,
+                network.extension_bits(),
+                start.saturating_add(i as u32),
+            ));
+        }
+        headers
+    }
+
+    /// Serves `chain`. A getheaders that has nothing newer sends an empty
+    /// headers message when `empty` is set, and otherwise stays quiet.
+    fn serve_caught_up(mut stream: TcpStream, chain: Vec<[u8; 80]>, empty: bool) {
+        let magic = GossipNetwork::Regtest.magic();
+        let mut got_version = false;
+        loop {
+            let message = match read_message(&mut stream, magic, Duration::from_secs(3)) {
+                Ok(message) => message,
+                Err("timeout") => continue,
+                Err(_) => return,
+            };
+            if message.command == "version" && !got_version {
+                got_version = true;
+                let _ = write_message(
+                    &mut stream,
+                    magic,
+                    "version",
+                    &version_payload(chain.len() as i32 - 1),
+                );
+                let _ = write_message(&mut stream, magic, "verack", &[]);
+            } else if message.command == "ping" {
+                let _ = write_message(&mut stream, magic, "pong", &message.payload);
+            } else if message.command == "getheaders" {
+                let reply = headers_after(&chain, &message.payload);
+                if reply.is_empty() && !empty {
+                    continue;
+                }
+                let _ = write_message(&mut stream, magic, "headers", &headers_payload(&reply));
+            }
+        }
+    }
+
+    fn caught_up_peer(empty: bool) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let chain = recent_regtest_chain(MAX_HEADERS, Duration::from_secs(16 * 60));
+        thread::spawn(move || {
+            if let Ok((stream, _)) = listener.accept() {
+                serve_caught_up(stream, chain, empty);
+            }
+        });
+        format!("{addr}")
+    }
+
+    #[test]
+    fn empty_headers_after_a_full_batch_is_the_current_tip() {
+        let peer = caught_up_peer(true);
+        let lab = start_lab(&peer, Duration::from_secs(30), Duration::from_secs(30));
+        let (_tip, height) = wait_observe(&lab.clock);
+        assert_eq!(height, MAX_HEADERS as u64);
+    }
+
+    #[test]
+    fn silence_after_a_full_batch_does_not_wait_for_a_newer_header() {
+        let peer = caught_up_peer(false);
+        let lab = start_lab(&peer, Duration::from_secs(30), Duration::from_secs(30));
+        let (_tip, height) = wait_observe(&lab.clock);
+        assert_eq!(
+            height, MAX_HEADERS as u64,
+            "the seed Observe is the header already in hand"
+        );
     }
 }

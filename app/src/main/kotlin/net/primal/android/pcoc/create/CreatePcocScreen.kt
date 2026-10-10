@@ -135,7 +135,7 @@ private fun RunningBody(
         CircularProgressIndicator()
         Text(
             modifier = Modifier.padding(top = 12.dp),
-            text = stringResource(id = R.string.pcoc_create_running),
+            text = produceHeadline(state, System.currentTimeMillis()),
             style = AppTheme.typography.titleLarge,
             color = AppTheme.colorScheme.onPrimary,
         )
