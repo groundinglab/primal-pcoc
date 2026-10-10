@@ -1,6 +1,11 @@
 package net.primal.android.pcoc.create
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,20 +20,28 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import net.primal.android.R
 import net.primal.android.core.compose.button.PrimalLoadingButton
+import net.primal.android.pcoc.PcocExportAction
+import net.primal.android.pcoc.PcocExportActions
+import net.primal.android.pcoc.PcocExportKind
 import net.primal.android.pcoc.PcocScaffold
+import net.primal.android.pcoc.rememberProduceExport
 import net.primal.android.pcoc.verify.thousands
 import net.primal.android.theme.AppTheme
 
 @Composable
 fun CreatePcocScreen(viewModel: CreatePcocViewModel, onClose: () -> Unit) {
     val state by viewModel.state.collectAsState()
+    val onExport = rememberProduceExport { viewModel.state.value }
     CreatePcocScreen(
         state = state,
         onClose = onClose,
         eventPublisher = { viewModel.setEvent(it) },
+        onExport = onExport,
     )
 }
 
@@ -37,6 +50,7 @@ internal fun CreatePcocScreen(
     state: CreateUiState,
     onClose: () -> Unit,
     eventPublisher: (CreateUiEvent) -> Unit,
+    onExport: (PcocExportKind, PcocExportAction) -> Unit = { _, _ -> },
 ) {
     PcocScaffold(title = stringResource(id = R.string.pcoc_create_title), onClose = onClose) { paddingValues ->
         Column(
@@ -51,9 +65,18 @@ internal fun CreatePcocScreen(
                 ProducePhase.Running, ProducePhase.Settling -> RunningBody(
                     state = state,
                     eventPublisher = eventPublisher,
+                    onExport = onExport,
                 )
-                ProducePhase.Written -> WrittenBody(state = state, eventPublisher = eventPublisher)
-                ProducePhase.Stopped, ProducePhase.Failed -> StoppedBody(state = state, eventPublisher = eventPublisher)
+                ProducePhase.Written -> WrittenBody(
+                    state = state,
+                    eventPublisher = eventPublisher,
+                    onExport = onExport,
+                )
+                ProducePhase.Stopped, ProducePhase.Failed -> StoppedBody(
+                    state = state,
+                    eventPublisher = eventPublisher,
+                    onExport = onExport,
+                )
             }
         }
     }
@@ -97,7 +120,11 @@ private fun IdleBody(state: CreateUiState, eventPublisher: (CreateUiEvent) -> Un
 }
 
 @Composable
-private fun RunningBody(state: CreateUiState, eventPublisher: (CreateUiEvent) -> Unit) {
+private fun RunningBody(
+    state: CreateUiState,
+    eventPublisher: (CreateUiEvent) -> Unit,
+    onExport: (PcocExportKind, PcocExportAction) -> Unit,
+) {
     if (state.phase == ProducePhase.Settling) {
         Text(
             text = stringResource(id = R.string.pcoc_create_settling),
@@ -113,22 +140,7 @@ private fun RunningBody(state: CreateUiState, eventPublisher: (CreateUiEvent) ->
             color = AppTheme.colorScheme.onPrimary,
         )
     }
-    Metric(
-        label = stringResource(id = R.string.pcoc_create_stage),
-        value = stringResource(
-            id = R.string.pcoc_create_stage_value,
-            state.stage,
-            state.stagesClosed,
-            HIKE_STAGES,
-        ),
-    )
-    Metric(
-        label = stringResource(id = R.string.pcoc_create_legs),
-        value = thousands(state.legsTotal),
-    )
-    state.tipHeight?.let { height ->
-        Metric(label = stringResource(id = R.string.pcoc_create_tip), value = thousands(height))
-    }
+    HikeProgress(state = state)
     headerEstimate(state.stagesClosed)?.let { estimate ->
         Text(
             modifier = Modifier.padding(top = 12.dp),
@@ -143,17 +155,23 @@ private fun RunningBody(state: CreateUiState, eventPublisher: (CreateUiEvent) ->
         style = AppTheme.typography.bodyMedium,
         color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
     )
+    WaypointList(rows = state.waypoints)
     if (state.outputPath.isNotEmpty()) {
         Metric(label = stringResource(id = R.string.pcoc_create_path), value = state.outputPath)
     }
     LogBlock(lines = state.logLines)
+    PcocExportActions(showObject = false, showLog = state.outputPath.isNotEmpty(), onExport = onExport)
     TextButton(onClick = { eventPublisher(CreateUiEvent.Stop) }) {
         Text(text = stringResource(id = R.string.pcoc_create_stop))
     }
 }
 
 @Composable
-private fun WrittenBody(state: CreateUiState, eventPublisher: (CreateUiEvent) -> Unit) {
+private fun WrittenBody(
+    state: CreateUiState,
+    eventPublisher: (CreateUiEvent) -> Unit,
+    onExport: (PcocExportKind, PcocExportAction) -> Unit,
+) {
     Text(
         text = stringResource(id = R.string.pcoc_create_written_title),
         style = AppTheme.typography.titleLarge,
@@ -165,16 +183,16 @@ private fun WrittenBody(state: CreateUiState, eventPublisher: (CreateUiEvent) ->
         style = AppTheme.typography.bodyLarge,
         color = AppTheme.colorScheme.onPrimary,
     )
-    Metric(
-        label = stringResource(id = R.string.pcoc_create_legs),
-        value = thousands(state.legsTotal),
-    )
-    state.objectBytes?.let { bytes ->
-        Metric(label = stringResource(id = R.string.pcoc_verify_row_bytes), value = thousands(bytes))
+    affirmation(state)?.let { summary ->
+        Text(
+            modifier = Modifier.padding(top = 12.dp),
+            text = summary,
+            style = AppTheme.typography.bodyLarge,
+            color = AppTheme.colorScheme.onPrimary,
+        )
     }
-    state.objectSha256?.let { sha ->
-        Metric(label = stringResource(id = R.string.pcoc_verify_row_sha256), value = sha)
-    }
+    HikeProgress(state = state)
+    WaypointList(rows = state.waypoints)
     if (state.outputPath.isNotEmpty()) {
         Metric(label = stringResource(id = R.string.pcoc_create_path), value = state.outputPath)
     }
@@ -190,13 +208,18 @@ private fun WrittenBody(state: CreateUiState, eventPublisher: (CreateUiEvent) ->
         style = AppTheme.typography.bodyLarge,
         color = AppTheme.colorScheme.onPrimary,
     )
+    PcocExportActions(showObject = true, showLog = state.outputPath.isNotEmpty(), onExport = onExport)
     TextButton(onClick = { eventPublisher(CreateUiEvent.Reset) }) {
         Text(text = stringResource(id = R.string.pcoc_create_again))
     }
 }
 
 @Composable
-private fun StoppedBody(state: CreateUiState, eventPublisher: (CreateUiEvent) -> Unit) {
+private fun StoppedBody(
+    state: CreateUiState,
+    eventPublisher: (CreateUiEvent) -> Unit,
+    onExport: (PcocExportKind, PcocExportAction) -> Unit,
+) {
     val text = if (state.phase == ProducePhase.Failed && !state.message.isNullOrBlank()) {
         stringResource(id = R.string.pcoc_create_failed, state.message)
     } else {
@@ -207,8 +230,82 @@ private fun StoppedBody(state: CreateUiState, eventPublisher: (CreateUiEvent) ->
         style = AppTheme.typography.bodyLarge,
         color = AppTheme.colorScheme.onPrimary,
     )
+    PcocExportActions(showObject = false, showLog = state.outputPath.isNotEmpty(), onExport = onExport)
     TextButton(onClick = { eventPublisher(CreateUiEvent.Reset) }) {
         Text(text = stringResource(id = R.string.pcoc_create_again))
+    }
+}
+
+@Composable
+private fun HikeProgress(state: CreateUiState) {
+    Text(
+        modifier = Modifier.padding(top = 12.dp),
+        text = stringResource(
+            id = R.string.pcoc_create_stage_value,
+            state.stagesClosed,
+            HIKE_STAGES,
+        ),
+        style = AppTheme.typography.bodyLarge,
+        color = AppTheme.colorScheme.onPrimary,
+    )
+    StageBar(closed = state.stagesClosed)
+    state.closedStages.forEach { stage ->
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = closedStageLabel(stage),
+            style = AppTheme.typography.bodyMedium,
+            color = AppTheme.colorScheme.onPrimary,
+        )
+    }
+    Metric(
+        label = stringResource(id = R.string.pcoc_create_legs),
+        value = thousands(state.legsTotal),
+    )
+    state.legRatePerSecond?.let { rate ->
+        Metric(
+            label = stringResource(id = R.string.pcoc_create_leg_rate),
+            value = formatLegRate(rate),
+        )
+    }
+    state.tipHeight?.let { height ->
+        Metric(label = stringResource(id = R.string.pcoc_create_tip), value = thousands(height))
+    }
+}
+
+@Composable
+private fun StageBar(closed: Int) {
+    val filled = AppTheme.colorScheme.onPrimary
+    val empty = filled.copy(alpha = 0.25f)
+    val capped = closed.coerceIn(0, HIKE_STAGES)
+    Row(
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .fillMaxWidth()
+            .height(10.dp)
+            .semantics { contentDescription = "$capped of $HIKE_STAGES stages filled" },
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        repeat(HIKE_STAGES) { index ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(if (index < capped) filled else empty),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WaypointList(rows: List<WaypointRow>) {
+    if (rows.isEmpty()) return
+    SectionLabel(text = stringResource(id = R.string.pcoc_create_waypoints))
+    rows.forEach { row ->
+        Text(
+            text = waypointLabel(row),
+            style = AppTheme.typography.bodyLarge,
+            color = AppTheme.colorScheme.onPrimary,
+        )
     }
 }
 

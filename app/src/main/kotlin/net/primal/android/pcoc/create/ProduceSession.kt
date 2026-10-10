@@ -60,6 +60,10 @@ class ProduceSession @Inject constructor(
                 legsInStage = 0,
                 seedHeight = null,
                 tipHeight = null,
+                closedStages = emptyList(),
+                waypoints = emptyList(),
+                legTicks = emptyList(),
+                legRatePerSecond = null,
                 logLines = emptyList(),
                 message = null,
                 objectBytes = null,
@@ -105,7 +109,7 @@ class ProduceSession @Inject constructor(
 
     private fun onNative(json: String) {
         val event = parseProduceEvent(json) ?: return
-        _state.update { reduce(it, event) }
+        _state.update { reduce(it, event, nowMs = System.currentTimeMillis()) }
         when (event) {
             is ProduceEvent.Written -> {
                 saveForAccount(event)
