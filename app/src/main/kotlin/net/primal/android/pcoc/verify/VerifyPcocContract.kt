@@ -6,11 +6,7 @@ import androidx.annotation.StringRes
 interface VerifyPcocContract {
     data class UiState(
         val busy: Boolean = false,
-        val stage: Stage? = null,
-        val legsDone: Int = 0,
-        val legsTotal: Int = 6,
-        val stepDone: Int = 0,
-        val stepTotal: Int = 0,
+        val stopping: Boolean = false,
         val recorded: Boolean = false,
         val rows: List<MeasureRow> = emptyList(),
         val notice: Notice? = null,
@@ -19,24 +15,12 @@ interface VerifyPcocContract {
     data class MeasureRow(
         @StringRes val title: Int,
         val found: String,
-        val rateUnread: Boolean = false,
     )
 
-    enum class Stage {
-        File,
-        Index,
-        Terrain,
-        Checks,
-        Checkpoints,
-        Waypoints,
-        Paths,
-        Legs,
-    }
-
     enum class Notice {
-        IndexUnreachable,
         DidNotFinish,
         CouldNotRead,
+        Unreadable,
     }
 
     sealed class UiEvent {

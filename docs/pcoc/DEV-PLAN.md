@@ -6,7 +6,7 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 ## Gates
 
-**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC, Verify any PCOC, and Request service admission work. Create a PCOC is a copy shell. Verify any is the section 14 measurement record, as [FEATURES-v0.1.md](FEATURES-v0.1.md) locks. It does not apply section 15 and it does not show valid or invalid. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
+**Account doors (2026-10-05 lock)** are specified in [FEATURES-v0.1.md](FEATURES-v0.1.md). Entry is Account → PCOC, the drawer tile immediately before Settings. Enroll your PCOC, Verify any PCOC, and Request service admission work. Create a PCOC runs the reference live produce on the phone. Verify any is the section 14 measurement record, as [FEATURES-v0.1.md](FEATURES-v0.1.md) locks. It does not apply section 15 and it does not show valid or invalid. The phone POSTs `{object_b64, signature}` to the exact scanned HTTPS URL. It does not POST the admission gate, and the QR is not a bare hash. That supersedes, for these doors, the earlier settings-row phone→gate wire. The centre stays Wallet. A live object is still produced elsewhere. Create does not plant, gossip, call Bari, or run produce.
 
 **Later** (in-app produce, screen-off tip observe, Option B admit) stay behind their own asks. Verify any is the Java verifier in [FEATURES-v0.1.md](FEATURES-v0.1.md). In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
@@ -85,7 +85,7 @@ Account door UI home is closed in [FEATURES-v0.1.md](FEATURES-v0.1.md): Account 
 Later, still stop rather than invent:
 
 1. **Option B wire and signature.** What are Option B’s bytes, and is there a signature at all? Phase 9 waits. Tonight’s sign-in body stays the two fields in the SPEC.
-2. **Produce artifact.** Which Android-callable coordinates and symbols does `groundinglab/pcoc` expose? This tree has no Rust bridge. Phase 6 waits. This does not block phases 1–3.
+2. **Produce artifact.** The Android-callable surface is the JNI bridge in `pcoc-bridge/`, linked to the vendored hike crate.
 3. **Produce association record.** When in-app produce finishes, which field is the object id and which field is the associated pubkey? Phase 9 waits on this. Naming it does not move admit onto the centre. Tonight’s enroll stores the picked file. It does not use `hike::yielded_public_key` or `object_public_key`.
 4. **Tip client.** Which client reads the public tip? Phase 8 waits. Do not bind start or stop to a leg. The app does not keep a header archive. The same answer blocks phase 7. mempool.space transaction lookup is the wallet path.
 5. **Centre versus Wallet, including produce-on-centre and admit-on-centre.** Wallet stays the centre item (`WalletDashboardContent`). Do not retarget it. Phases 5 and 6 wait. Tonight’s UI is the settings ask in the SPEC, not this one.

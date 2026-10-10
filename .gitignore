@@ -30,6 +30,7 @@
 /.idea/markdown.xml
 .DS_Store
 /build
+/pcoc-bridge/target/
 /core/build
 /data/build
 /data/caching/build

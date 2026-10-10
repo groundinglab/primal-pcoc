@@ -27,6 +27,9 @@
 
 -keep class net.zetetic.** { *; }
 
+-keep class net.primal.android.pcoc.bridge.PcocNative { *; }
+-keep class net.primal.android.pcoc.bridge.ProduceListener { *; }
+
 # BicoinJ-Core
 -dontwarn org.slf4j.impl.StaticLoggerBinder
 

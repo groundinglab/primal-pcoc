@@ -3,6 +3,7 @@ package net.primal.android.pcoc.verify
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -23,7 +25,6 @@ import net.primal.android.core.compose.button.PrimalLoadingButton
 import net.primal.android.pcoc.PcocScaffold
 import net.primal.android.pcoc.verify.VerifyPcocContract.MeasureRow
 import net.primal.android.pcoc.verify.VerifyPcocContract.Notice
-import net.primal.android.pcoc.verify.VerifyPcocContract.Stage
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiEvent
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiState
 import net.primal.android.theme.AppTheme
@@ -64,15 +65,26 @@ internal fun VerifyPcocScreen(
                 color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
             )
             if (state.busy) {
-                CircularProgressIndicator(modifier = Modifier.padding(top = 24.dp))
-                Text(
-                    modifier = Modifier.padding(top = 12.dp),
-                    text = state.stageLabel(),
-                    style = AppTheme.typography.bodyLarge,
-                    color = AppTheme.colorScheme.onPrimary,
-                )
-                TextButton(onClick = { eventPublisher(UiEvent.Cancel) }) {
-                    Text(text = stringResource(id = R.string.pcoc_verify_cancel))
+                Row(
+                    modifier = Modifier.padding(top = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        modifier = Modifier.padding(start = 12.dp),
+                        text = if (state.stopping) {
+                            stringResource(id = R.string.pcoc_verify_stopping)
+                        } else {
+                            stringResource(id = R.string.pcoc_verify_measuring)
+                        },
+                        style = AppTheme.typography.bodyLarge,
+                        color = AppTheme.colorScheme.onPrimary,
+                    )
+                }
+                if (!state.stopping) {
+                    TextButton(onClick = { eventPublisher(UiEvent.Cancel) }) {
+                        Text(text = stringResource(id = R.string.pcoc_verify_cancel))
+                    }
                 }
             }
             val notice = state.notice
@@ -110,35 +122,6 @@ internal fun VerifyPcocScreen(
 }
 
 @Composable
-private fun UiState.stageLabel(): String =
-    when (stage) {
-        Stage.File, null -> stringResource(id = R.string.pcoc_verify_stage_file)
-        Stage.Index -> stringResource(id = R.string.pcoc_verify_stage_index)
-        Stage.Terrain -> stringResource(id = R.string.pcoc_verify_stage_terrain)
-        Stage.Checks -> stringResource(id = R.string.pcoc_verify_stage_checks)
-        Stage.Checkpoints -> stringResource(
-            id = R.string.pcoc_verify_stage_checkpoints,
-            stepDone,
-            stepTotal,
-        )
-        Stage.Waypoints -> stringResource(
-            id = R.string.pcoc_verify_stage_waypoints,
-            stepDone,
-            stepTotal,
-        )
-        Stage.Paths -> stringResource(
-            id = R.string.pcoc_verify_stage_paths,
-            stepDone,
-            stepTotal,
-        )
-        Stage.Legs -> stringResource(
-            id = R.string.pcoc_verify_stage_legs,
-            legsDone,
-            legsTotal,
-        )
-    }
-
-@Composable
 private fun MeasureLine(row: MeasureRow) {
     Text(
         modifier = Modifier.padding(top = 16.dp),
@@ -151,20 +134,12 @@ private fun MeasureLine(row: MeasureRow) {
         style = AppTheme.typography.bodyLarge,
         color = AppTheme.colorScheme.onPrimary,
     )
-    if (row.rateUnread) {
-        Text(
-            modifier = Modifier.padding(top = 4.dp),
-            text = stringResource(id = R.string.pcoc_verify_rate_note),
-            style = AppTheme.typography.bodyMedium,
-            color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-        )
-    }
 }
 
 @Composable
 private fun Notice.text(): String =
     when (this) {
-        Notice.IndexUnreachable -> stringResource(id = R.string.pcoc_verify_index_error)
         Notice.DidNotFinish -> stringResource(id = R.string.pcoc_verify_unfinished)
         Notice.CouldNotRead -> stringResource(id = R.string.pcoc_verify_unread)
+        Notice.Unreadable -> stringResource(id = R.string.pcoc_verify_unreadable)
     }
