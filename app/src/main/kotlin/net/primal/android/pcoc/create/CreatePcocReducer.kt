@@ -12,7 +12,7 @@ import kotlinx.serialization.json.longOrNull
 internal sealed class ProduceEvent {
     data class Started(val output: String) : ProduceEvent()
 
-    data class Seed(val height: Long) : ProduceEvent()
+    data class Seed(val height: Long, val timeUnixS: Long?) : ProduceEvent()
 
     data object Terrain : ProduceEvent()
 
@@ -20,7 +20,7 @@ internal sealed class ProduceEvent {
 
     data class Tip(val height: Long) : ProduceEvent()
 
-    data class StageClosed(val stage: Int, val legs: Long) : ProduceEvent()
+    data class StageClosed(val stage: Int, val legs: Long, val interruptHeight: Long?) : ProduceEvent()
 
     data class Posting(val beaconHeight: Long) : ProduceEvent()
 
@@ -42,7 +42,9 @@ internal fun parseProduceEvent(text: String): ProduceEvent? {
     val kind = obj["kind"]?.jsonPrimitive?.contentOrNull ?: return null
     return when (kind) {
         "started" -> ProduceEvent.Started(output = obj.string("output").orEmpty())
-        "seed" -> obj.long("height")?.let(ProduceEvent::Seed)
+        "seed" -> obj.long("height")?.let { height ->
+            ProduceEvent.Seed(height = height, timeUnixS = obj.long("time")?.takeIf { it > 0L })
+        }
         "terrain" -> ProduceEvent.Terrain
         "leg" -> {
             val stage = obj.long("stage") ?: return null
@@ -53,7 +55,11 @@ internal fun parseProduceEvent(text: String): ProduceEvent? {
         "stage_closed" -> {
             val stage = obj.long("stage") ?: return null
             val legs = obj.long("legs") ?: return null
-            ProduceEvent.StageClosed(stage = stage.toInt(), legs = legs)
+            ProduceEvent.StageClosed(
+                stage = stage.toInt(),
+                legs = legs,
+                interruptHeight = obj.long("height"),
+            )
         }
         "posting" -> obj.long("beacon_height")?.let(ProduceEvent::Posting)
         "settling" -> ProduceEvent.Settling
@@ -77,6 +83,8 @@ internal fun reduce(state: CreateUiState, event: ProduceEvent): CreateUiState =
         is ProduceEvent.Seed -> state.copy(
             phase = ProducePhase.Running,
             seedHeight = event.height,
+            seedTimeUnixS = event.timeUnixS,
+            openBeaconHeight = event.height,
             tipHeight = event.height,
         )
         ProduceEvent.Terrain -> state.appendLog("Terrain filled. 256 MiB held for the run.")
@@ -91,6 +99,7 @@ internal fun reduce(state: CreateUiState, event: ProduceEvent): CreateUiState =
             stagesClosed = event.stage + 1,
             stage = event.stage + 1,
             legsInStage = 0,
+            openBeaconHeight = event.interruptHeight ?: state.openBeaconHeight,
         ).appendLog("Stage ${event.stage} closed. ${event.legs} legs stored.")
         is ProduceEvent.Posting -> state.appendLog("Posting a waypoint. Beacon height ${event.beaconHeight}.")
         ProduceEvent.Settling -> state.copy(phase = ProducePhase.Settling)

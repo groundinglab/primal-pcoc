@@ -47,6 +47,12 @@ class CreatePcocScreenTest {
     }
 
     @Test
+    fun `produce waits out loud for the latest header`() {
+        show(CreateUiState(phase = ProducePhase.Running))
+        compose.onNodeWithText("Waiting for latest Bitcoin header…").assertIsDisplayed()
+    }
+
+    @Test
     fun `a running hike shows the stage and stop`() {
         show(
             CreateUiState(
@@ -54,10 +60,12 @@ class CreatePcocScreenTest {
                 stage = 2,
                 stagesClosed = 2,
                 legsTotal = 40,
+                seedHeight = 899_990,
+                openBeaconHeight = 899_998,
                 tipHeight = 900_000,
             ),
         )
-        compose.onNodeWithText("Hike running").assertIsDisplayed()
+        compose.onNodeWithText("Stage 2 of 18 · from block 899998 · tip 900000").assertIsDisplayed()
         compose.onNodeWithText("Stage 2 · 2 of 18 closed").assertIsDisplayed()
         compose.onNodeWithText("40").assertIsDisplayed()
         compose.onNodeWithText("Stop").assertIsDisplayed()

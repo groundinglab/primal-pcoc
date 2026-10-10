@@ -54,7 +54,7 @@ struct Tracker<'a> {
 }
 
 impl Tracker<'_> {
-    fn observed(&mut self, tip: [u8; 32], height: u64) {
+    fn observed(&mut self, tip: [u8; 32], height: u64, header_time: u32) {
         self.calls += 1;
         if self.calls == 1 {
             self.beacon = (tip, height);
@@ -62,6 +62,7 @@ impl Tracker<'_> {
                 "kind": "seed",
                 "height": height,
                 "hash": hike::encode_hex32(&tip),
+                "time": header_time,
             }));
             (self.emit)(tip_event(tip, height));
             return;
@@ -113,7 +114,7 @@ pub fn drive<O, P, S>(
     mut settle: S,
 ) -> Result<Vec<u8>, ProduceFailure>
 where
-    O: FnMut() -> Result<([u8; 32], u64), ProduceFailure>,
+    O: FnMut() -> Result<([u8; 32], u64, u32), ProduceFailure>,
     P: FnMut(&[u8; 32], u64) -> Result<Vec<u8>, ProduceFailure>,
     S: FnMut(&mut [Stage], u64) -> Result<(), ProduceFailure>,
 {
@@ -132,8 +133,8 @@ where
             if stopped() {
                 return Err(ProduceFailure::new(STOPPED));
             }
-            let (tip, height) = observe()?;
-            tracker.borrow_mut().observed(tip, height);
+            let (tip, height, header_time) = observe()?;
+            tracker.borrow_mut().observed(tip, height, header_time);
             Ok((tip, height))
         },
         |waypoint, beacon_height| {
@@ -272,7 +273,10 @@ fn produce_live(
         hike::Sizes::production(),
         stop,
         emit,
-        || hike::note_produce_headers(clock, &mut book.borrow_mut()),
+        || {
+            let (hash, height) = hike::note_produce_headers(clock, &mut book.borrow_mut())?;
+            Ok((hash, height, header_time(clock, hash)))
+        },
         |waypoint, beacon_height| {
             emit(json!({ "kind": "posting", "beacon_height": beacon_height }));
             let (now_tip, height) = hike::note_produce_headers(clock, &mut book.borrow_mut())?;
@@ -378,7 +382,7 @@ pub fn scripted(
         || {
             let tip = tips[at];
             at += 1;
-            Ok(tip)
+            Ok((tip.0, tip.1, 1_700_000_000))
         },
         |_, _| Ok(Vec::new()),
         |_, _| Ok(()),
@@ -401,6 +405,21 @@ fn script(legs: &[u64; 18], first_height: u64) -> Vec<([u8; 32], u64)> {
         tips.push((hash, height));
     }
     tips
+}
+
+/// `nTime` of `hash` when that header is the tip. Zero when it was not read.
+fn header_time(clock: &hike::HeaderClock, hash: [u8; 32]) -> u32 {
+    clock
+        .headers_since(Some(hash))
+        .ok()
+        .and_then(|ticks| {
+            ticks
+                .iter()
+                .rev()
+                .find(|tick| tick.hash == hash)
+                .map(|tick| tick.n_time)
+        })
+        .unwrap_or(0)
 }
 
 pub fn spawn_live(

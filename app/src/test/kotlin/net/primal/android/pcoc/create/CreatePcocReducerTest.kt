@@ -12,8 +12,11 @@ class CreatePcocReducerTest {
         state = reduce(state, parseProduceEvent("""{"kind":"started","output":"/tmp/hike.cbor"}""")!!)
         state.phase shouldBe ProducePhase.Running
         state.outputPath shouldBe "/tmp/hike.cbor"
-        state = reduce(state, parseProduceEvent("""{"kind":"seed","height":1000}""")!!)
+        state = reduce(state, parseProduceEvent("""{"kind":"seed","height":1000,"time":1700000000}""")!!)
         state.seedHeight shouldBe 1000L
+        state.seedTimeUnixS shouldBe 1700000000L
+        produceHeadline(state, 1_700_000_000_000 + 16 * 60 * 1000) shouldBe
+            "Started on block 1000 (mined 16 min ago)"
         state = reduce(state, parseProduceEvent("""{"kind":"terrain"}""")!!)
         state = reduce(state, parseProduceEvent("""{"kind":"leg","stage":0,"j":0,"stored":1}""")!!)
         state = reduce(state, parseProduceEvent("""{"kind":"leg","stage":0,"j":1,"stored":2}""")!!)
@@ -51,6 +54,25 @@ class CreatePcocReducerTest {
         failed.phase shouldBe ProducePhase.Failed
         failed.message shouldBe "clock read failed"
         failed.objectBytes shouldBe null
+    }
+
+    @Test
+    fun `produce says what it is doing from the first moment`() {
+        val waiting = CreateUiState(phase = ProducePhase.Running)
+        produceHeadline(waiting, 0) shouldBe "Waiting for latest Bitcoin header…"
+
+        val started = reduce(
+            waiting,
+            parseProduceEvent("""{"kind":"seed","height":970726,"time":1000}""")!!,
+        )
+        produceHeadline(started, (1000 + 16 * 60) * 1000) shouldBe
+            "Started on block 970726 (mined 16 min ago)"
+
+        val running = reduce(
+            started.copy(legsTotal = 4, tipHeight = 970727, stage = 0),
+            parseProduceEvent("""{"kind":"leg","stage":0,"j":3,"stored":4}""")!!,
+        )
+        produceHeadline(running, 0) shouldBe "Stage 0 of 18 · from block 970726 · tip 970727"
     }
 
     @Test
