@@ -9,9 +9,10 @@ class AdmissionTraceTest {
 
     @Test
     fun `post line names the door and origin and shortens the nonce, object, and signature`() {
-        val link = linkFor(byteArrayOf(1, 2, 3), nonceHex = "fe".repeat(32))
+        val link = linkFor(nonceHex = "fe".repeat(32))
         val signature = "01234567" + "aa".repeat(56) + "89abcdef"
-        val line = admissionPostLog(link = link, objectBytes = 3, signatureHex = signature)
+        val objectSha = sha256(byteArrayOf(1, 2, 3))
+        val line = admissionPostLog(link = link, objectSha256 = objectSha, objectBytes = 3, signatureHex = signature)
 
         line shouldContain "door=https://admission.pcoc.app/v1/sign-in"
         line shouldContain "origin=https://pcoc.app"
@@ -20,7 +21,7 @@ class AdmissionTraceTest {
         line shouldContain "sig=len=128 01234567…89abcdef"
         line.contains(signature) shouldBe false
         line.contains(link.nonceHex) shouldBe false
-        line.contains(link.objectHex) shouldBe false
+        line.contains(fr.acinq.secp256k1.Hex.encode(objectSha)) shouldBe false
         line.contains("nsec") shouldBe false
     }
 

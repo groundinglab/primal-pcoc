@@ -341,7 +341,6 @@ private fun LocalStop.text(): String =
     when (this) {
         LocalStop.NoObject -> stringResource(id = R.string.pcoc_admit_need_pcoc)
         LocalStop.WrongLogin -> stringResource(id = R.string.pcoc_admit_wrong_login)
-        LocalStop.ObjectNotHeld -> stringResource(id = R.string.pcoc_admit_object_not_held)
         is LocalStop.KeyMismatch -> mismatchCopy(loginPrefix = loginPrefix, filePrefix = filePrefix)
         LocalStop.ObjectKeyUnreadable -> stringResource(id = R.string.pcoc_admit_key_unreadable)
         LocalStop.ObjectUnreadable -> stringResource(id = R.string.pcoc_admit_object_unreadable)

@@ -12,7 +12,7 @@ class AdmissionPayloadTest {
     @Test
     fun `body is the six fields with padded standard base64 and lowercase hex`() {
         val objectBytes = byteArrayOf(0xfb.toByte(), 0xff.toByte(), 0x3e)
-        val link = linkFor(objectBytes)
+        val link = linkFor()
         val json = AdmissionPayload.encode(link = link, objectBytes = objectBytes, signatureHex = "AB".repeat(64))
         val fields = CommonJson.parseToJsonElement(json).jsonObject
 
@@ -21,17 +21,17 @@ class AdmissionPayloadTest {
         fields.getValue("nonce").jsonPrimitive.content shouldBe link.nonceHex
         fields.getValue("exp").jsonPrimitive.isString shouldBe false
         fields.getValue("exp").jsonPrimitive.content shouldBe "1893456000"
-        fields.getValue("object").jsonPrimitive.content shouldBe link.objectHex
+        fields.getValue("object").jsonPrimitive.content shouldBe fr.acinq.secp256k1.Hex.encode(sha256(objectBytes))
         fields.getValue("object_b64").jsonPrimitive.content shouldBe "+/8+"
         fields.getValue("signature").jsonPrimitive.content shouldBe "ab".repeat(64)
 
-        val padded = AdmissionPayload.encode(linkFor(byteArrayOf(1)), byteArrayOf(1), "cd".repeat(64))
+        val padded = AdmissionPayload.encode(linkFor(), byteArrayOf(1), "cd".repeat(64))
         CommonJson.parseToJsonElement(padded).jsonObject.getValue("object_b64").jsonPrimitive.content shouldBe "AQ=="
     }
 
     @Test
     fun `a signature that is not 64 bytes of hex is refused`() {
-        val link = linkFor(byteArrayOf(1))
+        val link = linkFor()
         shouldThrow<IllegalArgumentException> { AdmissionPayload.encode(link, byteArrayOf(1), "zz".repeat(64)) }
         shouldThrow<IllegalArgumentException> { AdmissionPayload.encode(link, byteArrayOf(1), "ab".repeat(63)) }
     }

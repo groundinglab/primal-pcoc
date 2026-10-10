@@ -21,7 +21,7 @@ import org.junit.Test
 class AdmissionDoorClientTest {
 
     private val objectBytes = byteArrayOf(0xfb.toByte(), 1, 2)
-    private val link = linkFor(objectBytes)
+    private val link = linkFor()
     private val signature = "cd".repeat(64)
 
     @Test

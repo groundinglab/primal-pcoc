@@ -17,16 +17,17 @@ class AdmissionSignerTest {
         val pair = CryptoUtils.generateHexEncodedKeypair()
         val privateKey = Hex.decode(pair.privateKey)
         val publicKey = Hex.decode(pair.pubKey)
-        val link = linkFor(byteArrayOf(1, 2, 3))
-        val message = sha256(SignInChallenge.challengeBytes(link))
+        val objectSha = sha256(byteArrayOf(1, 2, 3))
+        val link = linkFor()
+        val message = sha256(SignInChallenge.challengeBytes(link, objectSha))
 
-        val signatureHex = AdmissionSigner.sign(privateKey = privateKey, link = link)
+        val signatureHex = AdmissionSigner.sign(privateKey = privateKey, link = link, objectSha256 = objectSha)
         val signature = Hex.decode(signatureHex)
 
         signatureHex.matches(Regex("^[0-9a-f]{128}$")) shouldBe true
         CryptoUtils.verify(signature = signature, hash = message, pubKey = publicKey) shouldBe true
         CryptoUtils.verify(signature = signature, hash = sha256(message), pubKey = publicKey) shouldBe false
-        CryptoUtils.verify(signature = signature, hash = link.objectSha256(), pubKey = publicKey) shouldBe false
+        CryptoUtils.verify(signature = signature, hash = objectSha, pubKey = publicKey) shouldBe false
         CryptoUtils.verify(signature = signature, hash = link.nonce(), pubKey = publicKey) shouldBe false
     }
 

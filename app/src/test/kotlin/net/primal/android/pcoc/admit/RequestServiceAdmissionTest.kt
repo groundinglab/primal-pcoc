@@ -16,13 +16,14 @@ class RequestServiceAdmissionTest {
     @Test
     fun `a held object is signed and posted once with no confirm step`() {
         val store = memoryStore().apply { write(account, objectBytes) }
-        val link = linkFor(objectBytes)
+        val link = linkFor()
         val seen = mutableListOf<Post>()
         val request = RequestServiceAdmission(
             store = store,
             poster = recording(seen, AdmissionPostResult.Submitted),
-            signLink = { _, signed ->
+            signLink = { _, signed, objectSha ->
                 signed shouldBe link
+                objectSha.contentEquals(sha256(objectBytes)) shouldBe true
                 "cd".repeat(64)
             },
         )
@@ -39,7 +40,7 @@ class RequestServiceAdmissionTest {
         val pair = CryptoUtils.generateHexEncodedKeypair()
         val publicKey = Hex.decode(pair.pubKey)
         val held = cborPublicKeyMap(publicKey)
-        val link = linkFor(held)
+        val link = linkFor()
         val seen = mutableListOf<Post>()
         val request = RequestServiceAdmission(
             store = memoryStore().apply { write(pair.pubKey, held) },
@@ -49,11 +50,12 @@ class RequestServiceAdmissionTest {
         request.submit(link, pair.pubKey, Hex.decode(pair.privateKey)) shouldBe AdmissionSubmitOutcome.Submitted
 
         val signature = Hex.decode(seen.single().signature)
-        val challenge = SignInChallenge.challengeBytes(link)
+        val objectSha = sha256(held)
+        val challenge = SignInChallenge.challengeBytes(link, objectSha)
         val message = sha256(challenge)
         CryptoUtils.verify(signature = signature, hash = message, pubKey = publicKey) shouldBe true
         CryptoUtils.verify(signature = signature, hash = sha256(message), pubKey = publicKey) shouldBe false
-        CryptoUtils.verify(signature = signature, hash = link.objectSha256(), pubKey = publicKey) shouldBe false
+        CryptoUtils.verify(signature = signature, hash = objectSha, pubKey = publicKey) shouldBe false
     }
 
     @Test
@@ -68,14 +70,14 @@ class RequestServiceAdmissionTest {
             val request = RequestServiceAdmission(
                 store = memoryStore().apply { write(account, objectBytes) },
                 poster = { _, _, _ -> posted },
-                signLink = { _, _ -> "cd".repeat(64) },
+                signLink = { _, _, _ -> "cd".repeat(64) },
             )
-            request.submit(linkFor(objectBytes), account, privateKey) shouldBe expected
+            request.submit(linkFor(), account, privateKey) shouldBe expected
         }
     }
 
     @Test
-    fun `no object for the link hash means no signature and no post`() {
+    fun `no saved object means nothing is signed or sent`() {
         val store = memoryStore()
         var posts = 0
         var signs = 0
@@ -85,20 +87,21 @@ class RequestServiceAdmissionTest {
                 posts += 1
                 AdmissionPostResult.Submitted
             },
-            signLink = { _, _ ->
+            signLink = { _, _, _ ->
                 signs += 1
                 "cd".repeat(64)
             },
         )
 
-        request.submit(linkFor(objectBytes), account, privateKey) shouldBe AdmissionSubmitOutcome.NoObject
-        store.write(account, objectBytes)
-        request.submit(linkFor(objectBytes + byteArrayOf(0)), account, privateKey) shouldBe
-            AdmissionSubmitOutcome.ObjectNotHeld
-        request.submit(linkFor(objectBytes), account, null) shouldBe AdmissionSubmitOutcome.WrongLogin
-        request.submit(linkFor(objectBytes), account, ByteArray(31)) shouldBe AdmissionSubmitOutcome.WrongLogin
+        request.submit(linkFor(), account, privateKey) shouldBe AdmissionSubmitOutcome.NoObject
         posts shouldBe 0
         signs shouldBe 0
+        store.write(account, objectBytes)
+        request.submit(linkFor(), account, privateKey) shouldBe AdmissionSubmitOutcome.Submitted
+        request.submit(linkFor(), account, null) shouldBe AdmissionSubmitOutcome.WrongLogin
+        request.submit(linkFor(), account, ByteArray(31)) shouldBe AdmissionSubmitOutcome.WrongLogin
+        posts shouldBe 1
+        signs shouldBe 1
     }
 
     @Test
@@ -111,13 +114,13 @@ class RequestServiceAdmissionTest {
                 calls += 1
                 AdmissionPostResult.Submitted
             },
-            signLink = { _, _ ->
+            signLink = { _, _, _ ->
                 calls += 1
                 "cd".repeat(64)
             },
         )
 
-        request.submit(linkFor(other), account, privateKey) shouldBe
+        request.submit(linkFor(), account, privateKey) shouldBe
             AdmissionSubmitOutcome.KeyMismatch(loginPrefix = "11111111", filePrefix = "22222222")
         calls shouldBe 0
     }
@@ -132,10 +135,10 @@ class RequestServiceAdmissionTest {
                 posts += 1
                 AdmissionPostResult.Submitted
             },
-            signLink = { _, _ -> "cd".repeat(64) },
+            signLink = { _, _, _ -> "cd".repeat(64) },
         )
 
-        request.submit(linkFor(keyless), account, privateKey) shouldBe AdmissionSubmitOutcome.ObjectKeyUnreadable
+        request.submit(linkFor(), account, privateKey) shouldBe AdmissionSubmitOutcome.ObjectKeyUnreadable
         posts shouldBe 0
     }
 
@@ -153,9 +156,9 @@ class RequestServiceAdmissionTest {
         )
 
         val key = Hex.decode(pair.privateKey)
-        request.submit(linkFor(held), "  ${pair.pubKey.uppercase()}  ", key) shouldBe AdmissionSubmitOutcome.Submitted
-        request.submit(linkFor(held), "0x${pair.pubKey}", key) shouldBe AdmissionSubmitOutcome.Submitted
-        request.submit(linkFor(held), pair.pubKey.hexToNpubHrp(), key) shouldBe AdmissionSubmitOutcome.Submitted
+        request.submit(linkFor(), "  ${pair.pubKey.uppercase()}  ", key) shouldBe AdmissionSubmitOutcome.Submitted
+        request.submit(linkFor(), "0x${pair.pubKey}", key) shouldBe AdmissionSubmitOutcome.Submitted
+        request.submit(linkFor(), pair.pubKey.hexToNpubHrp(), key) shouldBe AdmissionSubmitOutcome.Submitted
         posts shouldBe 3
     }
 
@@ -168,10 +171,10 @@ class RequestServiceAdmissionTest {
                 posts += 1
                 AdmissionPostResult.Submitted
             },
-            signLink = { _, _ -> throw IllegalArgumentException("no") },
+            signLink = { _, _, _ -> throw IllegalArgumentException("no") },
         )
 
-        request.submit(linkFor(objectBytes), account, privateKey) shouldBe
+        request.submit(linkFor(), account, privateKey) shouldBe
             AdmissionSubmitOutcome.DeliveryFailed(DeliveryFailure.NotSent)
         posts shouldBe 0
     }

@@ -1,5 +1,6 @@
 package net.primal.android.pcoc.admit
 
+import fr.acinq.secp256k1.Hex
 import java.util.Base64
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -28,7 +29,7 @@ object AdmissionPayload {
                 origin = link.origin,
                 nonce = link.nonceHex,
                 exp = link.exp,
-                objectSha256 = link.objectHex,
+                objectSha256 = Hex.encode(sha256(objectBytes)),
                 objectB64 = Base64.getEncoder().encodeToString(objectBytes),
                 signature = signature,
             ),

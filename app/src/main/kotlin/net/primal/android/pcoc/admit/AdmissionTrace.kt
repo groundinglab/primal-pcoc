@@ -14,10 +14,18 @@ internal object AdmissionTrace {
 
     fun post(
         link: SignInLink,
+        objectSha256: ByteArray,
         objectBytes: Int,
         signatureHex: String,
     ) {
-        Napier.i(tag = TAG) { admissionPostLog(link = link, objectBytes = objectBytes, signatureHex = signatureHex) }
+        Napier.i(tag = TAG) {
+            admissionPostLog(
+                link = link,
+                objectSha256 = objectSha256,
+                objectBytes = objectBytes,
+                signatureHex = signatureHex,
+            )
+        }
     }
 
     fun http(status: Int) {
@@ -27,12 +35,15 @@ internal object AdmissionTrace {
 
 internal fun admissionPostLog(
     link: SignInLink,
+    objectSha256: ByteArray,
     objectBytes: Int,
     signatureHex: String,
-): String =
-    "admission post door=$SIGN_IN_DOOR origin=${link.origin} exp=${link.exp} " +
-        "nonce=${link.nonceHex.take(TRACE_EDGE)}… object=${link.objectHex.take(TRACE_EDGE)}… " +
+): String {
+    val objectPrefix = fr.acinq.secp256k1.Hex.encode(objectSha256).lowercase().take(TRACE_EDGE)
+    return "admission post door=$SIGN_IN_DOOR origin=${link.origin} exp=${link.exp} " +
+        "nonce=${link.nonceHex.take(TRACE_EDGE)}… objectSha=$objectPrefix… " +
         "objectBytes=$objectBytes sig=${signatureTrace(signatureHex)}"
+}
 
 internal fun admissionKeyLog(keys: ObjectKeyReport): String {
     val account = shownKeyPrefix(keys.accountPrefix)

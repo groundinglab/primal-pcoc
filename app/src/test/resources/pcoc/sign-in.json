@@ -46,7 +46,7 @@
     "object_sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "object_sha256_note": "The 32-byte field of 0xaa. Not the hash of a file of 32 0xaa bytes.",
     "file_of_0xaa_sha256": "e0e77a507412b120f6ede61f62295b1a7b2ff19d3dcc8f7253e51663470c888e",
-    "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
     "challenge_bytes_hex": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd880aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "challenge_bytes_len": 109,
     "bip340_message_32_hex": "69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a",
@@ -64,17 +64,17 @@
   },
   "links": [
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "link",
       "note": "canonical"
     },
     {
-      "input": " \thttps://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n",
+      "input": " \thttps://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000\r\n",
       "class": "link",
       "note": "ASCII trim"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=0&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=0",
       "class": "link",
       "note": "exp 0 is the one leading-zero exception"
     },
@@ -84,37 +84,37 @@
       "note": "retired ?h= form"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789Abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789Abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "uppercase hex"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&door=https://admission.pcoc.app/v1/sign-in",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&door=https://admission.pcoc.app/v1/sign-in",
       "class": "malformed",
-      "note": "extra query"
+      "note": "extra parameter"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "input": "https://pcoc.app/sign-in/?v=1&exp=1893456000&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "class": "malformed",
       "note": "swapped parameter order"
     },
     {
-      "input": "http://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "http://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "http"
     },
     {
-      "input": "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "www host"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#x",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000#x",
       "class": "malformed",
       "note": "fragment"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000",
       "class": "malformed",
       "note": "leading zero on exp"
     },
@@ -124,14 +124,24 @@
       "note": "bare 64 hex"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616",
       "class": "malformed",
       "note": "exp above u64"
     },
     {
-      "input": "\u00a0https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "\u00a0https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "leading U+00A0"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "class": "malformed",
+      "note": "object parameter"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&x=1",
+      "class": "malformed",
+      "note": "extra parameter x"
     }
   ],
   "window": [

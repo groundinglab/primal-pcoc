@@ -34,12 +34,12 @@ object SignInChallenge {
         return out
     }
 
-    fun challengeBytes(link: SignInLink): ByteArray =
+    fun challengeBytes(link: SignInLink, objectSha256: ByteArray): ByteArray =
         challengeBytes(
             origin = link.origin,
             nonce = link.nonce(),
             exp = link.exp,
-            objectSha256 = link.objectSha256(),
+            objectSha256 = objectSha256,
         )
 
     /** The BIP-340 message is `SHA-256(challenge_bytes)`, once. The signer must not hash it again. */
