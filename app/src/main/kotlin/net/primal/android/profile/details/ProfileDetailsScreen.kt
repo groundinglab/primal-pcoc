@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -71,6 +72,8 @@ import net.primal.android.core.compose.runtime.DisposableLifecycleObserverEffect
 import net.primal.android.core.errors.UiError
 import net.primal.android.core.errors.resolveUiErrorMessage
 import net.primal.android.notes.feed.grid.MediaFeedGrid
+import net.primal.android.pcoc.PcocAccountMarkViewModel
+import net.primal.android.pcoc.pcocMarkVisible
 import net.primal.android.notes.feed.list.NoteFeedList
 import net.primal.android.notes.feed.list.StreamPillsRow
 import net.primal.android.notes.feed.note.ui.events.NoteCallbacks
@@ -91,6 +94,7 @@ fun ProfileDetailsScreen(
     noteCallbacks: NoteCallbacks,
 ) {
     val uiState = viewModel.state.collectAsState()
+    val savedPcoc = rememberActivePcocSaved()
 
     DisposableLifecycleObserverEffect(viewModel) {
         when (it) {
@@ -148,7 +152,12 @@ fun ProfileDetailsScreen(
     }
 
     ProfileDetailsScreen(
-        state = uiState.value,
+        state = uiState.value.copy(
+            showPcocMark = pcocMarkVisible(
+                isOwnProfile = uiState.value.isActiveUser == true,
+                hasSavedPcoc = savedPcoc,
+            ),
+        ),
         snackbarHostState = snackbarHostState,
         pullToRefreshState = pullToRefreshState,
         pullToRefreshing = pullToRefreshing,
@@ -156,6 +165,16 @@ fun ProfileDetailsScreen(
         noteCallbacks = noteCallbacks,
         eventPublisher = viewModel::setEvent,
     )
+}
+
+@Composable
+private fun rememberActivePcocSaved(): Boolean {
+    val markModel = hiltViewModel<PcocAccountMarkViewModel>()
+    val saved by markModel.saved.collectAsState()
+    DisposableLifecycleObserverEffect(markModel) { event ->
+        if (event == Lifecycle.Event.ON_START) markModel.refresh()
+    }
+    return saved
 }
 
 internal const val NOTES_TAB_INDEX = 0
