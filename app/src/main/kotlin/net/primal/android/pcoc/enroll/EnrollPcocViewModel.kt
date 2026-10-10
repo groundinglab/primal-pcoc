@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.primal.android.pcoc.PcocStoredExport
 import net.primal.android.pcoc.enroll.EnrollPcocContract.Notice
 import net.primal.android.pcoc.enroll.EnrollPcocContract.UiEvent
 import net.primal.android.pcoc.enroll.EnrollPcocContract.UiState
@@ -40,6 +41,13 @@ class EnrollPcocViewModel @Inject constructor(
 
     private val events = MutableSharedFlow<UiEvent>()
     fun setEvent(event: UiEvent) = viewModelScope.launch { events.emit(event) }
+
+    suspend fun storedObject(): PcocStoredExport? = withContext(dispatchers.io()) {
+        val userId = activeAccountStore.activeUserId()
+        val bytes = store.read(userId) ?: return@withContext null
+        val name = store.note(userId)?.fileName?.takeIf { it.isNotBlank() } ?: "pcoc.cbor"
+        PcocStoredExport(displayName = name, bytes = bytes)
+    }
 
     init {
         observeEvents()

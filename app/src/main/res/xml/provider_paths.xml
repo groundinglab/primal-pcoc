@@ -3,4 +3,13 @@
     <external-path
         name="external_files"
         path="." />
+    <cache-path
+        name="pcoc_export"
+        path="pcoc-export/" />
+    <files-path
+        name="pcoc_hikes"
+        path="pcoc/" />
+    <files-path
+        name="pcoc_enrolled"
+        path="pcoc-enrolled-objects/" />
 </paths>

@@ -17,6 +17,7 @@ interface ProfileDetailsContract {
         val profileId: String? = null,
         val isResolvingProfileId: Boolean = true,
         val isActiveUser: Boolean? = null,
+        val showPcocMark: Boolean = false,
         val liveStreamNaddr: String? = null,
         val isLive: Boolean = false,
         val streamPills: List<StreamPillUi> = emptyList(),

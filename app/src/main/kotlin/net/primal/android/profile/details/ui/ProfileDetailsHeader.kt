@@ -63,6 +63,7 @@ import net.primal.android.core.compose.profile.model.ProfileStatsUi
 import net.primal.android.core.ext.openUriSafely
 import net.primal.android.core.utils.formatNip05Identifier
 import net.primal.android.notes.feed.note.ui.events.NoteCallbacks
+import net.primal.android.pcoc.PcocOrangeCheck
 import net.primal.android.premium.legend.domain.LegendaryCustomization
 import net.primal.android.premium.legend.domain.LegendaryStyle
 import net.primal.android.profile.details.ProfileDetailsContract
@@ -205,6 +206,7 @@ private fun ProfileHeaderDetails(
                 displayName = state.profileDetails?.authorDisplayName ?: profileId.asEllipsizedNpub(),
                 internetIdentifier = state.profileDetails?.internetIdentifier,
                 profilePremiumDetails = state.profileDetails?.premiumDetails,
+                showPcocMark = state.showPcocMark,
                 onPremiumBadgeClick = onPremiumBadgeClick,
             )
         }
@@ -459,6 +461,7 @@ private fun UserDisplayName(
     displayName: String,
     internetIdentifier: String?,
     profilePremiumDetails: PremiumProfileDataUi?,
+    showPcocMark: Boolean,
     onPremiumBadgeClick: (tier: String, profileId: String) -> Unit,
 ) {
     Row(
@@ -482,6 +485,10 @@ private fun UserDisplayName(
             legendaryCustomization = profilePremiumDetails?.legendaryCustomization,
             profileId = profileId,
         )
+
+        if (showPcocMark) {
+            PcocOrangeCheck(modifier = Modifier.padding(start = 2.dp))
+        }
 
         if (profilePremiumDetails?.shouldShowPremiumBadge() == true) {
             ProfilePremiumBadge(

@@ -12,6 +12,23 @@ enum class ProducePhase {
     Failed,
 }
 
+data class ClosedStage(
+    val stage: Int,
+    val blockHeight: Long,
+)
+
+enum class WaypointStatus {
+    Posted,
+    Anchored,
+    Skipped,
+    NotFetched,
+}
+
+data class WaypointRow(
+    val index: Int,
+    val status: WaypointStatus,
+)
+
 data class CreateUiState(
     val phase: ProducePhase = ProducePhase.Idle,
     val npub: String? = null,
@@ -27,6 +44,10 @@ data class CreateUiState(
     /** Height of the header this stage started from. */
     val openBeaconHeight: Long? = null,
     val tipHeight: Long? = null,
+    val closedStages: List<ClosedStage> = emptyList(),
+    val waypoints: List<WaypointRow> = emptyList(),
+    val legTicks: List<Long> = emptyList(),
+    val legRatePerSecond: Double? = null,
     val logLines: List<String> = emptyList(),
     val message: String? = null,
     val objectBytes: Long? = null,
