@@ -21,6 +21,7 @@ import net.primal.data.repository.feed.paging.FeedSpecInvalidationTracker
 import net.primal.data.repository.feeds.FeedsRepositoryImpl
 import net.primal.data.repository.importer.CachingImportRepositoryImpl
 import net.primal.data.repository.messages.ChatRepositoryImpl
+import net.primal.data.repository.messages.PcocAttachmentClaim
 import net.primal.data.repository.messages.processors.MessagesProcessor
 import net.primal.data.repository.mute.MutedItemRepositoryImpl
 import net.primal.data.repository.nip05.Nip05HttpClient
@@ -115,6 +116,7 @@ abstract class CommonRepositoryFactory {
         messageCipher: MessageCipher,
         primalPublisher: PrimalPublisher,
         mediaCacher: MediaCacher? = null,
+        pcocAttachmentClaim: PcocAttachmentClaim? = null,
     ): ChatRepository {
         return ChatRepositoryImpl(
             dispatcherProvider = dispatcherProvider,
@@ -127,6 +129,7 @@ abstract class CommonRepositoryFactory {
                 usersApi = PrimalApiServiceFactory.createUsersApi(cachingPrimalApiClient),
                 messageCipher = messageCipher,
                 mediaCacher = mediaCacher,
+                pcocAttachmentClaim = pcocAttachmentClaim,
             ),
             primalPublisher = primalPublisher,
             mediaCacher = mediaCacher,

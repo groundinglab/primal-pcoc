@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import net.primal.android.networking.di.PrimalCacheApiClient
 import net.primal.android.nostr.notary.NostrNotary
+import net.primal.android.pcoc.dm.PcocAttachmentClaimImpl
 import net.primal.core.caching.MediaCacher
 import net.primal.core.networking.primal.PrimalApiClient
 import net.primal.data.repository.factory.PrimalRepositoryFactory
@@ -88,12 +89,14 @@ object CachingRepositoriesModule {
         messageCipher: MessageCipher,
         primalPublisher: PrimalPublisher,
         mediaCacher: MediaCacher?,
+        pcocAttachmentClaim: PcocAttachmentClaimImpl,
     ): ChatRepository =
         PrimalRepositoryFactory.createChatRepository(
             cachingPrimalApiClient = primalApiClient,
             messageCipher = messageCipher,
             primalPublisher = primalPublisher,
             mediaCacher = mediaCacher,
+            pcocAttachmentClaim = pcocAttachmentClaim,
         )
 
     @Provides
