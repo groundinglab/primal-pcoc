@@ -25,7 +25,12 @@ import net.primal.android.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PcocScreen(onClose: () -> Unit, onDoor: (PcocDoor) -> Unit) {
+fun PcocScreen(
+    onClose: () -> Unit,
+    onDoor: (PcocDoor) -> Unit,
+    accountName: String = "",
+    showPcocMark: Boolean = false,
+) {
     PcocScaffold(
         title = stringResource(id = R.string.pcoc_title),
         onClose = onClose,
@@ -35,6 +40,16 @@ fun PcocScreen(onClose: () -> Unit, onDoor: (PcocDoor) -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
+            if (accountName.isNotBlank()) {
+                item(key = "account") {
+                    PcocAccountNameRow(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        name = accountName,
+                        showMark = showPcocMark,
+                    )
+                    PrimalDivider()
+                }
+            }
             items(items = PcocDoor.entries, key = { it.name }) { door ->
                 PcocDoorRow(door = door, onClick = { onDoor(door) })
                 PrimalDivider()

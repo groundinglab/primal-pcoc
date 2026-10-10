@@ -1,12 +1,17 @@
 package net.primal.android.navigation
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.navigation
 import net.primal.android.core.compose.ApplyEdgeToEdge
 import net.primal.android.core.compose.LockToOrientationPortrait
+import net.primal.android.core.compose.runtime.DisposableLifecycleObserverEffect
+import net.primal.android.pcoc.PcocAccountMarkViewModel
 import net.primal.android.pcoc.PcocDoor
 import net.primal.android.pcoc.PcocScreen
 import net.primal.android.pcoc.admit.RequestAdmissionScreen
@@ -29,9 +34,17 @@ fun NavGraphBuilder.pcocNavigation(navController: NavController) {
         ) {
             ApplyEdgeToEdge()
             LockToOrientationPortrait()
+            val markModel = hiltViewModel<PcocAccountMarkViewModel>()
+            val saved by markModel.saved.collectAsState()
+            val accountName by markModel.accountName.collectAsState()
+            DisposableLifecycleObserverEffect(markModel) { event ->
+                if (event == Lifecycle.Event.ON_START) markModel.refresh()
+            }
             PcocScreen(
                 onClose = { navController.navigateUp() },
                 onDoor = { door -> navController.navigate(door.route()) },
+                accountName = accountName,
+                showPcocMark = saved,
             )
         }
         composable(
