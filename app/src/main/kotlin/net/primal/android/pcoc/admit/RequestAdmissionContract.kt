@@ -25,8 +25,6 @@ interface RequestAdmissionContract {
 
         data object WrongLogin : LocalStop
 
-        data object ObjectNotHeld : LocalStop
-
         data class KeyMismatch(
             val loginPrefix: String,
             val filePrefix: String,

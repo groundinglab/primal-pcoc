@@ -7,8 +7,7 @@ import org.junit.Test
 class SignInLinkTest {
 
     private val nonce = "0123456789abcdef".repeat(4)
-    private val objectHex = "aa".repeat(32)
-    private val canonical = "https://pcoc.app/sign-in/?v=1&nonce=$nonce&exp=1893456000&object=$objectHex"
+    private val canonical = "https://pcoc.app/sign-in/?v=1&nonce=$nonce&exp=1893456000"
 
     @Test
     fun `scan and paste share one grammar and keep the exact link text`() {
@@ -17,7 +16,7 @@ class SignInLinkTest {
         ready.link.origin shouldBe "https://pcoc.app"
         ready.link.nonceHex shouldBe nonce
         ready.link.exp shouldBe 1_893_456_000uL
-        ready.link.objectHex shouldBe objectHex
+        ready.link.text.contains("object=") shouldBe false
     }
 
     @Test
@@ -39,6 +38,8 @@ class SignInLinkTest {
         SignInLinks.parse(withExp("00")) shouldBe SignInLinkParse.NotASignInLink
         SignInLinks.parse(withExp("-1")) shouldBe SignInLinkParse.NotASignInLink
         SignInLinks.parse(withExp("1e9")) shouldBe SignInLinkParse.NotASignInLink
+        SignInLinks.parse("$canonical&object=${"aa".repeat(32)}") shouldBe SignInLinkParse.NotASignInLink
+        SignInLinks.parse("$canonical&x=1") shouldBe SignInLinkParse.NotASignInLink
     }
 
     @Test

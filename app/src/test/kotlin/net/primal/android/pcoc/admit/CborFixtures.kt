@@ -1,7 +1,5 @@
 package net.primal.android.pcoc.admit
 
-import fr.acinq.secp256k1.Hex
-
 internal fun cborPublicKeyMap(publicKey: ByteArray): ByteArray {
     require(publicKey.size == PUBLIC_KEY_LEN)
     val name = "public_key".toByteArray(Charsets.UTF_8)
@@ -17,13 +15,12 @@ internal fun cborPublicKeyMap(publicKey: ByteArray): ByteArray {
     return out
 }
 
-/** A canonical §15.1 link naming these object bytes. */
+/** A canonical §15.1 link. The link does not name an object. */
 internal fun linkFor(
-    objectBytes: ByteArray,
     nonceHex: String = "0123456789abcdef".repeat(4),
     exp: ULong = 1_893_456_000uL,
 ): SignInLink {
-    val text = "https://pcoc.app/sign-in/?v=1&nonce=$nonceHex&exp=$exp&object=${Hex.encode(sha256(objectBytes))}"
+    val text = "https://pcoc.app/sign-in/?v=1&nonce=$nonceHex&exp=$exp"
     return (SignInLinks.parse(text) as SignInLinkParse.Ready).link
 }
 

@@ -18,9 +18,6 @@ sealed class AdmissionSubmitOutcome {
     /** This login holds no nsec. Nothing was signed or sent. */
     data object WrongLogin : AdmissionSubmitOutcome()
 
-    /** The stored object's SHA-256 is not the link's `object`. Nothing was signed or sent. */
-    data object ObjectNotHeld : AdmissionSubmitOutcome()
-
     data class KeyMismatch(
         val loginPrefix: String,
         val filePrefix: String,
@@ -33,7 +30,7 @@ sealed class AdmissionSubmitOutcome {
 class RequestServiceAdmission(
     private val store: EnrolledPcocStore,
     private val poster: AdmissionPoster,
-    private val signLink: (ByteArray, SignInLink) -> String = AdmissionSigner::sign,
+    private val signLink: (ByteArray, SignInLink, ByteArray) -> String = AdmissionSigner::sign,
 ) {
     fun submit(
         link: SignInLink,
@@ -64,7 +61,7 @@ class RequestServiceAdmission(
         objectBytes: ByteArray,
     ): AdmissionSubmitOutcome {
         val signature = try {
-            signLink(key, link)
+            signLink(key, link, sha256(objectBytes))
         } catch (error: IllegalArgumentException) {
             Napier.w(error) { "Sign-in was not signed." }
             return AdmissionSubmitOutcome.DeliveryFailed(DeliveryFailure.NotSent)
@@ -80,7 +77,6 @@ class RequestServiceAdmission(
 
 private fun LinkPlan.toLocalStop(): AdmissionSubmitOutcome =
     when (followUp) {
-        LinkFollowUp.ObjectNotHeld -> AdmissionSubmitOutcome.ObjectNotHeld
         LinkFollowUp.KeyMismatch -> AdmissionSubmitOutcome.KeyMismatch(
             loginPrefix = keys?.loginPrefix.orEmpty(),
             filePrefix = keys?.filePrefix.orEmpty(),

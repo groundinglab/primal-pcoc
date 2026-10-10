@@ -57,7 +57,12 @@ class AdmissionDoorClient(
             Napier.w(error) { "Sign-in body was not encoded." }
             return AdmissionPostResult.DeliveryFailed(DeliveryFailure.NotSent)
         }
-        AdmissionTrace.post(link = link, objectBytes = objectBytes.size, signatureHex = signatureHex)
+        AdmissionTrace.post(
+            link = link,
+            objectSha256 = sha256(objectBytes),
+            objectBytes = objectBytes.size,
+            signatureHex = signatureHex,
+        )
         val request = Request.Builder()
             .url(SIGN_IN_DOOR)
             .post(encoded.toByteArray(Charsets.UTF_8).toRequestBody(JSON))

@@ -157,7 +157,6 @@ private fun UiState.withOutcome(outcome: AdmissionSubmitOutcome): UiState =
         is AdmissionSubmitOutcome.DeliveryFailed -> couldNotSubmit(outcome.failure.toReason())
         AdmissionSubmitOutcome.NoObject -> copy(hasEnrolledObject = false, localStop = LocalStop.NoObject)
         AdmissionSubmitOutcome.WrongLogin -> copy(canSign = false, localStop = LocalStop.WrongLogin)
-        AdmissionSubmitOutcome.ObjectNotHeld -> copy(localStop = LocalStop.ObjectNotHeld)
         is AdmissionSubmitOutcome.KeyMismatch -> copy(
             localStop = LocalStop.KeyMismatch(loginPrefix = outcome.loginPrefix, filePrefix = outcome.filePrefix),
         )

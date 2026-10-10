@@ -35,10 +35,12 @@ fun Credential.admissionPrivateKeyOrNull(): ByteArray? {
  * Not the link text, not a header hash, and not Nostr `signOrThrow`.
  */
 object AdmissionSigner {
-    fun sign(privateKey: ByteArray, link: SignInLink): String =
+    fun sign(privateKey: ByteArray, link: SignInLink, objectSha256: ByteArray): String =
         signMessage(
             privateKey = privateKey,
-            message = SignInChallenge.bip340Message(SignInChallenge.challengeBytes(link)),
+            message = SignInChallenge.bip340Message(
+                SignInChallenge.challengeBytes(link, objectSha256),
+            ),
         )
 
     fun signMessage(privateKey: ByteArray, message: ByteArray): String {

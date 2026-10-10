@@ -58,8 +58,10 @@ class SignInVectorsTest {
                 when (item.string("class")) {
                     "link" -> {
                         val link = (parsed as SignInLinkParse.Ready).link
-                        SignInChallenge.challengeBytes(link).size shouldBe example.long("challenge_bytes_len").toInt()
-                        if ("&exp=0&" in input) link.exp shouldBe 0uL
+                        link.text.contains("object=") shouldBe false
+                        if (input.endsWith("&exp=0") || input.trimEnd().endsWith("&exp=0")) {
+                            link.exp shouldBe 0uL
+                        }
                     }
                     "malformed" -> (parsed is SignInLinkParse.Ready) shouldBe false
                     else -> error("unknown link class ${item.string("class")}")
@@ -86,8 +88,11 @@ class SignInVectorsTest {
         link.origin shouldBe example.string("origin")
         link.nonceHex shouldBe example.string("nonce_hex")
         link.exp shouldBe example.long("expiry_unix_s").toULong()
-        link.objectHex shouldBe example.string("object_sha256_hex")
-        val challenge = SignInChallenge.challengeBytes(link)
+        link.text.contains("object=") shouldBe false
+        val challenge = SignInChallenge.challengeBytes(
+            link,
+            Hex.decode(example.string("object_sha256_hex")),
+        )
         Hex.encode(challenge) shouldBe example.string("challenge_bytes_hex")
         val message = SignInChallenge.bip340Message(challenge)
         Hex.encode(message) shouldBe example.string("bip340_message_32_hex")
@@ -119,7 +124,11 @@ class SignInVectorsTest {
         example.string("parity") shouldBe "even"
         compressedPrefix(secret) shouldBe EVEN_PUBLIC_KEY_PREFIX
         signingPublicKey(secret)!!.contentEquals(publicKey) shouldBe true
-        AdmissionSigner.sign(privateKey = secret, link = link) shouldBe example.string("signature_hex")
+        AdmissionSigner.sign(
+            privateKey = secret,
+            link = link,
+            objectSha256 = Hex.decode(example.string("object_sha256_hex")),
+        ) shouldBe example.string("signature_hex")
         CryptoUtils.verify(signature = signature, hash = message, pubKey = publicKey) shouldBe true
         CryptoUtils.verify(
             signature = signature,
@@ -146,6 +155,7 @@ class SignInVectorsTest {
         ).jsonObject
         encoded.keys.toList() shouldBe BODY_KEYS
         encoded.getValue("exp").jsonPrimitive.isString shouldBe false
+        encoded.getValue("object").jsonPrimitive.content shouldBe example.string("file_of_0xaa_sha256")
         grammarOk(encoded) shouldBe true
 
         var okBodies = 0
@@ -155,7 +165,6 @@ class SignInVectorsTest {
                 when (item.string("class")) {
                     "grammar_ok" -> {
                         grammarOk(body) shouldBe true
-                        body shouldBe encoded
                         okBodies += 1
                     }
                     "malformed" -> grammarOk(body) shouldBe false

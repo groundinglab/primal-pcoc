@@ -4,20 +4,18 @@ import fr.acinq.secp256k1.Hex
 
 /**
  * The SPEC §15.1 sign-in link, the same string for the QR and for paste:
- * `https://pcoc.app/sign-in/?v=1&nonce=<64 lowercase hex>&exp=<shortest decimal u64>&object=<64 lowercase hex>`.
- * The link does not name the door. The origin is always [SIGN_IN_ORIGIN].
+ * `https://pcoc.app/sign-in/?v=1&nonce=<64 lowercase hex>&exp=<shortest decimal u64>`.
+ * `v` stays 1. It names the unchanged challenge-bytes domain.
+ * The link does not name an object and does not name the door. The origin is always [SIGN_IN_ORIGIN].
  */
 class SignInLink(
     val text: String,
     val nonceHex: String,
     val exp: ULong,
-    val objectHex: String,
 ) {
     val origin: String get() = SIGN_IN_ORIGIN
 
     fun nonce(): ByteArray = Hex.decode(nonceHex)
-
-    fun objectSha256(): ByteArray = Hex.decode(objectHex)
 
     override fun equals(other: Any?): Boolean = other is SignInLink && other.text == text
 
@@ -47,7 +45,6 @@ object SignInLinks {
                     text = exact,
                     nonceHex = match.groupValues[1],
                     exp = exp,
-                    objectHex = match.groupValues[3],
                 ),
             )
             RETIRED.matches(exact) -> SignInLinkParse.RetiredCode
@@ -66,7 +63,7 @@ const val SIGN_IN_ORIGIN = "https://pcoc.app"
 private const val ASCII_WHITESPACE = " \t\n\u000C\r"
 
 private val CANONICAL = Regex(
-    """^https://pcoc\.app/sign-in/\?v=1&nonce=([0-9a-f]{64})&exp=(0|[1-9][0-9]{0,19})&object=([0-9a-f]{64})$""",
+    """^https://pcoc\.app/sign-in/\?v=1&nonce=([0-9a-f]{64})&exp=(0|[1-9][0-9]{0,19})$""",
 )
 
 private val RETIRED = Regex("""^https://pcoc\.app/sign-in/\?h=[0-9a-fA-F]{64}$""")

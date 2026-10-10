@@ -232,7 +232,6 @@
     <string name="pcoc_admit_reason_unexpected">unexpected response</string>
     <string name="pcoc_admit_reason_not_sent">not sent</string>
     <string name="pcoc_admit_close">Close</string>
-    <string name="pcoc_admit_object_not_held">This sign-in link is for a different PCOC than the one saved for this account. Nothing was signed or sent.</string>
     <string name="pcoc_admit_object_unreadable">The saved PCOC could not be read. Nothing was sent.</string>
     <string name="pcoc_admit_need_pcoc">You need a PCOC first. Create one on this phone, or use Import PCOC.</string>
     <string name="pcoc_admit_wrong_login">This login cannot sign in. Signing needs this account\'s private key. Nothing was sent.</string>

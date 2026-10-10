@@ -52,36 +52,36 @@ class ObjectPublicKeyTest {
         val key = ByteArray(PUBLIC_KEY_LEN) { 0x11 }
         val account = "11".repeat(32)
         val held = cborPublicKeyMap(key)
-        val match = planLink(link = linkFor(held), canSign = true, accountHex = account, objectBytes = held)
+        val match = planLink(link = linkFor(), canSign = true, accountHex = account, objectBytes = held)
         match.followUp shouldBe LinkFollowUp.Submit
         match.keys?.check shouldBe ObjectKeyCheck.Match
 
         val other = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x22 })
-        val mismatch = planLink(link = linkFor(other), canSign = true, accountHex = account, objectBytes = other)
+        val mismatch = planLink(link = linkFor(), canSign = true, accountHex = account, objectBytes = other)
         mismatch.followUp shouldBe LinkFollowUp.KeyMismatch
 
-        val unsigned = planLink(link = linkFor(held), canSign = false, accountHex = account, objectBytes = held)
+        val unsigned = planLink(link = linkFor(), canSign = false, accountHex = account, objectBytes = held)
         unsigned.followUp shouldBe LinkFollowUp.WrongLogin
 
         val keyless = byteArrayOf(1)
-        val missing = planLink(link = linkFor(keyless), canSign = true, accountHex = account, objectBytes = keyless)
+        val missing = planLink(link = linkFor(), canSign = true, accountHex = account, objectBytes = keyless)
         missing.followUp shouldBe LinkFollowUp.ObjectKeyUnreadable
 
-        planLink(link = linkFor(held), canSign = true, accountHex = account, objectBytes = null).followUp shouldBe
+        planLink(link = linkFor(), canSign = true, accountHex = account, objectBytes = null).followUp shouldBe
             LinkFollowUp.NoObject
     }
 
     @Test
-    fun `a link for other object bytes stops before the key is read`() {
+    fun `the phone signs the object it holds`() {
         val held = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x11 })
         val plan = planLink(
-            link = linkFor(held + byteArrayOf(0)),
+            link = linkFor(),
             canSign = true,
             accountHex = "11".repeat(32),
             objectBytes = held,
         )
-        plan.followUp shouldBe LinkFollowUp.ObjectNotHeld
-        plan.keys shouldBe null
+        plan.followUp shouldBe LinkFollowUp.Submit
+        plan.keys?.check shouldBe ObjectKeyCheck.Match
     }
 
     @Test
@@ -109,7 +109,7 @@ class ObjectPublicKeyTest {
         val objectBytes = cborPublicKeyMap(ByteArray(PUBLIC_KEY_LEN) { 0x11 })
         val other = ByteArray(PUBLIC_KEY_LEN) { 0x22 }
         val withOtherSigner = planLink(
-            link = linkFor(objectBytes),
+            link = linkFor(),
             canSign = true,
             accountHex = account,
             objectBytes = objectBytes,
@@ -118,7 +118,7 @@ class ObjectPublicKeyTest {
         withOtherSigner.followUp shouldBe LinkFollowUp.Submit
 
         val signerOnly = planLink(
-            link = linkFor(objectBytes),
+            link = linkFor(),
             canSign = true,
             accountHex = "22".repeat(32),
             objectBytes = objectBytes,
