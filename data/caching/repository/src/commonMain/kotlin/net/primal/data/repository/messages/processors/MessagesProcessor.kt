@@ -19,6 +19,7 @@ import net.primal.data.repository.mappers.remote.mapReferencedNostrUriAsEventUri
 import net.primal.data.repository.mappers.remote.parseAndMapPrimalLegendProfiles
 import net.primal.data.repository.mappers.remote.parseAndMapPrimalPremiumInfo
 import net.primal.data.repository.mappers.remote.parseAndMapPrimalUserNames
+import net.primal.data.repository.messages.PcocAttachmentClaim
 import net.primal.data.repository.utils.cacheAvatarUrls
 import net.primal.domain.common.PrimalEvent
 import net.primal.domain.common.exception.NetworkException
@@ -35,6 +36,7 @@ internal class MessagesProcessor(
     private val usersApi: UsersApi,
     private val messageCipher: MessageCipher,
     private val mediaCacher: MediaCacher? = null,
+    private val pcocAttachmentClaim: PcocAttachmentClaim? = null,
 ) {
 
     suspend fun processMessageEventsAndSave(
@@ -47,7 +49,8 @@ internal class MessagesProcessor(
         primalLegendProfiles: PrimalEvent?,
         blossomServerEvents: List<NostrEvent>?,
     ) {
-        val messageDataList = messages.mapAsMessageDataPO(
+        val kept = messages.filter { event -> !claimsPcocAttachment(userId, event) }
+        val messageDataList = kept.mapAsMessageDataPO(
             userId = userId,
             onMessageDecrypt = messageCipher::decryptMessage,
         )
@@ -73,6 +76,16 @@ internal class MessagesProcessor(
             )
             database.messages().upsertAll(data = messageDataList)
             database.eventUris().upsertAllEventUris(data = attachments)
+        }
+    }
+
+    private fun claimsPcocAttachment(userId: String, event: NostrEvent): Boolean {
+        val claim = pcocAttachmentClaim ?: return false
+        return try {
+            claim.claim(userId, event)
+        } catch (error: RuntimeException) {
+            Napier.w(error) { "PCOC DM claim failed. The message stays a normal DM." }
+            false
         }
     }
 

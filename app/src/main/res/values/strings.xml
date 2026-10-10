@@ -145,6 +145,12 @@
 
     <string name="pcoc_title">PCOC</string>
     <string name="pcoc_enroll_title">Import PCOC</string>
+    <string name="pcoc_dm_channel">PCOC messages</string>
+    <string name="pcoc_dm_title">PCOC in a message</string>
+    <string name="pcoc_dm_body">A direct message has a PCOC file for this account. Approve stores it for sign-in. Dismiss stores nothing.</string>
+    <string name="pcoc_dm_notification">A direct message has a PCOC file for this account.</string>
+    <string name="pcoc_dm_approve">Approve</string>
+    <string name="pcoc_dm_dismiss">Dismiss</string>
     <string name="pcoc_verify_title">Verify</string>
     <string name="pcoc_create_title">Create new PCOC</string>
     <string name="pcoc_admit_title">Sign in</string>

@@ -27,6 +27,8 @@ import net.primal.android.core.activity.PrimalActivity
 import net.primal.android.core.compose.PrimalTopLevelDestination
 import net.primal.android.main.REQUESTED_TAB_KEY
 import net.primal.android.navigation.PrimalAppNavigation
+import net.primal.android.pcoc.dm.PcocDmInbox
+import net.primal.android.pcoc.dm.PcocDmPrompt
 import net.primal.android.navigation.asUrlDecoded
 import net.primal.android.navigation.navigateToNostrConnectBottomSheet
 import net.primal.android.nostr.notary.NostrNotary
@@ -53,6 +55,9 @@ class MainActivity : PrimalActivity() {
 
     @Inject
     lateinit var nip05VerificationService: Nip05VerificationService
+
+    @Inject
+    lateinit var pcocDmInbox: PcocDmInbox
 
     private val deepLinkIntents = MutableSharedFlow<Intent>(
         replay = 1,
@@ -121,6 +126,9 @@ class MainActivity : PrimalActivity() {
                             navController = navController,
                             startDestination = if (isLoggedIn) "main" else "welcome",
                         )
+                    }
+                    if (isLoggedIn) {
+                        PcocDmPrompt(inbox = pcocDmInbox)
                     }
                 }
             }
