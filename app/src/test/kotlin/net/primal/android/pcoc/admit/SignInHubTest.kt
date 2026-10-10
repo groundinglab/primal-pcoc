@@ -92,23 +92,18 @@ class SignInHubTest {
     }
 
     @Test
-    fun `create new pcoc is a coming soon screen that states the requirements`() {
+    fun `create new pcoc starts a hike on this phone`() {
         val xml = stringsXml()
-        stringValue(xml, "pcoc_create_soon_title") shouldBe "Coming soon: needs a measured phone"
+        xml.contains("Coming soon") shouldBe false
+        xml.contains("coming soon") shouldBe false
+        stringValue(xml, "pcoc_create_start") shouldBe "Start hike"
+        stringValue(xml, "pcoc_create_idle_title") shouldBe "New hike"
         val body = stringValue(xml, "pcoc_create_body")
-        listOf(
-            "npub",
-            "nsec",
-            "18 Bitcoin blocks",
-            "3 hours",
-            "Power and Wi-Fi",
-            "256 MiB",
-            "1/4 leg per second",
-            "Import PCOC",
-        ).forEach { body shouldContain it }
+        listOf("256 MiB", "https://bari.pcoc.app", "W_1", "W_17", "public key").forEach { body shouldContain it }
+        body.contains("nsec") shouldBe false
         val screen = sourceFile("src/main/kotlin/net/primal/android/pcoc/create/CreatePcocScreen.kt")
-        screen.contains("ViewModel") shouldBe false
-        screen.contains("Service") shouldBe false
+        screen.contains("CreatePcocViewModel") shouldBe true
+        screen.contains("Start") shouldBe true
     }
 
     @Test

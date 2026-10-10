@@ -10,10 +10,10 @@ import java.io.File
 import javax.inject.Singleton
 import net.primal.android.pcoc.admit.AdmissionDoorClient
 import net.primal.android.pcoc.admit.newAdmissionHttpClient
+import net.primal.android.pcoc.bridge.NativeVerifyEngine
+import net.primal.android.pcoc.bridge.VerifyEngine
 import net.primal.android.pcoc.enroll.EnrolledPcocStore
 import net.primal.android.pcoc.enroll.FileEnrolledPcocStore
-import net.primal.android.pcoc.hike.LiveIndex
-import net.primal.android.pcoc.hike.VerifyFlight
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -30,11 +30,7 @@ object PcocModule {
 
     @Provides
     @Singleton
-    fun verifyFlight(): VerifyFlight = VerifyFlight()
-
-    @Provides
-    @Singleton
-    fun liveIndex(flight: VerifyFlight): LiveIndex = LiveIndex(LiveIndex.newClient(), flight)
+    fun verifyEngine(): VerifyEngine = NativeVerifyEngine()
 
     private const val OBJECT_DIRECTORY = "pcoc-enrolled-objects"
 }

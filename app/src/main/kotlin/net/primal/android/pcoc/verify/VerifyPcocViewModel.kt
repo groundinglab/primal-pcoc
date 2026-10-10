@@ -12,26 +12,22 @@ import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
-import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.getAndUpdate
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runInterruptible
-import net.primal.android.pcoc.hike.IndexUnreachable
-import net.primal.android.pcoc.hike.LiveIndex
-import net.primal.android.pcoc.hike.OsEntropy
-import net.primal.android.pcoc.hike.StageLog
-import net.primal.android.pcoc.hike.VerifyAny
-import net.primal.android.pcoc.hike.VerifyFlight
-import net.primal.android.pcoc.hike.VerifyProgress
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import net.primal.android.R
+import net.primal.android.pcoc.bridge.INDEX_URL
+import net.primal.android.pcoc.bridge.VerifyEngine
+import net.primal.android.pcoc.bridge.VerifyNativeOutcome
+import net.primal.android.pcoc.bridge.indexStatus
+import net.primal.android.pcoc.verify.VerifyPcocContract.MeasureRow
 import net.primal.android.pcoc.verify.VerifyPcocContract.Notice
-import net.primal.android.pcoc.verify.VerifyPcocContract.Stage
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiEvent
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiState
 import net.primal.core.utils.coroutines.DispatcherProvider
@@ -39,20 +35,19 @@ import net.primal.core.utils.coroutines.DispatcherProvider
 @HiltViewModel
 class VerifyPcocViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val index: LiveIndex,
-    private val flight: VerifyFlight,
+    private val engine: VerifyEngine,
     private val dispatchers: DispatcherProvider,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(UiState())
     val state = _state.asStateFlow()
-    private fun setState(reducer: UiState.() -> UiState) = _state.getAndUpdate(reducer)
 
-    private val events = MutableSharedFlow<UiEvent>()
+    private val events = kotlinx.coroutines.flow.MutableSharedFlow<UiEvent>()
     fun setEvent(event: UiEvent) = viewModelScope.launch { events.emit(event) }
 
     private var run: Job? = null
     private val ticket = AtomicInteger()
+    private val gate = Mutex()
 
     init {
         viewModelScope.launch {
@@ -65,125 +60,76 @@ class VerifyPcocViewModel @Inject constructor(
         }
     }
 
-    override fun onCleared() {
-        ticket.incrementAndGet()
-        flight.cancel()
-        super.onCleared()
-    }
-
     private fun cancelRun() {
         ticket.incrementAndGet()
-        flight.cancel()
-        run?.cancel()
-        run = null
-        setState { UiState() }
+        _state.update { UiState(busy = true, stopping = true) }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun onFile(uri: Uri) {
         val mine = ticket.incrementAndGet()
-        flight.cancel()
         run?.cancel()
         run = viewModelScope.launch {
-            setState { UiState(busy = true, stage = Stage.File) }
-            delay(FRAME_PAUSE_MS)
-            if (mine != ticket.get()) return@launch
+            _state.value = UiState(busy = true)
             try {
-                when (val outcome = verifyFile(uri, mine)) {
-                    Outcome.Stopped -> Unit
-                    Outcome.Unread -> publish(mine) { measurementUiState(record = null, unread = true) }
-                    Outcome.Unfinished -> publish(mine) { measurementUiState(record = null, unread = false) }
-                    is Outcome.Recorded -> publish(mine) { measurementUiState(outcome.record, unread = false) }
+                val outcome = verifyFile(uri, mine)
+                if (mine == ticket.get()) {
+                    _state.value = outcome.toUi()
+                } else {
+                    _state.update { current -> if (current.stopping) UiState() else current }
                 }
             } catch (cancelled: CancellationException) {
-                if (mine == ticket.get()) setState { UiState() }
+                _state.update { current -> if (current.stopping && mine != ticket.get()) UiState() else current }
                 throw cancelled
-            } catch (error: Exception) {
-                Napier.w(error) { "Verify any did not finish." }
-                publish(mine) { UiState(notice = error.toNotice()) }
-            } catch (error: OutOfMemoryError) {
-                Napier.w(error) { "Verify any did not finish." }
-                publish(mine) { UiState(notice = Notice.DidNotFinish) }
             }
         }
     }
 
-    private suspend fun verifyFile(uri: Uri, mine: Int): Outcome {
-        val fileStarted = System.nanoTime()
-        val bytes = try {
-            runInterruptible(dispatchers.io()) { readObject(uri) }
-        } finally {
-            StageLog.debug("file read", fileStarted)
-        }
-        val finish = if (bytes == null || mine != ticket.get()) {
-            null
-        } else {
-            runInterruptible(dispatchers.io()) {
-                flight.call {
-                    VerifyAny.finish(bytes, index, OsEntropy(), progress(mine))
+    private suspend fun verifyFile(uri: Uri, mine: Int): Outcome = withContext(dispatchers.io()) {
+        gate.withLock {
+            if (mine != ticket.get()) return@withLock Outcome.Stopped
+            val bytes = readObject(uri) ?: return@withLock Outcome.Unread
+            if (mine != ticket.get()) return@withLock Outcome.Stopped
+            try {
+                when (val native = engine.verify(bytes, INDEX_URL, VERIFY_THREADS)) {
+                    is VerifyNativeOutcome.Record -> Outcome.Recorded(rowsOf(native))
+                    VerifyNativeOutcome.Unreadable -> Outcome.Unreadable
+                    is VerifyNativeOutcome.Engine -> Outcome.Unfinished
                 }
+            } catch (error: Exception) {
+                Napier.w(error) { "Verify did not finish." }
+                Outcome.Unfinished
             }
-        }
-        val stopped = mine != ticket.get() || !coroutineContext.isActive
-        if (stopped) {
-            return Outcome.Stopped
-        }
-        if (bytes == null) {
-            return Outcome.Unread
-        }
-        val record = finish?.record
-        return when {
-            record != null -> Outcome.Recorded(record)
-            finish?.unread == true -> Outcome.Unread
-            else -> Outcome.Unfinished
         }
     }
 
-    private fun progress(mine: Int): VerifyProgress {
-        fun show(
-            stage: Stage,
-            stepDone: Int = 0,
-            stepTotal: Int = 0,
-            legsDone: Int = 0,
-            legsTotal: Int = 6,
-        ) {
-            publish(mine) {
-                copy(
-                    busy = true,
-                    stage = stage,
-                    stepDone = stepDone,
-                    stepTotal = stepTotal,
-                    legsDone = legsDone,
-                    legsTotal = legsTotal,
-                    notice = null,
-                    recorded = false,
-                    rows = emptyList(),
-                )
-            }
+    private fun rowsOf(record: VerifyNativeOutcome.Record): List<MeasureRow> {
+        val presented = presentRecord(record.json) ?: return emptyList()
+        val lead = listOf(
+            MeasureRow(R.string.pcoc_verify_row_bytes, thousands(record.bytes)),
+            MeasureRow(R.string.pcoc_verify_row_sha256, record.sha256),
+        )
+        val body = when (presented) {
+            is Presented.Earlier -> listOf(
+                MeasureRow(R.string.pcoc_verify_row_version, "earlier version"),
+                MeasureRow(R.string.pcoc_verify_row_kind, presented.kind.ifEmpty { "absent" }),
+            )
+            is Presented.Record -> listOf(
+                MeasureRow(R.string.pcoc_verify_row_profile, presented.profile),
+                MeasureRow(R.string.pcoc_verify_row_shape, presented.shape),
+                MeasureRow(R.string.pcoc_verify_row_seed, presented.seed),
+                MeasureRow(R.string.pcoc_verify_row_headers, presented.headers),
+                MeasureRow(R.string.pcoc_verify_row_checkpoints, presented.checkpoints),
+                MeasureRow(R.string.pcoc_verify_row_waypoints, presented.waypoints),
+                MeasureRow(R.string.pcoc_verify_row_paths, presented.paths),
+                MeasureRow(R.string.pcoc_verify_row_six_leg, presented.sixLeg),
+                MeasureRow(R.string.pcoc_verify_row_span, presented.span),
+                MeasureRow(
+                    R.string.pcoc_verify_row_index,
+                    indexStatus(record.indexUrl.ifEmpty { INDEX_URL }, record.issued, record.answered, record.totalMs),
+                ),
+            )
         }
-
-        return object : VerifyProgress {
-            override fun indexReads() = show(Stage.Index)
-
-            override fun terrain() = show(Stage.Terrain)
-
-            override fun checks() = show(Stage.Checks)
-
-            override fun checkpoints(done: Int, total: Int) =
-                show(Stage.Checkpoints, stepDone = done, stepTotal = total)
-
-            override fun waypoints(done: Int, total: Int) =
-                show(Stage.Waypoints, stepDone = done, stepTotal = total)
-
-            override fun paths(done: Int, total: Int) =
-                show(Stage.Paths, stepDone = done, stepTotal = total)
-
-            override fun leg(done: Int, total: Int) = show(Stage.Legs, legsDone = done, legsTotal = total)
-        }
-    }
-
-    private fun publish(mine: Int, reducer: UiState.() -> UiState) {
-        setState { if (mine != ticket.get()) this else reducer() }
+        return lead + body
     }
 
     private fun readObject(uri: Uri): ByteArray? =
@@ -205,9 +151,6 @@ class VerifyPcocViewModel @Inject constructor(
         val chunk = ByteArray(READ_CHUNK_BYTES)
         var read = input.read(chunk)
         while (read >= 0) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw IOException("cancelled")
-            }
             buffer.write(chunk, 0, read)
             read = input.read(chunk)
         }
@@ -216,7 +159,7 @@ class VerifyPcocViewModel @Inject constructor(
 
     private companion object {
         const val READ_CHUNK_BYTES = 8 * 1024
-        const val FRAME_PAUSE_MS = 50L
+        const val VERIFY_THREADS = 6
     }
 }
 
@@ -225,10 +168,22 @@ private sealed interface Outcome {
 
     data object Unread : Outcome
 
+    data object Unreadable : Outcome
+
     data object Unfinished : Outcome
 
-    data class Recorded(val record: VerifyAny.Record) : Outcome
+    data class Recorded(val rows: List<MeasureRow>) : Outcome
 }
 
-private fun Exception.toNotice(): Notice =
-    if (this is IndexUnreachable) Notice.IndexUnreachable else Notice.DidNotFinish
+private fun Outcome.toUi(): UiState =
+    when (this) {
+        Outcome.Stopped -> UiState()
+        Outcome.Unread -> UiState(notice = Notice.CouldNotRead)
+        Outcome.Unreadable -> UiState(notice = Notice.Unreadable)
+        Outcome.Unfinished -> UiState(notice = Notice.DidNotFinish)
+        is Outcome.Recorded -> if (rows.isEmpty()) {
+            UiState(notice = Notice.Unreadable)
+        } else {
+            UiState(recorded = true, rows = rows)
+        }
+    }

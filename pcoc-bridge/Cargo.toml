@@ -1,0 +1,13 @@
+# Android bridge workspace.
+# hike is vendored from groundinglab/pcoc origin/main
+# 148d6bac84a6e8987ad4faab168881f9403523be.
+[workspace]
+resolver = "2"
+members = ["vendor/hike", "bridge"]
+
+[profile.dev.package."*"]
+# Legs are not usable unoptimised. Same choice as the desktop app.
+opt-level = 3
+
+[profile.release]
+lto = "thin"

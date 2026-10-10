@@ -6,17 +6,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.primal.android.R
 import net.primal.android.pcoc.verify.VerifyPcocContract.MeasureRow
 import net.primal.android.pcoc.verify.VerifyPcocContract.Notice
-import net.primal.android.pcoc.verify.VerifyPcocContract.Stage
 import net.primal.android.pcoc.verify.VerifyPcocContract.UiState
 import net.primal.android.stream.player.StreamStateProvider
 import net.primal.android.theme.PrimalTheme
@@ -48,14 +45,14 @@ class VerifyPcocScreenTest {
         compose.onNodeWithText("production").assertIsDisplayed()
         compose.onNodeWithText("Shape").assertIsDisplayed()
         compose.onNodeWithText("match").assertIsDisplayed()
+        compose.onNodeWithText("Headers").assertIsDisplayed()
         compose.onNodeWithText("Checkpoints").assertIsDisplayed()
-        compose.onNodeWithText("mismatch").assertIsDisplayed()
+        compose.onNodeWithText("every one is mismatch").assertIsDisplayed()
         compose.onNodeWithText("Waypoints").assertIsDisplayed()
-        compose.onNodeWithText("Leg rate").assertIsDisplayed()
-        compose.onAllNodesWithText("not read").assertCountEquals(2)
-        compose.onNodeWithText("The rate was not read. This is not a verdict.").assertIsDisplayed()
         compose.onNodeWithText("Six leg").assertIsDisplayed()
         compose.onNodeWithText("not defined").assertIsDisplayed()
+        compose.onNodeWithText("Portable index").assertIsDisplayed()
+        compose.onNodeWithText("Portable index did not answer · index.pcoc.app · 2 reads").assertIsDisplayed()
         absentVerdicts()
     }
 
@@ -70,23 +67,24 @@ class VerifyPcocScreenTest {
     }
 
     @Test
-    fun `an unfinished run and a missed index are plain messages`() {
+    fun `an unfinished run and an undecodable file are plain messages`() {
         val state = mutableStateOf(UiState(notice = Notice.DidNotFinish))
         show { state.value }
         compose.onNodeWithText("Verify did not finish.").assertIsDisplayed()
         absentVerdicts()
 
-        state.value = UiState(notice = Notice.IndexUnreachable)
-        compose.onNodeWithText("Couldn't reach the index — try again").assertIsDisplayed()
+        state.value = UiState(notice = Notice.Unreadable)
+        compose.onNodeWithText("This file is not a hike object this verifier can decode, so there is no record.")
+            .assertIsDisplayed()
         compose.onNodeWithText("Verify did not finish.").assertDoesNotExist()
         absentVerdicts()
     }
 
     @Test
-    fun `a running check shows the stage and not a record`() {
-        show(UiState(busy = true, stage = Stage.Legs, legsDone = 2, legsTotal = 6))
+    fun `a running check shows measuring and not a record`() {
+        show(UiState(busy = true))
 
-        compose.onNodeWithText("Checking legs… 2 of 6").assertIsDisplayed()
+        compose.onNodeWithText("Measuring · reading the portable index").assertIsDisplayed()
         compose.onNodeWithText("Cancel").assertIsDisplayed()
         compose.onNodeWithText("A measurement record was written.").assertDoesNotExist()
         absentVerdicts()
@@ -137,9 +135,13 @@ class VerifyPcocScreenTest {
         listOf(
             MeasureRow(R.string.pcoc_verify_row_profile, "production"),
             MeasureRow(R.string.pcoc_verify_row_shape, "match"),
-            MeasureRow(R.string.pcoc_verify_row_checkpoints, "mismatch"),
-            MeasureRow(R.string.pcoc_verify_row_waypoints, "not read"),
-            MeasureRow(R.string.pcoc_verify_row_leg_rate, "not read", rateUnread = true),
+            MeasureRow(R.string.pcoc_verify_row_headers, "every one is not read"),
+            MeasureRow(R.string.pcoc_verify_row_checkpoints, "every one is mismatch"),
+            MeasureRow(R.string.pcoc_verify_row_waypoints, "every one is not read"),
             MeasureRow(R.string.pcoc_verify_row_six_leg, "not defined"),
+            MeasureRow(
+                R.string.pcoc_verify_row_index,
+                "Portable index did not answer · index.pcoc.app · 2 reads",
+            ),
         )
 }

@@ -110,7 +110,7 @@ Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged
 Checked and absent:
 
 - Account → PCOC lives in `net.primal.android.pcoc`. Enroll stores the picked file bytes for the signed-in account. It does not call `hike::yielded_public_key` or `object_public_key`, and it does not load a hike JNI library.
-- No Rust crate or UniFFI binding is vendored here. Create does not call produce, plant, gossip, or Bari.
+- `pcoc-bridge/` vendors the hike crate from groundinglab/pcoc origin/main `148d6bac84a6e8987ad4faab168881f9403523be` and exposes produce and verify through JNI.
 - No `leg` / `leg result` types.
 
 The JNI that does exist for signatures is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Request service admission calls it on the 32 bytes of query `h`. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for admission. `CryptoUtils.verify` checks a Nostr event signature. The phone does not show a local verify result. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.
@@ -201,7 +201,7 @@ This planning environment had JDK 21 and no Android SDK (`ANDROID_HOME` unset). 
 
 Recorded so a later change does not fill them in from Primal primitives:
 
-- Produce function and a vendored Rust/UniFFI produce bridge. The Create door is copy only.
+- The produce bridge is `pcoc-bridge/`. Create calls it. Verify calls the same crate's section 14 measurement.
 - Register step after produce.
 - Option B admit bytes. Account → Request service admission is the locked `{object_b64, signature}` POST to the scanned HTTPS URL, not Option B and not a phone→gate POST.
 - A client that reads the public Bitcoin tip. The app does not keep a header archive. No start/stop bound to a leg. `PrimalNwcService` stays the NWC service.
