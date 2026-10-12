@@ -10,6 +10,9 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.primal.android.pcoc.admit.SignInLog
+import net.primal.android.pcoc.admit.SignInNotice
+import net.primal.android.pcoc.admit.SignInNotices
 import net.primal.android.pcoc.admit.enrolledObjectPublicKey
 import net.primal.android.pcoc.enroll.EnrollOutcome
 import net.primal.android.pcoc.enroll.EnrollPcoc
@@ -51,6 +54,8 @@ class PcocDmInbox(
 ) {
     private val pendingFlow = MutableStateFlow<PcocDmOffer?>(null)
     val pending: StateFlow<PcocDmOffer?> = pendingFlow.asStateFlow()
+    private val problemFlow = MutableStateFlow<String?>(null)
+    val problem: StateFlow<String?> = problemFlow.asStateFlow()
     private val handled = HashSet<String>()
 
     @Synchronized
@@ -63,9 +68,14 @@ class PcocDmInbox(
     ): Boolean {
         if (kind != PCOC_DM_KIND) return false
         if (recipientHex == null || !recipientHex.equals(accountHex, ignoreCase = true)) return false
-        if (plaintext == null || !isPcocObject(plaintext)) return false
+        if (plaintext == null) return false
+        if (!isPcocObject(plaintext)) {
+            if (isCborMap(plaintext)) show(SignInNotices.dm(parsed = false))
+            return false
+        }
         // Already offered. Still claim it so a later sync does not store the bytes.
         if (eventId.isNotEmpty() && !handled.add(eventId)) return true
+        show(SignInNotices.dm(parsed = true))
         pendingFlow.value = PcocDmOffer(
             accountHex = accountHex,
             eventId = eventId,
@@ -73,6 +83,16 @@ class PcocDmInbox(
         )
         notifier.show()
         return true
+    }
+
+    @Synchronized
+    fun clearProblem() {
+        problemFlow.value = null
+    }
+
+    private fun show(notice: SignInNotice) {
+        SignInLog.write(notice)
+        problemFlow.value = if (notice == SignInNotices.dm(parsed = false)) notice.userText else null
     }
 
     @Synchronized
@@ -103,6 +123,12 @@ class PcocDmInbox(
 }
 
 internal fun isPcocObject(bytes: ByteArray): Boolean = enrolledObjectPublicKey(bytes)?.size == PUBLIC_KEY_LEN
+
+/** A CBOR map. Text DMs are not maps, so a normal message is not a parse failure. */
+internal fun isCborMap(bytes: ByteArray): Boolean {
+    if (bytes.isEmpty()) return false
+    return bytes[0].toInt() and CBOR_MAJOR_MASK == CBOR_MAP
+}
 
 /**
  * NIP-04 decrypt to bytes. The desktop content is `base64(ciphertext)?iv=base64(iv)`.
@@ -142,3 +168,5 @@ private val secp256k1 = Secp256k1.get()
 
 private const val PUBLIC_KEY_LEN = 32
 private const val AES_BLOCK = 16
+private const val CBOR_MAJOR_MASK = 0xE0
+private const val CBOR_MAP = 0xA0

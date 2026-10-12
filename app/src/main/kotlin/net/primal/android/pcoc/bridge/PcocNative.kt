@@ -1,10 +1,10 @@
 package net.primal.android.pcoc.bridge
 
 /** Live portable index. The same origin the reference uses for `--profile live`. */
-internal const val INDEX_URL = "https://index.pcoc.app"
+internal const val INDEX_URL = "https://index.groundinglab.io"
 
 /** Live Bari. Produce posts waypoints here. */
-internal const val BARI_URL = "https://bari.pcoc.app"
+internal const val BARI_URL = "https://bari.groundinglab.io"
 
 /**
  * Static methods on this object are the JNI exports in `pcoc_bridge`.

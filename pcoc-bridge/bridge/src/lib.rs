@@ -12,7 +12,7 @@ pub use produce::{produce_args, scripted, LiveConfig, STOPPED};
 pub use verify::{verify_object, IndexReads, VerifyOutcome};
 
 /// Live Bari. `parse_produce` of `--profile live` fills this origin.
-pub const BARI_URL: &str = "https://bari.pcoc.app";
+pub const BARI_URL: &str = "https://bari.groundinglab.io";
 /// Live portable index. Verify reads this and nothing else.
 pub const INDEX_URL: &str = hike::DEFAULT_INDEX_URL;
 
@@ -47,8 +47,8 @@ mod tests {
 
     #[test]
     fn live_hosts_are_bari_and_the_index() {
-        assert_eq!(BARI_URL, "https://bari.pcoc.app");
-        assert_eq!(INDEX_URL, "https://index.pcoc.app");
+        assert_eq!(BARI_URL, "https://bari.groundinglab.io");
+        assert_eq!(INDEX_URL, "https://index.groundinglab.io");
         assert_eq!(hike::DEFAULT_INDEX_URL, INDEX_URL);
     }
 

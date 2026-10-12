@@ -1,5 +1,6 @@
 package net.primal.android.navigation
 
+import android.content.Intent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -7,6 +8,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.navDeepLink
 import androidx.navigation.navigation
 import net.primal.android.core.compose.ApplyEdgeToEdge
 import net.primal.android.core.compose.LockToOrientationPortrait
@@ -16,6 +18,7 @@ import net.primal.android.pcoc.PcocDoor
 import net.primal.android.pcoc.PcocScreen
 import net.primal.android.pcoc.admit.RequestAdmissionScreen
 import net.primal.android.pcoc.admit.RequestAdmissionViewModel
+import net.primal.android.pcoc.admit.SIGN_IN_APP_LINK
 import net.primal.android.pcoc.create.CreatePcocScreen
 import net.primal.android.pcoc.create.CreatePcocViewModel
 import net.primal.android.pcoc.enroll.EnrollPcocScreen
@@ -90,6 +93,9 @@ fun NavGraphBuilder.pcocNavigation(navController: NavController) {
 fun NavGraphBuilder.signInDestination(navController: NavController) {
     composable(
         route = PCOC_ADMIT,
+        deepLinks = listOf(
+            navDeepLink { uriPattern = SIGN_IN_APP_LINK },
+        ),
         enterTransition = { primalSlideInHorizontallyFromEnd },
         exitTransition = { primalScaleOut },
         popEnterTransition = { primalScaleIn },
@@ -102,6 +108,7 @@ fun NavGraphBuilder.signInDestination(navController: NavController) {
             viewModel = viewModel,
             onClose = { navController.navigateUp() },
             onCloseToMenu = { navController.closeSignInToPcocMenu() },
+            appLink = it.savedStateHandle.get<Intent>(NavController.KEY_DEEP_LINK_INTENT)?.dataString,
         )
     }
 }

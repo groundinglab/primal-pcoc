@@ -127,7 +127,7 @@ struct TestDial {
 }
 
 pub fn http_agent() -> ureq::Agent {
-    // `index.pcoc.app` answers 403 when the request carries no User-Agent header.
+    // `index.groundinglab.io` answers 403 when the request carries no User-Agent header.
     ureq::AgentBuilder::new()
         .timeout(READ_TIMEOUT)
         .user_agent("pcoc-hike")

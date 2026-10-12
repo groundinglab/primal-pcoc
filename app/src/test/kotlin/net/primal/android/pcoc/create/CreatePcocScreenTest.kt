@@ -48,7 +48,7 @@ class CreatePcocScreenTest {
         compose.onNodeWithText("New hike").assertIsDisplayed()
         compose.onNodeWithText("npub1example").assertIsDisplayed()
         compose.onNodeWithText("Start hike").assertIsDisplayed()
-        compose.onNodeWithText("https://bari.pcoc.app", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("https://bari.groundinglab.io", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Coming soon").assertDoesNotExist()
     }
 

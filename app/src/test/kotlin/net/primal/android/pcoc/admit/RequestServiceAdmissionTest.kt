@@ -163,7 +163,7 @@ class RequestServiceAdmissionTest {
     }
 
     @Test
-    fun `a signer failure is not sent`() {
+    fun `a signer failure is signing failed and nothing is sent`() {
         var posts = 0
         val request = RequestServiceAdmission(
             store = memoryStore().apply { write(account, objectBytes) },
@@ -174,8 +174,7 @@ class RequestServiceAdmissionTest {
             signLink = { _, _, _ -> throw IllegalArgumentException("no") },
         )
 
-        request.submit(linkFor(), account, privateKey) shouldBe
-            AdmissionSubmitOutcome.DeliveryFailed(DeliveryFailure.NotSent)
+        request.submit(linkFor(), account, privateKey) shouldBe AdmissionSubmitOutcome.SigningFailed
         posts shouldBe 0
     }
 

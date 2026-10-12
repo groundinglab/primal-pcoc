@@ -10,7 +10,13 @@ sealed class AdmissionSubmitOutcome {
 
     data object Malformed : AdmissionSubmitOutcome()
 
-    data class DeliveryFailed(val failure: DeliveryFailure) : AdmissionSubmitOutcome()
+    data class DeliveryFailed(
+        val failure: DeliveryFailure,
+        val httpCode: Int? = null,
+    ) : AdmissionSubmitOutcome()
+
+    /** BIP-340 signing threw. Nothing was sent. */
+    data object SigningFailed : AdmissionSubmitOutcome()
 
     /** No stored object for this login. Nothing was signed or sent. */
     data object NoObject : AdmissionSubmitOutcome()
@@ -64,13 +70,16 @@ class RequestServiceAdmission(
             signLink(key, link, sha256(objectBytes))
         } catch (error: IllegalArgumentException) {
             Napier.w(error) { "Sign-in was not signed." }
-            return AdmissionSubmitOutcome.DeliveryFailed(DeliveryFailure.NotSent)
+            return AdmissionSubmitOutcome.SigningFailed
         }
         return when (val result = poster.post(link = link, objectBytes = objectBytes, signatureHex = signature)) {
             AdmissionPostResult.Submitted -> AdmissionSubmitOutcome.Submitted
             AdmissionPostResult.BadSignature -> AdmissionSubmitOutcome.BadSignature
             AdmissionPostResult.Malformed -> AdmissionSubmitOutcome.Malformed
-            is AdmissionPostResult.DeliveryFailed -> AdmissionSubmitOutcome.DeliveryFailed(result.failure)
+            is AdmissionPostResult.DeliveryFailed -> AdmissionSubmitOutcome.DeliveryFailed(
+                failure = result.failure,
+                httpCode = result.httpCode,
+            )
         }
     }
 }

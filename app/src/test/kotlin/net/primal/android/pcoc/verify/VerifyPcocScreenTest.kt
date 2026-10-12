@@ -52,7 +52,7 @@ class VerifyPcocScreenTest {
         compose.onNodeWithText("Six leg").assertIsDisplayed()
         compose.onNodeWithText("not defined").assertIsDisplayed()
         compose.onNodeWithText("Portable index").assertIsDisplayed()
-        compose.onNodeWithText("Portable index did not answer · index.pcoc.app · 2 reads").assertIsDisplayed()
+        compose.onNodeWithText("Portable index did not answer · index.groundinglab.io · 2 reads").assertIsDisplayed()
         absentVerdicts()
     }
 
@@ -141,7 +141,7 @@ class VerifyPcocScreenTest {
             MeasureRow(R.string.pcoc_verify_row_six_leg, "not defined"),
             MeasureRow(
                 R.string.pcoc_verify_row_index,
-                "Portable index did not answer · index.pcoc.app · 2 reads",
+                "Portable index did not answer · index.groundinglab.io · 2 reads",
             ),
         )
 }

@@ -10,6 +10,7 @@ interface RequestAdmissionContract {
         val scanProblem: ScanProblem? = null,
         val localStop: LocalStop? = null,
         val sheet: Sheet? = null,
+        val notices: List<String> = emptyList(),
         val showWelcome: Boolean = true,
         val dontShowAgain: Boolean = false,
     )
@@ -50,12 +51,16 @@ interface RequestAdmissionContract {
         Redirected,
         UnexpectedResponse,
         NotSent,
+        SigningFailed,
     }
 
     sealed class UiEvent {
         data class QrCodeDetected(val value: String) : UiEvent()
 
         data class CodePasted(val value: String) : UiEvent()
+
+        /** A verified app link. Same parser as scan and paste, and it skips the welcome. */
+        data class AppLink(val value: String) : UiEvent()
 
         data object ScanAgain : UiEvent()
 

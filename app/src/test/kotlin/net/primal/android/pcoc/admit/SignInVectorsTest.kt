@@ -80,8 +80,11 @@ class SignInVectorsTest {
             objectSha256 = Hex.decode(example.string("object_sha256_hex")),
         )
         val length = example.long("challenge_bytes_len").toInt()
+        val originBytes = example.string("origin").toByteArray(Charsets.UTF_8)
+        originBytes.size shouldBe SIGN_IN_ORIGIN_BYTES
+        String(originBytes, Charsets.UTF_8) shouldBe "https://groundinglab.io"
         fromFields.size shouldBe length
-        length shouldBe CHALLENGE_LENGTH_FOR_PCOC_APP
+        length shouldBe FIXED_CHALLENGE_BYTES + originBytes.size
         Hex.encode(fromFields) shouldBe example.string("challenge_bytes_hex")
 
         val link = (SignInLinks.parse(example.string("link")) as SignInLinkParse.Ready).link
@@ -255,7 +258,8 @@ class SignInVectorsTest {
         ).first { it.isFile }
 
     private companion object {
-        const val CHALLENGE_LENGTH_FOR_PCOC_APP = 109
+        const val SIGN_IN_ORIGIN_BYTES = 23
+        const val FIXED_CHALLENGE_BYTES = 93
         const val FIELD_BYTES = 32
         const val NONCE_HEX = 64
         const val SIGNATURE_HEX = 128

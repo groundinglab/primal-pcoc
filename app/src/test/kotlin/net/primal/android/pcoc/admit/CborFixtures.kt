@@ -20,7 +20,7 @@ internal fun linkFor(
     nonceHex: String = "0123456789abcdef".repeat(4),
     exp: ULong = 1_893_456_000uL,
 ): SignInLink {
-    val text = "https://pcoc.app/sign-in/?v=1&nonce=$nonceHex&exp=$exp"
+    val text = "https://groundinglab.io/sign-in/?v=1&nonce=$nonceHex&exp=$exp"
     return (SignInLinks.parse(text) as SignInLinkParse.Ready).link
 }
 

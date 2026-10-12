@@ -41,10 +41,10 @@ pub const CHECKPOINT_PREIMAGE_LEN: usize = 32 + 32 + SAMPLE_BYTES + 8;
 pub const WAYPOINT_PREIMAGE_LEN: usize = 32 + SLOT_BYTES + 32 + 32;
 
 /// Live Bari. Filled only by the explicit live profile.
-pub const LIVE_BARI_URL: &str = "https://bari.pcoc.app";
+pub const LIVE_BARI_URL: &str = "https://bari.groundinglab.io";
 /// Live index. The admission door's source default stays this origin.
 /// Verify fills it only for the explicit live profile.
-pub const LIVE_INDEX_URL: &str = "https://index.pcoc.app";
+pub const LIVE_INDEX_URL: &str = "https://index.groundinglab.io";
 
 /// Live origin kept under the old name. Produce does not fill it unless `--profile live`.
 pub const DEFAULT_BARI_URL: &str = LIVE_BARI_URL;

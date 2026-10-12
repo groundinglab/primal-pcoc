@@ -246,7 +246,7 @@ pub fn apply_test_produce_env(
 ///
 /// Omitted `--profile` is the test profile. `live` is left alone.
 /// An empty value does not append. A flag already on the command line wins.
-/// This does not invent a hostname and does not fill `https://index.pcoc.app`.
+/// This does not invent a hostname and does not fill `https://index.groundinglab.io`.
 pub fn apply_test_index_env(mut args: Vec<String>, env_index: Option<&str>) -> Vec<String> {
     if !profile_is_test(&args) || has_flag(&args, "--index-url") {
         return args;
@@ -703,7 +703,7 @@ mod tests {
             "--output",
             "out.cbor",
             "--index-url",
-            "https://index.pcoc.app",
+            "https://index.groundinglab.io",
         ])
         .is_err());
         assert!(produce(&["--pubkey-hex", &hex64(), "--output", "out.cbor", "extra"]).is_err());
@@ -716,7 +716,7 @@ mod tests {
             "--output",
             "a",
             "--bari-url",
-            "bari.pcoc.app",
+            "bari.groundinglab.io",
         ])
         .is_err());
         assert!(produce(&[
@@ -727,7 +727,7 @@ mod tests {
             "--gossip-peer",
             "live-peer.invalid:9",
             "--bari-url",
-            "https://bari.pcoc.app",
+            "https://bari.groundinglab.io",
             "--pubkey-hex",
             &hex64(),
             "--output",
@@ -740,7 +740,7 @@ mod tests {
             "--tip-url",
             "http://127.0.0.1:9",
             "--bari-url",
-            "https://bari.pcoc.app",
+            "https://bari.groundinglab.io",
             "--pubkey-hex",
             &hex64(),
             "--output",
@@ -755,7 +755,7 @@ mod tests {
             "--gossip-peer",
             "127.0.0.1:38532",
             "--bari-url",
-            "https://bari.pcoc.app",
+            "https://bari.groundinglab.io",
         ])
         .is_err());
         assert!(produce(&[
@@ -1030,6 +1030,7 @@ mod tests {
         assert_eq!(parsed.bari_url, "http://synth.invalid:1");
         assert!(!filled.iter().any(|arg| arg == "--tip-url"));
         assert!(!filled.iter().any(|arg| arg.contains("pcoc.app")));
+        assert!(!filled.iter().any(|arg| arg.contains("groundinglab.io")));
         assert!(!filled.iter().any(|arg| arg.contains("192.168")));
 
         let explicit = vec![
@@ -1083,7 +1084,7 @@ mod tests {
                 "synth.invalid:1".to_owned(),
             ],
             None,
-            Some("https://bari.pcoc.app"),
+            Some("https://bari.groundinglab.io"),
         );
         assert!(parse_produce(&live_bari).is_err());
         assert!(parse_produce(&[
@@ -1132,6 +1133,7 @@ mod tests {
             "http://index.invalid:1"
         );
         assert!(!indexed.iter().any(|arg| arg.contains("pcoc.app")));
+        assert!(!indexed.iter().any(|arg| arg.contains("groundinglab.io")));
         let live_index = vec![
             "--profile".to_owned(),
             "live".to_owned(),
@@ -1186,7 +1188,7 @@ mod tests {
             "--input".to_owned(),
             "hike.cbor".to_owned(),
             "--index-url".to_owned(),
-            "https://index.pcoc.app".to_owned(),
+            "https://index.groundinglab.io".to_owned(),
         ])
         .is_err());
         let live = parse_verify(&[
@@ -1250,7 +1252,7 @@ mod tests {
             "--input".to_owned(),
             "hike.cbor".to_owned(),
             "--index-url".to_owned(),
-            "https://index.pcoc.app/".to_owned(),
+            "https://index.groundinglab.io/".to_owned(),
         ])
         .is_err());
         assert!(parse_verify(&[
