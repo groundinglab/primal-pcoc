@@ -115,7 +115,7 @@ fun NavGraphBuilder.signInDestination(navController: NavController) {
 
 fun NavController.navigateToSignIn() = navigate(route = PCOC_ADMIT)
 
-/** Leaves Sign in for the PCOC menu, whether Sign in was opened from the menu or from the bottom bar. */
+/** Failed sign-in Close leaves for the PCOC menu. A delivered sign-in uses [NavController.navigateUp] instead. */
 private fun NavController.closeSignInToPcocMenu() {
     if (!popBackStack(route = PCOC_HOME, inclusive = false)) {
         navigate(route = PCOC_GRAPH) {

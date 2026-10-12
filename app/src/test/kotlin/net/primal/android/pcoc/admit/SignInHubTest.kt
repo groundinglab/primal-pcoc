@@ -175,10 +175,10 @@ class SignInHubTest {
     }
 
     @Test
-    fun `version name is 3_5_45`() {
+    fun `version name is 3_5_46`() {
         val gradle = sourceFile("build.gradle.kts")
-        gradle.contains("val appVersionName = \"3.5.45\"") shouldBe true
-        gradle.contains("val appVersionCode = 2742") shouldBe true
+        gradle.contains("val appVersionName = \"3.5.46\"") shouldBe true
+        gradle.contains("val appVersionCode = 2743") shouldBe true
     }
 
     @Test

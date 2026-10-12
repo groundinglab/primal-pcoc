@@ -54,10 +54,24 @@ class RequestAdmissionViewModel @Inject constructor(
         observeAccount()
     }
 
-    /** An app link is the sign-in. Skip the welcome and use the same parser as scan and paste. */
+    /**
+     * An opened https link is the sign-in. Skip the welcome and use the same parser as scan and paste.
+     * A blank intent, the navigation route, or the bare sign-in page is not a code, so the camera stays up.
+     */
     private fun openAppLink(raw: String) {
-        setState { copy(showWelcome = false) }
-        onLinkText(raw)
+        if (_state.value.submitting) return
+        when (val input = classifyLink(raw, LinkSource.AppLink)) {
+            LinkInput.Ignore -> Unit
+            is LinkInput.Ready -> {
+                setState { copy(showWelcome = false) }
+                publish(SignInNotices.scan(ready = true))
+                startSubmit(input.link)
+            }
+            is LinkInput.Rejected -> {
+                setState { copy(showWelcome = false) }
+                stopScan(problem = input.problem, why = input.why)
+            }
+        }
     }
 
     private fun observeAccount() {
@@ -81,8 +95,8 @@ class RequestAdmissionViewModel @Inject constructor(
         viewModelScope.launch {
             events.collect { event ->
                 when (event) {
-                    is UiEvent.QrCodeDetected -> onLinkText(event.value)
-                    is UiEvent.CodePasted -> onLinkText(event.value)
+                    is UiEvent.QrCodeDetected -> onEnteredLink(event.value)
+                    is UiEvent.CodePasted -> onEnteredLink(event.value)
                     is UiEvent.AppLink -> openAppLink(event.value)
                     UiEvent.ScanAgain -> onScanAgain()
                     is UiEvent.DontShowAgainChanged -> onDontShowAgain(event.checked)
@@ -104,21 +118,21 @@ class RequestAdmissionViewModel @Inject constructor(
         setState { copy(dontShowAgain = welcome.skipWelcome) }
     }
 
-    private fun onLinkText(raw: String) {
+    private fun onEnteredLink(raw: String) {
         val current = _state.value
         if (current.showWelcome || !current.scanning || current.submitting) return
-        when (val parsed = SignInLinks.parse(raw)) {
-            is SignInLinkParse.Ready -> {
+        when (val input = classifyLink(raw, LinkSource.Entered)) {
+            LinkInput.Ignore -> Unit
+            is LinkInput.Ready -> {
                 publish(SignInNotices.scan(ready = true))
-                startSubmit(parsed.link)
+                startSubmit(input.link)
             }
-            SignInLinkParse.RetiredCode -> stopScan(raw, ScanProblem.RetiredCode)
-            SignInLinkParse.NotASignInLink -> stopScan(raw, ScanProblem.NotASignInLink)
+            is LinkInput.Rejected -> stopScan(problem = input.problem, why = input.why)
         }
     }
 
-    private fun stopScan(raw: String, problem: ScanProblem) {
-        publish(SignInNotices.scan(ready = false, why = SignInLinks.rejectWhy(raw))) {
+    private fun stopScan(problem: ScanProblem, why: String) {
+        publish(SignInNotices.scan(ready = false, why = why)) {
             copy(scanning = false, origin = null, scanProblem = problem, localStop = null, notices = emptyList())
         }
     }
