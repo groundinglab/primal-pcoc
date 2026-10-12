@@ -1,7 +1,8 @@
-# Vendored unchanged from groundinglab/pcoc origin/main
+# Vendored from groundinglab/pcoc origin/main
 # 148d6bac84a6e8987ad4faab168881f9403523be (sibling checkout
 # pcoc-main-android-ref). Tag ref-v2.0.0 is an earlier pin.
-# tests/ is not included. This crate is the reference, not a fork.
+# Live Bari and index hosts are groundinglab.io (pcoc#317).
+# tip.pcoc.app stays refused. tests/ is not included.
 
 [package]
 name = "hike"

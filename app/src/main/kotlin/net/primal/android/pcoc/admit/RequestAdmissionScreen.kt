@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -49,8 +50,14 @@ fun RequestAdmissionScreen(
     viewModel: RequestAdmissionViewModel,
     onClose: () -> Unit,
     onCloseToMenu: () -> Unit,
+    appLink: String? = null,
 ) {
     val state by viewModel.state.collectAsState()
+    LaunchedEffect(appLink) {
+        if (!appLink.isNullOrEmpty()) {
+            viewModel.setEvent(UiEvent.AppLink(appLink))
+        }
+    }
     RequestAdmissionScreen(
         state = state,
         onClose = onClose,

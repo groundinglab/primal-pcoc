@@ -14,8 +14,8 @@ class AdmissionTraceTest {
         val objectSha = sha256(byteArrayOf(1, 2, 3))
         val line = admissionPostLog(link = link, objectSha256 = objectSha, objectBytes = 3, signatureHex = signature)
 
-        line shouldContain "door=https://admission.pcoc.app/v1/sign-in"
-        line shouldContain "origin=https://pcoc.app"
+        line shouldContain "door=https://admission.groundinglab.io/v1/sign-in"
+        line shouldContain "origin=https://groundinglab.io"
         line shouldContain "exp=1893456000"
         line shouldContain "objectBytes=3"
         line shouldContain "sig=len=128 01234567…89abcdef"

@@ -54,6 +54,12 @@ class RequestAdmissionViewModel @Inject constructor(
         observeAccount()
     }
 
+    /** An app link is the sign-in. Skip the welcome and use the same parser as scan and paste. */
+    private fun openAppLink(raw: String) {
+        setState { copy(showWelcome = false) }
+        onLinkText(raw)
+    }
+
     private fun observeAccount() {
         viewModelScope.launch {
             combine(
@@ -77,6 +83,7 @@ class RequestAdmissionViewModel @Inject constructor(
                 when (event) {
                     is UiEvent.QrCodeDetected -> onLinkText(event.value)
                     is UiEvent.CodePasted -> onLinkText(event.value)
+                    is UiEvent.AppLink -> openAppLink(event.value)
                     UiEvent.ScanAgain -> onScanAgain()
                     is UiEvent.DontShowAgainChanged -> onDontShowAgain(event.checked)
                     UiEvent.EnterSignIn -> setState { copy(showWelcome = false) }

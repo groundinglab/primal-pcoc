@@ -116,7 +116,7 @@ internal fun newAdmissionHttpClient(): OkHttpClient =
         .callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
-const val SIGN_IN_DOOR = "https://admission.pcoc.app/v1/sign-in"
+const val SIGN_IN_DOOR = "https://admission.groundinglab.io/v1/sign-in"
 
 private const val BAD_SIGNATURE = "bad_signature"
 private const val MALFORMED = "malformed"

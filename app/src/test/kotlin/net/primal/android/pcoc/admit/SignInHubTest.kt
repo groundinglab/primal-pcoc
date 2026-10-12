@@ -99,7 +99,9 @@ class SignInHubTest {
         stringValue(xml, "pcoc_create_start") shouldBe "Start hike"
         stringValue(xml, "pcoc_create_idle_title") shouldBe "New hike"
         val body = stringValue(xml, "pcoc_create_body")
-        listOf("256 MiB", "https://bari.pcoc.app", "W_1", "W_17", "public key").forEach { body shouldContain it }
+        listOf("256 MiB", "https://bari.groundinglab.io", "W_1", "W_17", "public key").forEach {
+            body shouldContain it
+        }
         body.contains("nsec") shouldBe false
         val screen = sourceFile("src/main/kotlin/net/primal/android/pcoc/create/CreatePcocScreen.kt")
         screen.contains("CreatePcocViewModel") shouldBe true
@@ -159,10 +161,25 @@ class SignInHubTest {
     }
 
     @Test
-    fun `version name is 3_5_44`() {
+    fun `version name is 3_5_45`() {
         val gradle = sourceFile("build.gradle.kts")
-        gradle.contains("val appVersionName = \"3.5.44\"") shouldBe true
-        gradle.contains("val appVersionCode = 2741") shouldBe true
+        gradle.contains("val appVersionName = \"3.5.45\"") shouldBe true
+        gradle.contains("val appVersionCode = 2742") shouldBe true
+    }
+
+    @Test
+    fun `sign in app link is verified on the apex path`() {
+        val manifest = sourceFile("src/main/AndroidManifest.xml")
+        val filter = Regex(
+            """<intent-filter\s+android:autoVerify="true"\s+android:label="Sign in">[\s\S]*?</intent-filter>""",
+        ).find(manifest)?.value
+        filter?.contains("""android:host="groundinglab.io"""") shouldBe true
+        filter?.contains("""android:path="/sign-in/"""") shouldBe true
+        filter?.contains("""android:scheme="https"""") shouldBe true
+        manifest.contains("""android:host="pcoc.app"""") shouldBe false
+        manifest.contains("""android:host="www.groundinglab.io"""") shouldBe false
+        sourceFile("src/main/kotlin/net/primal/android/navigation/PcocNavigation.kt")
+            .contains("uriPattern = SIGN_IN_APP_LINK") shouldBe true
     }
 
     private fun stringsXml(): String = sourceFile("src/main/res/values/strings.xml")

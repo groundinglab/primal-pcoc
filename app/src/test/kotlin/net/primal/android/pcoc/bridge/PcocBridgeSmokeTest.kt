@@ -10,8 +10,8 @@ class PcocBridgeSmokeTest {
     fun `the packaged engine uses live bari and the live index`() {
         PcocNative.bariUrl() shouldBe BARI_URL
         PcocNative.indexUrl() shouldBe INDEX_URL
-        BARI_URL shouldBe "https://bari.pcoc.app"
-        INDEX_URL shouldBe "https://index.pcoc.app"
+        BARI_URL shouldBe "https://bari.groundinglab.io"
+        INDEX_URL shouldBe "https://index.groundinglab.io"
     }
 
     @Test

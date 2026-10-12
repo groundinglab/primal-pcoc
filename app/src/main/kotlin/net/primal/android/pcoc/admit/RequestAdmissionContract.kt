@@ -57,6 +57,9 @@ interface RequestAdmissionContract {
 
         data class CodePasted(val value: String) : UiEvent()
 
+        /** A verified app link. Same parser as scan and paste, and it skips the welcome. */
+        data class AppLink(val value: String) : UiEvent()
+
         data object ScanAgain : UiEvent()
 
         data class DontShowAgainChanged(val checked: Boolean) : UiEvent()

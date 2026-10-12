@@ -17,7 +17,7 @@ class AdmissionPayloadTest {
         val fields = CommonJson.parseToJsonElement(json).jsonObject
 
         fields.keys shouldBe setOf("origin", "nonce", "exp", "object", "object_b64", "signature")
-        fields.getValue("origin").jsonPrimitive.content shouldBe "https://pcoc.app"
+        fields.getValue("origin").jsonPrimitive.content shouldBe "https://groundinglab.io"
         fields.getValue("nonce").jsonPrimitive.content shouldBe link.nonceHex
         fields.getValue("exp").jsonPrimitive.isString shouldBe false
         fields.getValue("exp").jsonPrimitive.content shouldBe "1893456000"

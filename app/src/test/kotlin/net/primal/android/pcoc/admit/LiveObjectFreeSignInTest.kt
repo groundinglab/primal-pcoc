@@ -29,12 +29,12 @@ class LiveObjectFreeSignInTest {
     @Test
     fun `the live object-free link is parsed and the saved object is posted with its hash`() {
         val raw =
-            "https://pcoc.app/sign-in/?v=1" +
+            "https://groundinglab.io/sign-in/?v=1" +
                 "&nonce=d064b391e5ff4f31863bdd67066b8e248eff9380e972a277ec5f34fd1c4c04b9" +
                 "&exp=1791621887"
         val link = (SignInLinks.parse(raw) as SignInLinkParse.Ready).link
         link.text shouldBe raw
-        link.origin shouldBe "https://pcoc.app"
+        link.origin shouldBe "https://groundinglab.io"
         link.nonceHex shouldBe "d064b391e5ff4f31863bdd67066b8e248eff9380e972a277ec5f34fd1c4c04b9"
         link.exp shouldBe 1_791_621_887uL
         link.text.contains("object=") shouldBe false
@@ -63,7 +63,7 @@ class LiveObjectFreeSignInTest {
         val objectHash = Hex.encode(sha256(saved))
 
         fields.keys.toList() shouldBe listOf("origin", "nonce", "exp", "object", "object_b64", "signature")
-        fields.getValue("origin").jsonPrimitive.content shouldBe "https://pcoc.app"
+        fields.getValue("origin").jsonPrimitive.content shouldBe "https://groundinglab.io"
         fields.getValue("nonce").jsonPrimitive.content shouldBe link.nonceHex
         fields.getValue("exp").jsonPrimitive.isString shouldBe false
         fields.getValue("exp").jsonPrimitive.content shouldBe "1791621887"

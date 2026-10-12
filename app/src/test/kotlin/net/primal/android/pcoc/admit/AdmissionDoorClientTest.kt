@@ -32,8 +32,8 @@ class AdmissionDoorClientTest {
 
         val recorded = factory.requests.single()
         recorded.method shouldBe "POST"
-        recorded.url.toString() shouldBe "https://admission.pcoc.app/v1/sign-in"
-        recorded.url.toString().contains("pcoc.app/sign-in/") shouldBe false
+        recorded.url.toString() shouldBe "https://admission.groundinglab.io/v1/sign-in"
+        recorded.url.toString().contains("groundinglab.io/sign-in/") shouldBe false
         recorded.body!!.contentType().toString() shouldContain "application/json"
         recorded.headers.names().any { it.equals("Authorization", ignoreCase = true) } shouldBe false
         val body = Buffer().also { recorded.body!!.writeTo(it) }.readUtf8()
@@ -103,7 +103,7 @@ class AdmissionDoorClientTest {
             AdmissionPostResult.DeliveryFailed(DeliveryFailure.TimedOut)
         timeout.requests.size shouldBe 1
 
-        val offline = ScriptedFactory(failure = UnknownHostException("admission.pcoc.app"))
+        val offline = ScriptedFactory(failure = UnknownHostException("admission.groundinglab.io"))
         AdmissionDoorClient(offline).post(link, objectBytes, signature) shouldBe
             AdmissionPostResult.DeliveryFailed(DeliveryFailure.NoConnection)
         offline.requests.size shouldBe 1

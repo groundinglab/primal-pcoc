@@ -31,12 +31,12 @@ class RecordPresentationTest {
 
     @Test
     fun `index status names the host and the reads`() {
-        indexStatus("https://index.pcoc.app", issued = 0, answered = 0, totalMs = 0) shouldBe
-            "Portable index not read · index.pcoc.app"
-        indexStatus("https://index.pcoc.app", issued = 2, answered = 0, totalMs = 0) shouldBe
-            "Portable index did not answer · index.pcoc.app · 2 reads"
-        indexStatus("https://index.pcoc.app", issued = 2, answered = 2, totalMs = 40) shouldBe
-            "Portable index reachable · index.pcoc.app · 20 ms · 2 reads"
+        indexStatus("https://index.groundinglab.io", issued = 0, answered = 0, totalMs = 0) shouldBe
+            "Portable index not read · index.groundinglab.io"
+        indexStatus("https://index.groundinglab.io", issued = 2, answered = 0, totalMs = 0) shouldBe
+            "Portable index did not answer · index.groundinglab.io · 2 reads"
+        indexStatus("https://index.groundinglab.io", issued = 2, answered = 2, totalMs = 40) shouldBe
+            "Portable index reachable · index.groundinglab.io · 20 ms · 2 reads"
     }
 
     @Test
@@ -45,13 +45,13 @@ class RecordPresentationTest {
         val record = parseVerifyOutcome(
             """
             {"outcome":"record","record":"{\"profile\":\"production\"}\n","bytes":4,
-            "sha256":"ab","issued":1,"answered":0,"total_ms":0,"index_url":"https://index.pcoc.app"}
+            "sha256":"ab","issued":1,"answered":0,"total_ms":0,"index_url":"https://index.groundinglab.io"}
             """.trimIndent().replace("\n", ""),
         ).shouldBeInstanceOf<VerifyNativeOutcome.Record>()
         record.bytes shouldBe 4
         record.sha256 shouldBe "ab"
         record.issued shouldBe 1
-        record.indexUrl shouldBe "https://index.pcoc.app"
+        record.indexUrl shouldBe "https://index.groundinglab.io"
     }
 
     private companion object {

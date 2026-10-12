@@ -3,10 +3,10 @@
   "spec": "Satoshi Hike v2.0 section 15.1",
   "label": "Locked sign-in wire. Not a section 14 record. Not produced by the hike pack generator.",
   "domain": "pcoc-gate-signin-v1",
-  "origin": "https://pcoc.app",
+  "origin": "https://groundinglab.io",
   "lifetime_s": 120,
   "skew_s": 5,
-  "door": "https://admission.pcoc.app/v1/sign-in",
+  "door": "https://admission.groundinglab.io/v1/sign-in",
   "method": "POST",
   "content_type": "application/json",
   "client_ok": "Sign-in submitted",
@@ -40,22 +40,22 @@
     }
   },
   "example": {
-    "origin": "https://pcoc.app",
+    "origin": "https://groundinglab.io",
     "nonce_hex": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "expiry_unix_s": 1893456000,
     "object_sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "object_sha256_note": "The 32-byte field of 0xaa. Not the hash of a file of 32 0xaa bytes.",
     "file_of_0xaa_sha256": "e0e77a507412b120f6ede61f62295b1a7b2ff19d3dcc8f7253e51663470c888e",
-    "link": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
-    "challenge_bytes_hex": "70636f632d676174652d7369676e696e2d7631001068747470733a2f2f70636f632e6170700123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd880aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "challenge_bytes_len": 109,
-    "bip340_message_32_hex": "69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a",
-    "double_hash_hex": "0dec1e7c6b2f72406b9bbcc338f6b09b93ea151e5fdbb67f9783ca051ffe4d65",
+    "link": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+    "challenge_bytes_hex": "70636f632d676174652d7369676e696e2d7631001768747470733a2f2f67726f756e64696e676c61622e696f0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000000070dbd880aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "challenge_bytes_len": 116,
+    "bip340_message_32_hex": "90e38d7538d543aff5148318b7cb310595def390dac199c99bb10bc9ead5e0c2",
+    "double_hash_hex": "971dce7037192561161eafa08a7e46950880ce9274bd02b4a5abbf677cc6fab8",
     "secret_hex": "0000000000000000000000000000000000000000000000000000000000000001",
     "public_key_hex": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
     "parity": "even",
     "aux_hex": "0000000000000000000000000000000000000000000000000000000000000000",
-    "signature_hex": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0",
+    "signature_hex": "05674eed5e01b51beea3a767dda78e6c94027524014525b57073d71da229463dd82d20deecab2874a9d55b43f52c1a8f48ce2072ced76cba5ce946fb3f36c778",
     "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
     "hash_matches_object_field": false,
     "window_now_2026_10_10": 1791590400,
@@ -64,57 +64,57 @@
   },
   "links": [
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "link",
       "note": "canonical"
     },
     {
-      "input": " \thttps://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000\r\n",
+      "input": " \thttps://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000\r\n",
       "class": "link",
       "note": "ASCII trim"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=0",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=0",
       "class": "link",
       "note": "exp 0 is the one leading-zero exception"
     },
     {
-      "input": "https://pcoc.app/sign-in/?h=69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a",
+      "input": "https://groundinglab.io/sign-in/?h=69f340e811a370b22200bc7be89e8fd844548156bddcae55f449cb599470733a",
       "class": "malformed",
       "note": "retired ?h= form"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789Abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789Abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "uppercase hex"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&door=https://admission.pcoc.app/v1/sign-in",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&door=https://admission.groundinglab.io/v1/sign-in",
       "class": "malformed",
       "note": "extra parameter"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&exp=1893456000&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "input": "https://groundinglab.io/sign-in/?v=1&exp=1893456000&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "class": "malformed",
       "note": "swapped parameter order"
     },
     {
-      "input": "http://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "input": "http://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "http"
     },
     {
-      "input": "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "input": "https://www.groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "www host"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000#x",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000#x",
       "class": "malformed",
       "note": "fragment"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=01893456000",
       "class": "malformed",
       "note": "leading zero on exp"
     },
@@ -124,24 +124,49 @@
       "note": "bare 64 hex"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=18446744073709551616",
       "class": "malformed",
       "note": "exp above u64"
     },
     {
-      "input": "\u00a0https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "input": "\u00a0https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
       "class": "malformed",
       "note": "leading U+00A0"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&object=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "class": "malformed",
       "note": "object parameter"
     },
     {
-      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&x=1",
+      "input": "https://groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000&x=1",
       "class": "malformed",
       "note": "extra parameter x"
+    },
+    {
+      "input": "https://pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "class": "malformed",
+      "note": "retired pcoc.app origin"
+    },
+    {
+      "input": "https://www.pcoc.app/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "class": "malformed",
+      "note": "retired www.pcoc.app origin"
+    },
+    {
+      "input": "https://groundinglab.io:443/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "class": "malformed",
+      "note": "port"
+    },
+    {
+      "input": "https://user@groundinglab.io/sign-in/?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "class": "malformed",
+      "note": "userinfo"
+    },
+    {
+      "input": "https://groundinglab.io/sign-in?v=1&nonce=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&exp=1893456000",
+      "class": "malformed",
+      "note": "missing trailing slash"
     }
   ],
   "window": [
@@ -191,19 +216,19 @@
       "class": "grammar_ok",
       "note": "field grammar only; the example bytes do not hash to the object field",
       "body": {
-        "origin": "https://pcoc.app",
+        "origin": "https://groundinglab.io",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": 1893456000,
         "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
-        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0"
+        "signature": "05674eed5e01b51beea3a767dda78e6c94027524014525b57073d71da229463dd82d20deecab2874a9d55b43f52c1a8f48ce2072ced76cba5ce946fb3f36c778"
       }
     },
     {
       "class": "malformed",
       "note": "missing signature",
       "body": {
-        "origin": "https://pcoc.app",
+        "origin": "https://groundinglab.io",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": 1893456000,
         "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -214,49 +239,49 @@
       "class": "malformed",
       "note": "unknown key",
       "body": {
-        "origin": "https://pcoc.app",
+        "origin": "https://groundinglab.io",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": 1893456000,
         "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
-        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0",
-        "door": "https://admission.pcoc.app/v1/sign-in"
+        "signature": "05674eed5e01b51beea3a767dda78e6c94027524014525b57073d71da229463dd82d20deecab2874a9d55b43f52c1a8f48ce2072ced76cba5ce946fb3f36c778",
+        "door": "https://admission.groundinglab.io/v1/sign-in"
       }
     },
     {
       "class": "malformed",
       "note": "exp as a string",
       "body": {
-        "origin": "https://pcoc.app",
+        "origin": "https://groundinglab.io",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": "1893456000",
         "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
-        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0"
+        "signature": "05674eed5e01b51beea3a767dda78e6c94027524014525b57073d71da229463dd82d20deecab2874a9d55b43f52c1a8f48ce2072ced76cba5ce946fb3f36c778"
       }
     },
     {
       "class": "malformed",
       "note": "uppercase signature",
       "body": {
-        "origin": "https://pcoc.app",
+        "origin": "https://groundinglab.io",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": 1893456000,
         "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=",
-        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ffF"
+        "signature": "05674eed5e01b51beea3a767dda78e6c94027524014525b57073d71da229463dd82d20deecab2874a9d55b43f52c1a8f48ce2072ced76cba5ce946fb3f36c77F"
       }
     },
     {
       "class": "malformed",
       "note": "base64 without padding",
       "body": {
-        "origin": "https://pcoc.app",
+        "origin": "https://groundinglab.io",
         "nonce": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "exp": 1893456000,
         "object": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "object_b64": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo",
-        "signature": "763a244bc03c8f870c4064225b453037b1a1da8f678149e174490a93e778affda0bce900a8b569b5336028556b2534c4f9b0576775969ccb4eeee09225863ff0"
+        "signature": "05674eed5e01b51beea3a767dda78e6c94027524014525b57073d71da229463dd82d20deecab2874a9d55b43f52c1a8f48ce2072ced76cba5ce946fb3f36c778"
       }
     }
   ]

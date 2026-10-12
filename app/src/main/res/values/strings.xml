@@ -173,7 +173,7 @@
     <string name="pcoc_enroll_clear_text">This deletes the stored object bytes for this account. It does not remove the account or the private key.</string>
     <string name="pcoc_enroll_clear_confirm">Clear</string>
     <string name="pcoc_enroll_clear_dismiss">Cancel</string>
-    <string name="pcoc_verify_hint">Open a hike object. Verify measures it with the reference and shows the section 14 record. It reads the portable index at https://index.pcoc.app and nothing else.</string>
+    <string name="pcoc_verify_hint">Open a hike object. Verify measures it with the reference and shows the section 14 record. It reads the portable index at https://index.groundinglab.io and nothing else.</string>
     <string name="pcoc_verify_choose_file">Open a hike object</string>
     <string name="pcoc_verify_measuring">Measuring · reading the portable index</string>
     <string name="pcoc_verify_stopping">Stopping the measurement…</string>
@@ -201,7 +201,7 @@
     <string name="pcoc_create_no_key">No public key yet. Sign in to an account first.</string>
     <string name="pcoc_create_gossip">Gossip</string>
     <string name="pcoc_create_gossip_body">Bitcoin mainnet from the Bitcoin Core DNS seeds. No peers until the hike starts.</string>
-    <string name="pcoc_create_body">The reference hike runs in this app on Bitcoin mainnet. It holds 256 MiB of terrain for the run, posts each waypoint W_1 through W_17 to https://bari.pcoc.app, and asks for paths at H+2, H+3 and H+4. It uses this account\'s public key. It does not need the private key. The object is written only after the hike returns. Stop writes no object. If the phone stops the app, no object is written. A hike cannot pause or resume.</string>
+    <string name="pcoc_create_body">The reference hike runs in this app on Bitcoin mainnet. It holds 256 MiB of terrain for the run, posts each waypoint W_1 through W_17 to https://bari.groundinglab.io, and asks for paths at H+2, H+3 and H+4. It uses this account\'s public key. It does not need the private key. The object is written only after the hike returns. Stop writes no object. If the phone stops the app, no object is written. A hike cannot pause or resume.</string>
     <string name="pcoc_create_start">Start hike</string>
     <string name="pcoc_create_running">Hike running</string>
     <string name="pcoc_create_settling">Settling paths</string>

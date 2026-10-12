@@ -4,8 +4,8 @@
 /// Retired HTTP tip host, plus the live commitment and door hosts.
 /// A test profile must not fill these. The tip host is not a produce default.
 pub const LIVE_TIP_HOST: &str = "tip.pcoc.app";
-pub const LIVE_BARI_HOST: &str = "bari.pcoc.app";
-pub const LIVE_INDEX_HOST: &str = "index.pcoc.app";
+pub const LIVE_BARI_HOST: &str = "bari.groundinglab.io";
+pub const LIVE_INDEX_HOST: &str = "index.groundinglab.io";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GateJudgment {
@@ -164,12 +164,14 @@ mod tests {
     #[test]
     fn live_hosts_are_recognized_without_filling_them() {
         assert!(live_plane_host("https://tip.pcoc.app"));
-        assert!(live_plane_host("http://bari.pcoc.app:443"));
-        assert!(live_plane_host("HTTPS://index.pcoc.app"));
+        assert!(live_plane_host("http://bari.groundinglab.io:443"));
+        assert!(live_plane_host("HTTPS://index.groundinglab.io"));
         assert!(!live_plane_host("http://127.0.0.1:38080"));
+        assert!(!live_plane_host("https://bari.pcoc.app"));
+        assert!(!live_plane_host("https://index.pcoc.app"));
         assert!(is_https_live_origin("HTTPS://tip.pcoc.app", LIVE_TIP_HOST));
         assert!(is_https_live_origin(
-            "https://index.pcoc.app:443",
+            "https://index.groundinglab.io:443",
             LIVE_INDEX_HOST
         ));
         assert!(!is_https_live_origin("http://tip.pcoc.app", LIVE_TIP_HOST));
@@ -181,6 +183,6 @@ mod tests {
         assert!(names_retired_tip("TIP.pcoc.app:8333"));
         assert!(names_retired_tip("https://tip.pcoc.app"));
         assert!(!names_retired_tip("synth.invalid:1"));
-        assert!(!names_retired_tip("https://bari.pcoc.app"));
+        assert!(!names_retired_tip("https://bari.groundinglab.io"));
     }
 }

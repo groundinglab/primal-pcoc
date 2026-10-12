@@ -43,7 +43,7 @@ class QrTextTest {
 
     @Test
     fun prefersRawThenDisplayThenUrl() {
-        val link = "https://pcoc.app/sign-in/?v=1&nonce=${"01".repeat(32)}&exp=1893456000"
+        val link = "https://groundinglab.io/sign-in/?v=1&nonce=${"01".repeat(32)}&exp=1893456000"
         chooseQrText(raw = link, display = "other", url = "url") shouldBe link
         chooseQrText(raw = "", display = link, url = null) shouldBe link
         chooseQrText(raw = null, display = null, url = link) shouldBe link
