@@ -42,8 +42,9 @@ import net.primal.android.theme.AppTheme
 import net.primal.core.utils.runCatching
 
 /**
- * [onClose] is the top-bar back while scanning.
- * [onCloseToMenu] is Close on the acknowledgement sheet: it always lands on the PCOC menu.
+ * [onClose] is the top-bar back, and Close after a delivered sign-in.
+ * Both return to the screen that opened Sign in.
+ * [onCloseToMenu] is Close when the sign-in was not delivered. It lands on the PCOC menu.
  */
 @Composable
 fun RequestAdmissionScreen(
@@ -92,7 +93,11 @@ private fun RequestAdmissionScreen(
             )
         }
         state.sheet?.let { sheet ->
-            AdmissionSheet(sheet = sheet, notices = state.notices, onClose = onCloseToMenu)
+            val close = when (signInCloseTarget(sheet)) {
+                SignInCloseTarget.Caller -> onClose
+                SignInCloseTarget.PcocMenu -> onCloseToMenu
+            }
+            AdmissionSheet(sheet = sheet, notices = state.notices, onClose = close)
         }
     }
 }

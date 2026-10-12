@@ -149,14 +149,16 @@ private class AdmissionQrAnalyzer(
     private val decoder: QrCodeResultDecoder,
     private val onText: (String) -> Unit,
 ) : ImageAnalysis.Analyzer {
+    private var latch = ScanLatch()
     private var lastText: String? = null
     private var lastAtMs: Long = 0L
 
     override fun analyze(image: ImageProxy) {
-        val text = decoder.decodeText(image)?.trim().orEmpty()
-        if (text.isNotEmpty() && accept(text)) {
-            onText(text)
-        }
+        val decoded = decoder.decodeText(image)?.trim().orEmpty()
+        val taken = latch.take(decoded)
+        latch = taken.latch
+        val text = taken.value ?: return
+        if (accept(text)) onText(text)
     }
 
     private fun accept(text: String): Boolean {
