@@ -53,7 +53,10 @@ class AdmissionDoorClientTest {
         val proxyBadRequest =
             """{"decision":"deny","error":{"code":"bad_request","message":"h is not 64 lowercase hex"}}"""
         listOf(proxyBadRequest, "", "not-json", """{"error":"bad_signature"}""", """{"decision":"deny"}""").forEach {
-            post(code = 400, body = it) shouldBe AdmissionPostResult.DeliveryFailed(DeliveryFailure.UnexpectedResponse)
+            post(code = 400, body = it) shouldBe AdmissionPostResult.DeliveryFailed(
+                failure = DeliveryFailure.UnexpectedResponse,
+                httpCode = 400,
+            )
         }
     }
 
@@ -81,7 +84,7 @@ class AdmissionDoorClientTest {
     @Test
     fun `a redirect is a delivery failure`() {
         post(code = 302, body = """{"error":{"code":"malformed"}}""") shouldBe
-            AdmissionPostResult.DeliveryFailed(DeliveryFailure.Redirected)
+            AdmissionPostResult.DeliveryFailed(failure = DeliveryFailure.Redirected, httpCode = 302)
 
         val request = Request.Builder().url(SIGN_IN_DOOR).build()
         val prior = Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(307).message("x").build()
@@ -93,7 +96,10 @@ class AdmissionDoorClientTest {
             .body("""{"delivery":"ok"}""".toResponseBody(JSON))
             .priorResponse(prior)
             .build()
-        interpretAdmissionResponse(followed) shouldBe AdmissionPostResult.DeliveryFailed(DeliveryFailure.Redirected)
+        interpretAdmissionResponse(followed) shouldBe AdmissionPostResult.DeliveryFailed(
+            failure = DeliveryFailure.Redirected,
+            httpCode = 307,
+        )
     }
 
     @Test
@@ -119,6 +125,33 @@ class AdmissionDoorClientTest {
         val notSent = AdmissionPostResult.DeliveryFailed(DeliveryFailure.NotSent)
         client.post(link, objectBytes, "zz".repeat(64)) shouldBe notSent
         client.post(link, objectBytes, "cd".repeat(32)) shouldBe notSent
+    }
+
+    @Test
+    fun `one result read returns the outcome string and does not post`() {
+        val factory = scripted(body = """{"outcome":"accepted","public_key":"ab"}""")
+        AdmissionDoorClient(factory).readResult(link.nonceHex) shouldBe "accepted"
+        val recorded = factory.requests.single()
+        recorded.method shouldBe "GET"
+        recorded.url.toString() shouldBe SIGN_IN_RESULT + link.nonceHex
+        recorded.header("Accept") shouldBe "application/json"
+
+        scripted(body = """{"outcome":"pending","submitted":true}""").let { pending ->
+            AdmissionDoorClient(pending).readResult(link.nonceHex) shouldBe "pending"
+            pending.requests.single().method shouldBe "GET"
+        }
+        scripted(body = "not-json").let { garbage ->
+            AdmissionDoorClient(garbage).readResult(link.nonceHex) shouldBe null
+        }
+        scripted(body = """{"outcome":"rejected"}""", code = 500).let { down ->
+            AdmissionDoorClient(down).readResult(link.nonceHex) shouldBe null
+        }
+        val offline = ScriptedFactory(failure = UnknownHostException("admission.groundinglab.io"))
+        AdmissionDoorClient(offline).readResult(link.nonceHex) shouldBe null
+        offline.requests.size shouldBe 1
+
+        val closed = AdmissionDoorClient(Call.Factory { error("posted") })
+        closed.readResult("zz") shouldBe null
     }
 
     @Test

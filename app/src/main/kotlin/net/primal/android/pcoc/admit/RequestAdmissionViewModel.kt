@@ -29,7 +29,7 @@ class RequestAdmissionViewModel @Inject constructor(
     private val activeAccountStore: ActiveAccountStore,
     private val credentialsStore: CredentialsStore,
     private val store: EnrolledPcocStore,
-    poster: AdmissionDoorClient,
+    private val poster: AdmissionDoorClient,
     private val dispatchers: DispatcherProvider,
     private val welcomeStore: SignInWelcomeStore,
 ) : ViewModel() {
@@ -95,7 +95,7 @@ class RequestAdmissionViewModel @Inject constructor(
     private fun onScanAgain() {
         val current = _state.value
         if (current.submitting || current.sheet != null) return
-        setState { copy(scanning = true, origin = null, scanProblem = null, localStop = null) }
+        setState { copy(scanning = true, origin = null, scanProblem = null, localStop = null, notices = emptyList()) }
     }
 
     private fun onDontShowAgain(checked: Boolean) {
@@ -108,29 +108,70 @@ class RequestAdmissionViewModel @Inject constructor(
         val current = _state.value
         if (current.showWelcome || !current.scanning || current.submitting) return
         when (val parsed = SignInLinks.parse(raw)) {
-            is SignInLinkParse.Ready -> startSubmit(parsed.link)
-            SignInLinkParse.RetiredCode -> stopScan(ScanProblem.RetiredCode)
-            SignInLinkParse.NotASignInLink -> stopScan(ScanProblem.NotASignInLink)
+            is SignInLinkParse.Ready -> {
+                publish(SignInNotices.scan(ready = true))
+                startSubmit(parsed.link)
+            }
+            SignInLinkParse.RetiredCode -> stopScan(raw, ScanProblem.RetiredCode)
+            SignInLinkParse.NotASignInLink -> stopScan(raw, ScanProblem.NotASignInLink)
         }
     }
 
-    private fun stopScan(problem: ScanProblem) {
-        setState { copy(scanning = false, origin = null, scanProblem = problem, localStop = null) }
+    private fun stopScan(raw: String, problem: ScanProblem) {
+        publish(SignInNotices.scan(ready = false, why = SignInLinks.rejectWhy(raw))) {
+            copy(scanning = false, origin = null, scanProblem = problem, localStop = null, notices = emptyList())
+        }
     }
 
     private fun startSubmit(link: SignInLink) {
+        val expired = SignInNotices.gate("expired")
+        if (expired != null && signInLinkExpired(link.exp, System.currentTimeMillis())) {
+            publish(expired) {
+                copy(
+                    scanning = false,
+                    origin = link.origin,
+                    submitting = false,
+                    scanProblem = null,
+                    localStop = null,
+                )
+            }
+            return
+        }
         setState {
             copy(scanning = false, origin = link.origin, submitting = true, scanProblem = null, localStop = null)
         }
         viewModelScope.launch {
             val userId = activeAccountStore.activeUserId()
-            val outcome = submitCaught(link = link, userId = userId)
-            setState {
-                when (outcome) {
-                    is SubmitResult.Done -> withOutcome(outcome.outcome)
-                    SubmitResult.Unreadable -> copy(localStop = LocalStop.ObjectUnreadable)
-                }.copy(submitting = false)
+            when (val outcome = submitCaught(link = link, userId = userId)) {
+                is SubmitResult.Done -> finishSubmit(link, outcome.outcome)
+                SubmitResult.Unreadable -> setState {
+                    copy(submitting = false, localStop = LocalStop.ObjectUnreadable)
+                }
             }
+        }
+    }
+
+    private suspend fun finishSubmit(link: SignInLink, outcome: AdmissionSubmitOutcome) {
+        publishAll(SignInNotices.trail(outcome)) {
+            withOutcome(outcome).copy(submitting = false)
+        }
+        if (outcome !is AdmissionSubmitOutcome.Submitted) return
+        val token = withContext(dispatchers.io()) { poster.readResult(link.nonceHex) }
+        val gateNotice = token?.let(SignInNotices::gate) ?: return
+        publish(gateNotice)
+    }
+
+    private fun publish(notice: SignInNotice, reducer: UiState.() -> UiState = { this }) {
+        publishAll(listOf(notice), reducer)
+    }
+
+    private fun publishAll(batch: List<SignInNotice>, reducer: UiState.() -> UiState = { this }) {
+        batch.forEach(SignInLog::write)
+        val lines = batch.map { it.userText }
+        setState {
+            val next = reducer()
+            val base = if (next.notices !== notices) next.notices else notices
+            next.copy(notices = base + lines)
         }
     }
 
@@ -162,6 +203,7 @@ private fun UiState.withOutcome(outcome: AdmissionSubmitOutcome): UiState =
         AdmissionSubmitOutcome.BadSignature -> couldNotSubmit(CouldNotSubmitReason.BadSignature)
         AdmissionSubmitOutcome.Malformed -> couldNotSubmit(CouldNotSubmitReason.Malformed)
         is AdmissionSubmitOutcome.DeliveryFailed -> couldNotSubmit(outcome.failure.toReason())
+        AdmissionSubmitOutcome.SigningFailed -> couldNotSubmit(CouldNotSubmitReason.SigningFailed)
         AdmissionSubmitOutcome.NoObject -> copy(hasEnrolledObject = false, localStop = LocalStop.NoObject)
         AdmissionSubmitOutcome.WrongLogin -> copy(canSign = false, localStop = LocalStop.WrongLogin)
         is AdmissionSubmitOutcome.KeyMismatch -> copy(

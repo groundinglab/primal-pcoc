@@ -92,7 +92,7 @@ private fun RequestAdmissionScreen(
             )
         }
         state.sheet?.let { sheet ->
-            AdmissionSheet(sheet = sheet, onClose = onCloseToMenu)
+            AdmissionSheet(sheet = sheet, notices = state.notices, onClose = onCloseToMenu)
         }
     }
 }
@@ -170,7 +170,19 @@ private fun AdmissionLinkResult(
                 color = AppTheme.colorScheme.onPrimary,
             )
         }
-        val problem = state.scanProblem?.text() ?: state.localStop?.text()
+        val problem = if (state.notices.isEmpty()) {
+            state.scanProblem?.text() ?: state.localStop?.text()
+        } else {
+            state.localStop?.text()
+        }
+        state.notices.forEach { line ->
+            Text(
+                modifier = Modifier.padding(top = 16.dp),
+                text = line,
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+        }
         if (problem != null) {
             Text(
                 modifier = Modifier.padding(top = 16.dp),
@@ -192,7 +204,11 @@ private fun AdmissionLinkResult(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AdmissionSheet(sheet: Sheet, onClose: () -> Unit) {
+private fun AdmissionSheet(
+    sheet: Sheet,
+    notices: List<String>,
+    onClose: () -> Unit,
+) {
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -207,13 +223,13 @@ private fun AdmissionSheet(sheet: Sheet, onClose: () -> Unit) {
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         ) {
             Text(
-                text = sheet.title(),
+                text = sheetHeadline(sheet, notices),
                 style = AppTheme.typography.titleLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
             Text(
                 modifier = Modifier.padding(top = 8.dp),
-                text = sheet.body(),
+                text = if (notices.isEmpty()) sheet.body() else notices.joinToString("\n"),
                 style = AppTheme.typography.bodyLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
@@ -228,6 +244,20 @@ private fun AdmissionSheet(sheet: Sheet, onClose: () -> Unit) {
                 onClick = onClose,
             )
         }
+    }
+}
+
+@Composable
+private fun sheetHeadline(sheet: Sheet, notices: List<String>): String {
+    val fallback = sheet.title()
+    val last = notices.lastOrNull() ?: return fallback
+    val accepted = SignInNotices.gate("accepted")?.userText
+    val signingFailed = SignInNotices.sign(ok = false).userText
+    return when {
+        last == accepted -> last
+        last.startsWith("Refused.") -> "Refused."
+        last == signingFailed -> last
+        else -> fallback
     }
 }
 
@@ -255,6 +285,7 @@ private fun CouldNotSubmitReason.text(): String =
         CouldNotSubmitReason.Redirected -> stringResource(id = R.string.pcoc_admit_reason_redirected)
         CouldNotSubmitReason.UnexpectedResponse -> stringResource(id = R.string.pcoc_admit_reason_unexpected)
         CouldNotSubmitReason.NotSent -> stringResource(id = R.string.pcoc_admit_reason_not_sent)
+        CouldNotSubmitReason.SigningFailed -> stringResource(id = R.string.pcoc_admit_reason_signing_failed)
     }
 
 @Composable

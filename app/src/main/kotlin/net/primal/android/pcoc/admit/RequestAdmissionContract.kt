@@ -10,6 +10,7 @@ interface RequestAdmissionContract {
         val scanProblem: ScanProblem? = null,
         val localStop: LocalStop? = null,
         val sheet: Sheet? = null,
+        val notices: List<String> = emptyList(),
         val showWelcome: Boolean = true,
         val dontShowAgain: Boolean = false,
     )
@@ -50,6 +51,7 @@ interface RequestAdmissionContract {
         Redirected,
         UnexpectedResponse,
         NotSent,
+        SigningFailed,
     }
 
     sealed class UiEvent {

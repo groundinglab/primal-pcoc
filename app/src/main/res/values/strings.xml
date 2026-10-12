@@ -146,11 +146,12 @@
     <string name="pcoc_title">PCOC</string>
     <string name="pcoc_enroll_title">Import PCOC</string>
     <string name="pcoc_dm_channel">PCOC messages</string>
-    <string name="pcoc_dm_title">PCOC in a message</string>
+    <string name="pcoc_dm_title">PCOC .cbor DM received.</string>
     <string name="pcoc_dm_body">A direct message has a PCOC file for this account. Approve stores it for sign-in. Dismiss stores nothing.</string>
     <string name="pcoc_dm_notification">A direct message has a PCOC file for this account.</string>
     <string name="pcoc_dm_approve">Approve</string>
     <string name="pcoc_dm_dismiss">Dismiss</string>
+    <string name="pcoc_dm_parse_body">Nothing was stored.</string>
     <string name="pcoc_verify_title">Verify</string>
     <string name="pcoc_create_title">Create new PCOC</string>
     <string name="pcoc_admit_title">Sign in</string>
@@ -244,6 +245,7 @@
     <string name="pcoc_admit_reason_redirected">redirected</string>
     <string name="pcoc_admit_reason_unexpected">unexpected response</string>
     <string name="pcoc_admit_reason_not_sent">not sent</string>
+    <string name="pcoc_admit_reason_signing_failed">Signing failed.</string>
     <string name="pcoc_admit_close">Close</string>
     <string name="pcoc_admit_object_unreadable">The saved PCOC could not be read. Nothing was sent.</string>
     <string name="pcoc_admit_need_pcoc">You need a PCOC first. Create one on this phone, or use Import PCOC.</string>

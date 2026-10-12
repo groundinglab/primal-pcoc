@@ -121,7 +121,7 @@ class SignInHubTest {
     }
 
     @Test
-    fun `sign in has no confirm, no result display, and no poll`() {
+    fun `sign in step notices are plain and there is no service decision or poll`() {
         val xml = stringsXml()
         listOf("pcoc_admit_confirm_title", "pcoc_admit_sign_in", "pcoc_admit_ready", "pcoc_admit_failed")
             .forEach { xml.contains("name=\"$it\"") shouldBe false }
@@ -131,6 +131,20 @@ class SignInHubTest {
         val sources = admit.listFiles().orEmpty().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
         listOf("ConfirmActionAlertDialog", "verifier_ran", "\"decision\"", "latest.json", "/log/", "provisional")
             .forEach { sources.contains(it) shouldBe false }
+        sources.contains("delay(") shouldBe false
+        val notices = sourceFile("src/main/kotlin/net/primal/android/pcoc/admit/SignInNotices.kt")
+        listOf(
+            "Link recognised.",
+            "Not a sign-in link.",
+            "Signed.",
+            "Signing failed.",
+            "Sent to admission.groundinglab.io.",
+            "Accepted.",
+            "Refused.",
+            "Expired.",
+            "PCOC .cbor DM received.",
+            "Failed to parse the PCOC .cbor DM.",
+        ).forEach { notices.contains(it) shouldBe true }
     }
 
     @Test

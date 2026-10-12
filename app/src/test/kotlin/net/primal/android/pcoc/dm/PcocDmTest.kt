@@ -84,6 +84,25 @@ class PcocDmTest {
             notifier.shown shouldBe 0
             store.contains(ACCOUNT) shouldBe false
             inbox.pending.value.shouldBeNull()
+            inbox.problem.value.shouldBeNull()
+        }
+    }
+
+    @Test
+    fun `a cbor map that is not a PCOC says it failed to parse`() {
+        withInbox { _, inbox, notifier ->
+            inbox.consider(
+                accountHex = ACCOUNT,
+                eventId = "empty-map",
+                kind = PCOC_DM_KIND,
+                recipientHex = ACCOUNT,
+                plaintext = byteArrayOf(0xa0.toByte()),
+            ) shouldBe false
+
+            inbox.problem.value shouldBe "Failed to parse the PCOC .cbor DM."
+            inbox.pending.value.shouldBeNull()
+            notifier.shown shouldBe 0
+            isCborMap("hello".encodeToByteArray()) shouldBe false
         }
     }
 
