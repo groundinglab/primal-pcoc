@@ -16,7 +16,7 @@ The configured SSH signing key (`~/.ssh/id_ed25519_groundinglab.pub`) is not on 
 
 ## Reference pin
 
-Vendored hike crate from groundinglab/pcoc **origin/main** `148d6bac84a6e8987ad4faab168881f9403523be`.
+Vendored hike crate from groundinglab/pcoc-private **origin/main** `148d6bac84a6e8987ad4faab168881f9403523be`.
 
 Sibling checkout: `/home/hodl315/pcoc-build/worktrees/pcoc-main-android-ref` (detached at that commit). Tag `ref-v2.0.0` is `6e62e4c` / `ed88a47`, which is behind main. Main is the pin because it includes the verify block-hash display-order fix. `pcoc-bridge/vendor/hike/tests/` was not copied. The library sources are otherwise the reference.
 

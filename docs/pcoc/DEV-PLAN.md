@@ -2,7 +2,7 @@
 
 Short sequence for integrating PCOC into this fork. Tonight’s product SPEC is [FEATURES-v0.1.md](FEATURES-v0.1.md). The file and symbol map is [CUT-POINTS.md](CUT-POINTS.md). This plan adds no product code.
 
-PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This repo integrates a dependency. It does not re-home the protocol, **STAGES 18**, or a signature scheme. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
+PCOC stays in [groundinglab/pcoc-private](https://github.com/groundinglab/pcoc-private). This repo integrates a dependency. It does not re-home the protocol, **STAGES 18**, or a signature scheme. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
 
 ## Gates
 
@@ -48,7 +48,7 @@ Produce-on-centre and admit-on-centre are Ask Christian only. This phase does no
 
 ### 6. Later — in-app produce, once a real artifact exists
 
-Depends on a published Android-callable API from `groundinglab/pcoc` whose symbols are written down (ask list). This phase adds that dependency only. It does not place the call on Wallet, and it does not retarget the centre.
+Depends on a published Android-callable API from `groundinglab/pcoc-private` whose symbols are written down (ask list). This phase adds that dependency only. It does not place the call on Wallet, and it does not retarget the centre.
 
 Finishing produce associates the object. Do not add a register function. Do not add a JNI or UniFFI layer in this repo to invent the call. `STAGES 18` remains inside pcoc. The UI shows the sample object’s leg and leg result. A leg is 1,000,000 steps.
 
