@@ -2176,13 +2176,17 @@ mod tests {
     }
 
     fn consume_one(counter: &std::sync::atomic::AtomicUsize) -> bool {
-        counter
-            .fetch_update(
-                std::sync::atomic::Ordering::SeqCst,
-                std::sync::atomic::Ordering::SeqCst,
-                |n| n.checked_sub(1),
-            )
-            .is_ok()
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut n = counter.load(SeqCst);
+        loop {
+            let Some(next) = n.checked_sub(1) else {
+                return false;
+            };
+            match counter.compare_exchange(n, next, SeqCst, SeqCst) {
+                Ok(_) => return true,
+                Err(seen) => n = seen,
+            }
+        }
     }
 
     enum Action {

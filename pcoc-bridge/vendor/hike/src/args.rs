@@ -4,7 +4,7 @@ use crate::consts::{DEFAULT_BARI_URL, DEFAULT_INDEX_URL};
 use crate::gossip::GossipNetwork;
 use crate::hex::decode_hex32;
 use crate::plane::{
-    is_https_live_origin, live_plane_host, names_retired_tip, LIVE_BARI_HOST, LIVE_INDEX_HOST,
+    is_https_live_origin, live_plane_host, LIVE_BARI_HOST, LIVE_INDEX_HOST,
 };
 use crate::subscribe::VerifyLog;
 
@@ -292,14 +292,6 @@ fn profile_is_test(args: &[String]) -> bool {
     matches!(explicit_profile(args), None | Some("test"))
 }
 
-fn reject_retired_tip(peer: &str, url: &str) -> Result<(), UsageError> {
-    if names_retired_tip(peer) || names_retired_tip(url) {
-        Err(UsageError)
-    } else {
-        Ok(())
-    }
-}
-
 pub fn parse_produce(args: &[String]) -> Result<ProduceArgs, UsageError> {
     let mut public_key = None;
     let mut output = None;
@@ -366,7 +358,7 @@ pub fn parse_produce(args: &[String]) -> Result<ProduceArgs, UsageError> {
     }
 
     // Omitted `--profile` is the test plane. It does not fill live origins.
-    // `slow-lan` is the lab card in docs/records/gossip-slow-lan.md. Not a plane.
+    // `slow-lan` is a lab setting, not a plane.
     let profile = match profile.as_deref() {
         None | Some("test") => PlaneProfile::Test,
         Some("live") => PlaneProfile::Live,
@@ -399,7 +391,6 @@ pub fn parse_produce(args: &[String]) -> Result<ProduceArgs, UsageError> {
             if live_plane_host(&bari_url) {
                 return Err(UsageError);
             }
-            reject_retired_tip(&peer, &bari_url)?;
             (
                 Some(AdmitPolicy::Test),
                 ProduceClock::Gossip {
@@ -421,16 +412,8 @@ pub fn parse_produce(args: &[String]) -> Result<ProduceArgs, UsageError> {
                 Some(url) if is_https_live_origin(&url, LIVE_BARI_HOST) => url,
                 Some(_) => return Err(UsageError),
             };
-            if names_retired_tip(&bari_url) {
-                return Err(UsageError);
-            }
             let dial = match gossip_peer_value {
-                Some(peer) => {
-                    if names_retired_tip(&peer) {
-                        return Err(UsageError);
-                    }
-                    GossipDial::Named(peer)
-                }
+                Some(peer) => GossipDial::Named(peer),
                 None => GossipDial::MainnetDnsSeeds,
             };
             (
@@ -448,7 +431,6 @@ pub fn parse_produce(args: &[String]) -> Result<ProduceArgs, UsageError> {
             }
             let peer = gossip_peer_value.ok_or(UsageError)?;
             let bari_url = bari_url.ok_or(UsageError)?;
-            reject_retired_tip(&peer, &bari_url)?;
             let network = network.unwrap_or(GossipNetwork::Regtest);
             (
                 None,
@@ -538,7 +520,7 @@ pub fn parse_verify(args: &[String]) -> Result<VerifyArgs, UsageError> {
                 return Err(UsageError);
             }
             let index_url = index_url.ok_or(UsageError)?;
-            if live_plane_host(&index_url) || names_retired_tip(&index_url) {
+            if live_plane_host(&index_url) {
                 return Err(UsageError);
             }
             (AdmitPolicy::Test, index_url)
@@ -694,7 +676,7 @@ mod tests {
             "--output",
             "out.cbor",
             "--tip-url",
-            "https://tip.pcoc.app/",
+            "https://tip.example.invalid/",
         ])
         .is_err());
         assert!(produce(&[
@@ -723,7 +705,7 @@ mod tests {
             "--profile",
             "live",
             "--tip-url",
-            "HTTPS://tip.pcoc.app",
+            "HTTPS://tip.example.invalid",
             "--gossip-peer",
             "live-peer.invalid:9",
             "--bari-url",
@@ -864,7 +846,7 @@ mod tests {
             "--profile",
             "slow-lan",
             "--tip-url",
-            "https://tip.pcoc.app",
+            "https://tip.example.invalid",
             "--gossip-peer",
             "127.0.0.1:18444",
             "--bari-url",
@@ -1029,7 +1011,6 @@ mod tests {
         );
         assert_eq!(parsed.bari_url, "http://synth.invalid:1");
         assert!(!filled.iter().any(|arg| arg == "--tip-url"));
-        assert!(!filled.iter().any(|arg| arg.contains("pcoc.app")));
         assert!(!filled.iter().any(|arg| arg.contains("groundinglab.io")));
         assert!(!filled.iter().any(|arg| arg.contains("192.168")));
 
@@ -1087,43 +1068,6 @@ mod tests {
             Some("https://bari.groundinglab.io"),
         );
         assert!(parse_produce(&live_bari).is_err());
-        assert!(parse_produce(&[
-            "--profile".to_owned(),
-            "test".to_owned(),
-            "--pubkey-hex".to_owned(),
-            hex64(),
-            "--output".to_owned(),
-            "out.cbor".to_owned(),
-            "--gossip-peer".to_owned(),
-            "tip.pcoc.app:9".to_owned(),
-            "--bari-url".to_owned(),
-            "http://synth.invalid:1".to_owned(),
-        ])
-        .is_err());
-        assert!(parse_produce(&[
-            "--profile".to_owned(),
-            "slow-lan".to_owned(),
-            "--pubkey-hex".to_owned(),
-            hex64(),
-            "--output".to_owned(),
-            "out.cbor".to_owned(),
-            "--gossip-peer".to_owned(),
-            "synth.invalid:1".to_owned(),
-            "--bari-url".to_owned(),
-            "https://tip.pcoc.app".to_owned(),
-        ])
-        .is_err());
-        assert!(parse_produce(&[
-            "--profile".to_owned(),
-            "live".to_owned(),
-            "--pubkey-hex".to_owned(),
-            hex64(),
-            "--output".to_owned(),
-            "out.cbor".to_owned(),
-            "--gossip-peer".to_owned(),
-            "tip.pcoc.app:8333".to_owned(),
-        ])
-        .is_err());
 
         let index_base = vec!["--input".to_owned(), "hike.cbor".to_owned()];
         assert_eq!(apply_test_index_env(index_base.clone(), None), index_base);
@@ -1132,7 +1076,6 @@ mod tests {
             parse_verify(&indexed).unwrap().index_url,
             "http://index.invalid:1"
         );
-        assert!(!indexed.iter().any(|arg| arg.contains("pcoc.app")));
         assert!(!indexed.iter().any(|arg| arg.contains("groundinglab.io")));
         let live_index = vec![
             "--profile".to_owned(),
@@ -1259,7 +1202,7 @@ mod tests {
             "--input".to_owned(),
             "hike.cbor".to_owned(),
             "--tip-url".to_owned(),
-            "https://tip.pcoc.app".to_owned(),
+            "https://tip.example.invalid".to_owned(),
         ])
         .is_err());
 

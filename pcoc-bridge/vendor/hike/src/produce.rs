@@ -403,6 +403,72 @@ mod tests {
         assert_ne!(hike.stages[17].beacon, hike.last_interrupt);
     }
 
+    /// Rules A1.1, A1.2 and SPEC section 13 P13.3, on the small sizes.
+    /// A header read inside stage open is not the interrupt and does not pause
+    /// the drive. The tip is read after each checkpoint. A tip equal to the
+    /// beacon does not end the stage; the first later header does.
+    #[test]
+    fn stage_open_header_is_not_the_interrupt_and_tip_is_read_per_checkpoint() {
+        let sizes = Sizes {
+            sample_bytes: 32,
+            slot_bytes: 64,
+            terrain_bytes: 256,
+            steps_per_leg: 32,
+        };
+        let terrain = crate::fill_terrain_sized(crate::fill_pin(&[0x11; 64]), sizes);
+        let incoming = ([0x20u8; 32], 100u64);
+        let newer = ([0x21u8; 32], 101u64);
+        let mut opened = 0;
+        let mut observed = Vec::new();
+        // Leg 1 and leg 2 still see the beacon. Leg 3 sees the newer header.
+        let script = [incoming, incoming, newer];
+        let run = drive_stage(
+            &terrain,
+            sizes,
+            incoming.0,
+            incoming.1,
+            [0x33; 32],
+            false,
+            &mut || {
+                let tip = script[observed.len()];
+                observed.push(tip);
+                Ok(tip)
+            },
+            &mut |_wp: &[u8; 32], _h: u64| {
+                opened += 1;
+                // A newer header arriving during open is not read as the interrupt.
+                Ok(Vec::new())
+            },
+        )
+        .expect("small stage");
+        assert_eq!(opened, 1);
+        assert_eq!(observed.len(), 3, "one Observe per checkpoint");
+        assert_eq!(run.leg_count, 3);
+        assert_eq!(run.checkpoints.len(), 3);
+        assert_eq!(run.leg_results.len(), 3);
+        assert_eq!((run.beacon, run.beacon_height), incoming);
+        assert_eq!((run.closing_tip, run.closing_height), newer);
+
+        // Newer header at the first Observe ends the stage at one leg (A1.2).
+        let mut once = false;
+        let one = drive_stage(
+            &terrain,
+            sizes,
+            incoming.0,
+            incoming.1,
+            [0x33; 32],
+            false,
+            &mut || {
+                once = true;
+                Ok(newer)
+            },
+            &mut |_wp: &[u8; 32], _h: u64| Ok(Vec::new()),
+        )
+        .expect("one-leg stage");
+        assert!(once);
+        assert_eq!(one.leg_count, 1);
+    }
+
     #[test]
     fn clock_failure_does_not_open_a_stage() {
         let mut opened = false;
@@ -457,5 +523,67 @@ mod tests {
         let interrupt = [0x33; 32];
         let w1 = crate::bind::successor_waypoint(&terrain, &interrupt, &seed_value, &[digest]);
         assert_eq!(posted, w1);
+    }
+
+    /// P9.14. The first tip is already known. Observing it again after the
+    /// first leg does not wait for a newer header and does not replace the seed.
+    #[test]
+    fn stage0_starts_on_the_latest_known_header() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../spec/conformance/v2.0/stage0-start.json");
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
+        let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(doc["rule"], "P9.14");
+        assert_eq!(doc["profile"], "conformance-small");
+        let public_key = crate::hex::decode_hex32(doc["public_key_hex"].as_str().unwrap()).unwrap();
+        let seed_height = doc["seed_height"].as_u64().unwrap();
+        let stage0_legs = doc["stage0_legs"].as_u64().unwrap();
+        let tips: Vec<([u8; 32], u64)> = doc["tips"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|tip| {
+                (
+                    crate::hex::decode_hex32(tip["natural_hex"].as_str().unwrap()).unwrap(),
+                    tip["height"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert!(tips.len() >= 3);
+        assert_eq!(tips[0], tips[1]);
+        assert_eq!(tips[0].1, seed_height);
+        // Same integers as the conformance-small profile. This file's source
+        // guard rejects that profile constructor's name.
+        let sizes = Sizes {
+            sample_bytes: 32,
+            slot_bytes: 64,
+            terrain_bytes: 256,
+            steps_per_leg: 32,
+        };
+        let mut at = 0usize;
+        let bytes = produce_with_settlement_sized(
+            public_key,
+            sizes,
+            || {
+                let tip = tips[at];
+                at += 1;
+                Ok(tip)
+            },
+            |_, _| Ok(Vec::new()),
+            |_, _| Ok(()),
+        )
+        .expect("stage 0 start vector");
+        assert_eq!(at, tips.len());
+        let measured = crate::object::read_measured_object_sized(&bytes, sizes).unwrap();
+        assert!(measured.shape);
+        let hike = measured.hike;
+        assert_eq!(hike.seed_beacon, tips[0].0);
+        assert_eq!(hike.stages[0].beacon, tips[0].0);
+        assert_eq!(hike.stages[0].beacon_height, seed_height);
+        assert_eq!(hike.stages[0].leg_count, stage0_legs);
+        assert_eq!(hike.stages[1].beacon, tips[2].0);
+        assert_eq!(hike.stages[1].beacon_height, tips[2].1);
+        assert_ne!(hike.stages[0].beacon, hike.stages[1].beacon);
     }
 }

@@ -12,7 +12,7 @@ use crate::verify::{
 };
 use serde::Serialize;
 
-/// Section 14 order. The re-walk count is 6. That count is not this list's length.
+/// Section 14 order. The recomputed leg count is 6. That count is not this list's length.
 pub const CHECK_ORDER: [&str; 6] = [
     "shape",
     "checkpoints",

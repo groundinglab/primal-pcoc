@@ -1,13 +1,13 @@
-# Vendored from groundinglab/pcoc-private origin/main
-# 148d6bac84a6e8987ad4faab168881f9403523be (sibling checkout
-# pcoc-main-android-ref). Tag ref-v2.0.0 is an earlier pin.
-# Live Bari and index hosts are groundinglab.io (pcoc#317).
-# tip.pcoc.app stays refused. tests/ is not included.
+# Vendored from groundinglab/pcoc tag ref-rust-v2.0.4, reference/rust/hike
+# (https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike).
+# Copied verbatim; tests/ is not included. Licence: Apache-2.0.
 
 [package]
 name = "hike"
 version = "0.1.0"
+license = "Apache-2.0"
 edition = "2021"
+rust-version = "1.83"
 publish = false
 
 [dependencies]
@@ -17,8 +17,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "0.10"
 ureq = { version = "=2.12.1", default-features = false, features = ["tls"] }
-# Keep the TLS stack on rustc 1.83. Newer url pulls idna 1; newer zeroize needs edition 2024.
-url = "=2.5.2"
+# url 2.5.4+ pulls idna 1 (GHSA-h97m-ww89-6jmq fix). The lock pins idna_adapter 1.1 (unicode-rs backend) so the build stays on rustc 1.83; idna_adapter 1.2 pulls icu 2.x, which needs a newer rustc. Newer zeroize needs edition 2024.
+url = "2.5.4"
 zeroize = "=1.8.2"
 subtle = "=2.5.0"
 

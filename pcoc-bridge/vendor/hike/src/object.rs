@@ -312,7 +312,7 @@ fn parse_stage(value: &Cbor) -> Result<(Stage, bool, Vec<&'static str>), Fail> {
 /// Object public key from a hike whose shape is true.
 ///
 /// `Err` means the bytes are not a usable object, or the shape is false.
-/// This does not record a later measurement, does not re-walk a leg, and
+/// This does not record a later measurement, does not recompute a leg, and
 /// does not return a leg result.
 pub fn object_public_key(bytes: &[u8]) -> Result<[u8; 32], ()> {
     decode_hike(bytes)

@@ -1,0 +1,44 @@
+# gitleaks config for groundinglab/primal-pcoc.
+# Extends the default rules. The allowlist covers ONLY files inherited from upstream
+# PrimalHQ/primal-android-app (MIT) that carry Primal's own public test fixtures and
+# test vectors (src/test, src/commonTest, desktopTest) or @Preview sample data (sample
+# pubkeys, a sample NWC secret, Primal's published remote-signer test key). None of these
+# are groundinglab credentials. Every groundinglab path (net/primal/android/pcoc, pcoc-bridge,
+# docs/pcoc) stays fully scanned. Add nothing here without the same justification.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Upstream Primal test fixtures and preview sample data only"
+paths = [
+  '''^app/src/main/kotlin/net/primal/android/core/service/PrimalRemoteSignerService\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/feed/api/FeedRemoteMediator\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/feed/repository/FeedRepository\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/nostr/model/primal/content/ContentPrimalNotification\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/nostr/primal/PrimalApiImpl\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/profile/details/ProfileDetailsScreen\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/profile/details/ui/ProfileDetailsHeader\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/profile/details/ui/ProfileDetailsScreen\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/profile/qr/ProfileQrCodeViewerScreen\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/profile/qr/ui/ProfileQrCodeScreen\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/settings/wallet/WalletScreen\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/settings/wallet/nwc/primal/create/CreateNewWalletConnectionScreen\.kt$''',
+  '''^app/src/main/kotlin/net/primal/android/settings/wallet/settings/WalletSettingsScreen\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/auth/repository/LoginHandlerTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/core/serialization/json/NostrJsonTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/crypto/ConversionUtilsTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/nostr/NostrUtilsTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/nostr/notary/NostrUnsignedEventExtTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/nostr/utils/Nip19TLVTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/serialization/NostrJsonTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/serialization/UserAccountSerializationTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/thread/articles/details/ui/rendering/BuildArticlePartsTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/user/accounts/ParsersTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/user/accounts/UserAccountFetcherTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/user/accounts/UserAccountsSerializationTest\.kt$''',
+  '''^app/src/test/kotlin/net/primal/android/user/domain/NostrWalletConnectParserTest\.kt$''',
+  '''^data/caching/repository/src/desktopTest/resources/feed_persist_fixture\.json$''',
+  '''^domain/nostr/src/commonTest/kotlin/net/primal/domain/nostr/Nip19TLVTest\.kt$''',
+  '''^domain/nostr/src/commonTest/kotlin/net/primal/domain/nostr/cryptography/utils/ConversionUtilsTest\.kt$''',
+]

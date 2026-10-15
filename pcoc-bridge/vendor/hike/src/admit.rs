@@ -123,7 +123,7 @@ pub fn failure_facts(measurements: &Measurements) -> Vec<&'static str> {
     match &measurements.six_legs {
         SixLegs::Rewalked { matches, .. } => {
             if matches.iter().any(|matches| !matches) {
-                facts.push("a re-walked leg result differs");
+                facts.push("a recomputed leg result differs");
             }
         }
         SixLegs::CouldNotDraw => {
@@ -301,7 +301,7 @@ mod tests {
         }
         assert_eq!(
             failure_facts(&rewalk),
-            vec!["a re-walked leg result differs"]
+            vec!["a recomputed leg result differs"]
         );
 
         let mut unread = passing();
