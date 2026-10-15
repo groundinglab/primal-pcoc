@@ -4,7 +4,8 @@ use crate::consts::{DEFAULT_BARI_URL, DEFAULT_INDEX_URL};
 use crate::gossip::GossipNetwork;
 use crate::hex::decode_hex32;
 use crate::plane::{
-    is_https_live_origin, live_plane_host, LIVE_BARI_HOST, LIVE_INDEX_HOST,
+    is_https_live_origin, is_https_origin, live_plane_host, other_operator_warning, LIVE_BARI_HOST,
+    LIVE_INDEX_HOST,
 };
 use crate::subscribe::VerifyLog;
 
@@ -410,6 +411,13 @@ pub fn parse_produce(args: &[String]) -> Result<ProduceArgs, UsageError> {
             let bari_url = match bari_url {
                 None => DEFAULT_BARI_URL.to_owned(),
                 Some(url) if is_https_live_origin(&url, LIVE_BARI_HOST) => url,
+                Some(url) if is_https_origin(&url) => {
+                    eprintln!(
+                        "{}",
+                        other_operator_warning("--bari-url", &url, LIVE_BARI_HOST)
+                    );
+                    url
+                }
                 Some(_) => return Err(UsageError),
             };
             let dial = match gossip_peer_value {
@@ -529,6 +537,13 @@ pub fn parse_verify(args: &[String]) -> Result<VerifyArgs, UsageError> {
             let index_url = match index_url {
                 None => DEFAULT_INDEX_URL.to_owned(),
                 Some(url) if is_https_live_origin(&url, LIVE_INDEX_HOST) => url,
+                Some(url) if is_https_origin(&url) => {
+                    eprintln!(
+                        "{}",
+                        other_operator_warning("--index-url", &url, LIVE_INDEX_HOST)
+                    );
+                    url
+                }
                 Some(_) => return Err(UsageError),
             };
             (AdmitPolicy::Live, index_url)
@@ -637,6 +652,40 @@ mod tests {
             }
         );
         assert_eq!(unpinned.bari_url, DEFAULT_BARI_URL);
+        // Another operator's Bari on the live profile: a warning, then it proceeds.
+        let other = produce(&[
+            "--profile",
+            "live",
+            "--pubkey-hex",
+            &hex64(),
+            "--output",
+            "out.cbor",
+            "--bari-url",
+            "https://bari.example.org",
+        ])
+        .unwrap();
+        assert_eq!(other.bari_url, "https://bari.example.org");
+        assert!(produce(&[
+            "--profile",
+            "live",
+            "--pubkey-hex",
+            &hex64(),
+            "--output",
+            "out.cbor",
+            "--bari-url",
+            "http://bari.example.org",
+        ])
+        .is_err());
+        let other_index = parse_verify(&[
+            "--input".to_owned(),
+            "hike.cbor".to_owned(),
+            "--profile".to_owned(),
+            "live".to_owned(),
+            "--index-url".to_owned(),
+            "https://index.example.org".to_owned(),
+        ])
+        .unwrap();
+        assert_eq!(other_index.index_url, "https://index.example.org");
         assert!(produce(&[
             "--profile",
             "slow-lan",

@@ -1,5 +1,5 @@
-# Vendored from groundinglab/pcoc tag ref-rust-v2.0.4, reference/rust/hike
-# (https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike).
+# Vendored from groundinglab/pcoc tag ref-rust-v2.0.5, reference/rust/hike
+# (https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.5/reference/rust/hike).
 # Copied verbatim; tests/ is not included. Licence: Apache-2.0.
 
 [package]
