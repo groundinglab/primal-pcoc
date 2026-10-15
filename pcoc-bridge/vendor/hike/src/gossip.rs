@@ -4,17 +4,17 @@
 //! Bari still plants waypoints. The wire is Bitcoin P2P (magic, checksum, 80-byte
 //! headers). There is no second framing.
 //!
-//! Lab, not Lock. Ask-Christian items are listed in
-//! `docs/records/gossip-slow-lan.md`.
-//!
 //! Live produce with no named peer starts from Bitcoin Core's mainnet DNS
-//! seeds. A lookup returns node addresses. The producer connects and asks
-//! those nodes for more peers. A bad address fails and is discarded. The
-//! test profile and the slow-lan card do not use that list.
+//! seeds. A lookup returns node addresses. The producer asks several of
+//! those nodes at once for the headers they already have. The first current
+//! tip is the seed. A bad address fails and is discarded. The test profile
+//! and the slow-lan card do not use that list.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -40,6 +40,9 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 const PROTOCOL_VERSION: i32 = 70_015;
 const MAX_MESSAGE: usize = 4_000_000;
 const MAX_HEADERS: usize = 2_000;
+/// How many DNS-seed peers are asked for the tip at the same time.
+/// One slow handshake must not sit in front of a peer that already has it.
+const SEED_RACE: usize = 24;
 const USER_AGENT: &str = "/satoshi-hike:0.1/";
 
 /// Bitcoin Core mainnet DNS seeds.
@@ -72,6 +75,7 @@ enum Dial {
     MainnetSeeds(Arc<dyn Fn(&str) -> Result<Vec<SocketAddr>, ()> + Send + Sync>),
 }
 
+#[derive(Clone)]
 struct ClockOpts {
     dial: Dial,
     network: GossipNetwork,
@@ -86,6 +90,22 @@ struct Shared {
     chain: Chain,
     live: bool,
     reorg: bool,
+    /// Bitcoin peers with a finished handshake. Zero when none are up.
+    peers: u32,
+    /// The produce run asked the subscription to end.
+    shutdown: bool,
+    /// Bumped when a seed attempt ends, so a peer from the previous attempt
+    /// cannot mark a later attempt live.
+    epoch: u64,
+    /// Session ids handed out for this attempt.
+    next_id: u64,
+    /// The racer chosen to sync the chain. None until its first batch was fast
+    /// enough, or it was the best peer left.
+    leader: Option<u64>,
+    /// Bumped to drop a wave of peers whose first batch was too slow.
+    wave: u64,
+    /// First-batch time for each racer, in milliseconds.
+    probes: Vec<(u64, u128)>,
 }
 
 /// One tip of the plane sequence. `hash` is natural byte order.
@@ -122,15 +142,19 @@ impl HeaderClock {
     /// Live mainnet start when no peer is named.
     ///
     /// The starting list is [`MAINNET_DNS_SEEDS`]. A lookup returns node
-    /// addresses. This clock connects and asks those nodes for more peers.
-    /// A bad address fails and is discarded. The call does not dial until the
-    /// background thread runs, and it does not abort when one seed fails and
-    /// another can be used.
+    /// addresses. This clock asks several of those nodes at once for the tip
+    /// they already have. The first current tip is the seed. A bad address
+    /// fails and is discarded. The call does not dial until the background
+    /// thread runs, and it does not abort when one seed fails and another
+    /// can be used.
     pub fn start_mainnet_dns_seeds() -> Self {
         Self::spawn(ClockOpts {
             dial: Dial::MainnetSeeds(Arc::new(lookup_mainnet_seed)),
             network: GossipNetwork::Mainnet,
-            connect_timeout: HANDSHAKE_TIMEOUT,
+            // A dial that does not answer in a few seconds will not deliver
+            // the tip inside the first half minute. The named-peer clock
+            // keeps the longer handshake limit.
+            connect_timeout: Duration::from_secs(5),
             ping_interval: BITCOIN_PING_INTERVAL,
             silence_timeout: BITCOIN_SILENCE_TIMEOUT,
             skip_pause: false,
@@ -144,6 +168,13 @@ impl HeaderClock {
                 chain: Chain::new(opts.network),
                 live: false,
                 reorg: false,
+                peers: 0,
+                shutdown: false,
+                epoch: 0,
+                next_id: 0,
+                leader: None,
+                wave: 0,
+                probes: Vec::new(),
             }),
             Condvar::new(),
         ));
@@ -216,25 +247,27 @@ impl HeaderClock {
         let (lock, cv) = &*self.shared;
         let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
         loop {
-            if guard.reorg {
-                return Err(ProduceFailure::new("clock read failed: reorg"));
+            if guard.shutdown {
+                return Err(ProduceFailure::new("clock stopped"));
             }
-            if guard.live {
-                match ticks_after(&guard.chain, after) {
-                    Ok(ticks) if !ticks.is_empty() => {
-                        for tick in &ticks {
-                            guard.chain.publish(tick.hash);
-                        }
-                        return Ok(ticks);
-                    }
-                    Ok(_) => {}
-                    Err(()) => {
-                        return Err(ProduceFailure::new("clock read failed: reorg"));
-                    }
-                }
+            match ready_after(&mut guard, after)? {
+                Some(ticks) => return Ok(ticks),
+                None => guard = cv.wait(guard).unwrap_or_else(|err| err.into_inner()),
             }
-            guard = cv.wait(guard).unwrap_or_else(|err| err.into_inner());
         }
+    }
+
+    /// [`wait_tips_after`] without waiting. `Ok(None)` means the newer tip is not in yet.
+    pub fn poll_tips_after(
+        &self,
+        after: Option<[u8; 32]>,
+    ) -> Result<Option<Vec<TipTick>>, ProduceFailure> {
+        let (lock, _) = &*self.shared;
+        let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+        if guard.shutdown {
+            return Err(ProduceFailure::new("clock stopped"));
+        }
+        ready_after(&mut guard, after)
     }
 
     /// Headers from `after` through the current tip, without waiting for a newer one.
@@ -248,32 +281,46 @@ impl HeaderClock {
         let (lock, cv) = &*self.shared;
         let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
         loop {
-            if guard.reorg {
-                return Err(ProduceFailure::new("clock read failed: reorg"));
+            if guard.shutdown {
+                return Err(ProduceFailure::new("clock stopped"));
             }
-            if guard.live {
-                let ticks = if after.is_none() || guard.chain.tip == after.unwrap() {
-                    tick_of(&guard.chain, guard.chain.tip)
-                        .map(|tick| vec![tick])
-                        .ok_or(())
-                } else {
-                    ticks_after(&guard.chain, after)
-                };
-                match ticks {
-                    Ok(ticks) if !ticks.is_empty() => {
-                        for tick in &ticks {
-                            guard.chain.publish(tick.hash);
-                        }
-                        return Ok(ticks);
-                    }
-                    Ok(_) => {}
-                    Err(()) => {
-                        return Err(ProduceFailure::new("clock read failed: reorg"));
-                    }
-                }
+            match ready_since(&mut guard, after)? {
+                Some(ticks) => return Ok(ticks),
+                None => guard = cv.wait(guard).unwrap_or_else(|err| err.into_inner()),
             }
-            guard = cv.wait(guard).unwrap_or_else(|err| err.into_inner());
         }
+    }
+
+    /// [`headers_since`] without waiting.
+    ///
+    /// `Ok(None)` is "the sync to the peer's current tip is not finished".
+    /// It is not "wait for a header mined after this call". Once the peer has
+    /// answered `getheaders` through the tip it already had, `Ok(Some)` is
+    /// that tip, including when `after` is already that tip.
+    pub fn poll_headers_since(
+        &self,
+        after: Option<[u8; 32]>,
+    ) -> Result<Option<Vec<TipTick>>, ProduceFailure> {
+        let (lock, _) = &*self.shared;
+        let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+        if guard.shutdown {
+            return Err(ProduceFailure::new("clock stopped"));
+        }
+        ready_since(&mut guard, after)
+    }
+
+    /// Peers that have finished the version handshake.
+    pub fn connected_peers(&self) -> u32 {
+        let (lock, _) = &*self.shared;
+        lock.lock().unwrap_or_else(|err| err.into_inner()).peers
+    }
+
+    /// End the peer thread and wake anyone blocked in a header wait.
+    pub fn shutdown(&self) {
+        let (lock, cv) = &*self.shared;
+        let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+        guard.shutdown = true;
+        cv.notify_all();
     }
 
     #[cfg(test)]
@@ -284,6 +331,13 @@ impl HeaderClock {
                     chain,
                     live: true,
                     reorg: false,
+                    peers: 0,
+                    shutdown: false,
+                    epoch: 0,
+                    next_id: 0,
+                    leader: None,
+                    wave: 0,
+                    probes: Vec::new(),
                 }),
                 Condvar::new(),
             )),
@@ -312,6 +366,58 @@ pub(crate) fn regtest_clock_past_genesis(extra: usize) -> (HeaderClock, [u8; 32]
         );
     }
     (HeaderClock::from_synced_chain(chain), start, start_height)
+}
+
+/// Current tip, or headers through the current tip. `None` until the peer's
+/// existing tip has been read. Does not wait for a header mined later.
+fn ready_since(
+    guard: &mut Shared,
+    after: Option<[u8; 32]>,
+) -> Result<Option<Vec<TipTick>>, ProduceFailure> {
+    if guard.reorg {
+        return Err(ProduceFailure::new("clock read failed: reorg"));
+    }
+    if !guard.live {
+        return Ok(None);
+    }
+    let ticks = if after.is_none() || guard.chain.tip == after.unwrap() {
+        tick_of(&guard.chain, guard.chain.tip)
+            .map(|tick| vec![tick])
+            .ok_or(())
+    } else {
+        ticks_after(&guard.chain, after)
+    };
+    publish_ticks(guard, ticks)
+}
+
+/// Headers strictly after `after`. `None` when the tip has not moved.
+fn ready_after(
+    guard: &mut Shared,
+    after: Option<[u8; 32]>,
+) -> Result<Option<Vec<TipTick>>, ProduceFailure> {
+    if guard.reorg {
+        return Err(ProduceFailure::new("clock read failed: reorg"));
+    }
+    if !guard.live {
+        return Ok(None);
+    }
+    publish_ticks(guard, ticks_after(&guard.chain, after))
+}
+
+fn publish_ticks(
+    guard: &mut Shared,
+    ticks: Result<Vec<TipTick>, ()>,
+) -> Result<Option<Vec<TipTick>>, ProduceFailure> {
+    match ticks {
+        Ok(ticks) if !ticks.is_empty() => {
+            for tick in &ticks {
+                guard.chain.publish(tick.hash);
+            }
+            Ok(Some(ticks))
+        }
+        Ok(_) => Ok(None),
+        Err(()) => Err(ProduceFailure::new("clock read failed: reorg")),
+    }
 }
 
 pub fn note_produce_headers(
@@ -379,7 +485,7 @@ fn run_peer(opts: ClockOpts, shared: Arc<(Mutex<Shared>, Condvar)>) {
 fn run_named(opts: ClockOpts, peer: String, shared: Arc<(Mutex<Shared>, Condvar)>) {
     let mut attempt = 0u32;
     loop {
-        if mark_down(&shared) {
+        if is_shutdown(&shared) || mark_down(&shared) {
             return;
         }
         match session(&opts, &peer, &shared, false, &mut Vec::new()) {
@@ -387,6 +493,7 @@ fn run_named(opts: ClockOpts, peer: String, shared: Arc<(Mutex<Shared>, Condvar)
                 mark_reorg(&shared);
                 return;
             }
+            Err("shutdown") => return,
             Err(class) => {
                 note_wait(&opts, class, &mut attempt);
             }
@@ -394,49 +501,157 @@ fn run_named(opts: ClockOpts, peer: String, shared: Arc<(Mutex<Shared>, Condvar)
     }
 }
 
-/// Resolve the mainnet seed list, then dial. One failed lookup or one bad
-/// address is discarded. The thread keeps going when another address remains.
+/// Resolve the mainnet seed list, then ask several peers at once.
+/// One failed lookup or one bad address is discarded. The thread keeps
+/// going when another address remains. The peer that first finishes the
+/// header sync stays up for later headers. The others are closed.
 fn run_seeds(
     opts: ClockOpts,
     lookup: Arc<dyn Fn(&str) -> Result<Vec<SocketAddr>, ()> + Send + Sync>,
     shared: Arc<(Mutex<Shared>, Condvar)>,
 ) {
     let mut attempt = 0u32;
-    let mut pending: Vec<SocketAddr> = Vec::new();
     loop {
-        if mark_down(&shared) {
+        if is_shutdown(&shared) || mark_down(&shared) {
             return;
         }
+        let mut pending = resolve_mainnet_seeds(lookup.as_ref(), &opts.log);
         if pending.is_empty() {
-            pending = resolve_mainnet_seeds(lookup.as_ref(), &opts.log);
-            if pending.is_empty() {
-                note_wait(&opts, "dns", &mut attempt);
-                continue;
-            }
+            note_wait(&opts, "dns", &mut attempt);
+            continue;
         }
-        let addr = pending.remove(0);
-        let mut learned = Vec::new();
-        match session(&opts, &addr.to_string(), &shared, true, &mut learned) {
-            Ok(SessionEnd::Reorg) => {
+        match race_seeds(&opts, &mut pending, &shared) {
+            RaceEnd::Reorg => {
                 mark_reorg(&shared);
                 return;
             }
+            RaceEnd::Shutdown => return,
+            // The peer that had the tip disconnected. Ask again.
+            RaceEnd::KeeperEnded => continue,
+            RaceEnd::Exhausted => note_wait(&opts, "peer_silence", &mut attempt),
+        }
+    }
+}
+
+enum RaceEnd {
+    Reorg,
+    Shutdown,
+    KeeperEnded,
+    Exhausted,
+}
+
+struct SlotReport {
+    addr: SocketAddr,
+    result: Result<SessionEnd, &'static str>,
+    learned: Vec<SocketAddr>,
+}
+
+/// Dial up to [`SEED_RACE`] addresses together. A peer that is not delivering
+/// the chain drops out and the next address takes its slot. Returns when the
+/// peer that reached the tip disconnects, or when every address has failed.
+fn race_seeds(
+    opts: &ClockOpts,
+    pending: &mut Vec<SocketAddr>,
+    shared: &Arc<(Mutex<Shared>, Condvar)>,
+) -> RaceEnd {
+    let (tx, rx) = mpsc::channel::<SlotReport>();
+    let mut inflight = 0usize;
+    let mut saw_live = false;
+    let mut dialed: Vec<SocketAddr> = Vec::new();
+    let mut wave_seen = wave_of(shared);
+    let mut wave_started = Instant::now();
+    loop {
+        let wave_now = wave_of(shared);
+        if wave_now != wave_seen {
+            wave_seen = wave_now;
+            wave_started = Instant::now();
+        }
+        consider_leader(shared, !pending.is_empty(), wave_started.elapsed());
+        while inflight < SEED_RACE
+            && !is_live(shared)
+            && !is_shutdown(shared)
+            && !is_reorg(shared)
+            && leader_of(shared).is_none()
+        {
+            let Some(addr) = take_undialed(pending, &dialed) else {
+                break;
+            };
+            dialed.push(addr);
+            inflight += 1;
+            let tx = tx.clone();
+            let opts = opts.clone();
+            let shared = Arc::clone(shared);
+            thread::spawn(move || {
+                let mut learned = Vec::new();
+                let result = session(&opts, &addr.to_string(), &shared, true, &mut learned);
+                let _ = tx.send(SlotReport {
+                    addr,
+                    result,
+                    learned,
+                });
+            });
+        }
+        if is_reorg(shared) {
+            return RaceEnd::Reorg;
+        }
+        if is_shutdown(shared) {
+            return RaceEnd::Shutdown;
+        }
+        if inflight == 0 {
+            return if saw_live {
+                RaceEnd::KeeperEnded
+            } else {
+                RaceEnd::Exhausted
+            };
+        }
+        let report = match rx.recv_timeout(Duration::from_millis(150)) {
+            Ok(report) => report,
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return RaceEnd::Shutdown,
+        };
+        inflight = inflight.saturating_sub(1);
+        if is_live(shared) {
+            saw_live = true;
+        }
+        match report.result {
+            Ok(SessionEnd::Reorg) => return RaceEnd::Reorg,
+            Err("shutdown") => return RaceEnd::Shutdown,
+            Err("superseded") => {}
             Err(class) => {
                 emit(
                     &opts.log,
-                    format!("gossip_seed_skip call_site=gossip_peer peer={addr} reason={class}"),
+                    format!(
+                        "gossip_seed_skip call_site=gossip_peer peer={} reason={class}",
+                        report.addr
+                    ),
                 );
-                for extra in learned {
-                    if usable_peer_addr(extra) && extra != addr && !pending.contains(&extra) {
+                for extra in report.learned {
+                    // On mainnet, addr messages name hosts that are not on
+                    // the default port. Those crowded out the DNS seeds.
+                    // Lab peers use an ephemeral port and must still be dialed.
+                    let mainnet_port =
+                        opts.network != GossipNetwork::Mainnet || extra.port() == MAINNET_DNS_PORT;
+                    if mainnet_port
+                        && usable_peer_addr(extra)
+                        && !dialed.contains(&extra)
+                        && !pending.contains(&extra)
+                    {
                         pending.push(extra);
                     }
-                }
-                if pending.is_empty() {
-                    note_wait(&opts, class, &mut attempt);
                 }
             }
         }
     }
+}
+
+fn take_undialed(pending: &mut Vec<SocketAddr>, dialed: &[SocketAddr]) -> Option<SocketAddr> {
+    while !pending.is_empty() {
+        let addr = pending.remove(0);
+        if !dialed.contains(&addr) {
+            return Some(addr);
+        }
+    }
+    None
 }
 
 fn mark_down(shared: &Arc<(Mutex<Shared>, Condvar)>) -> bool {
@@ -446,6 +661,10 @@ fn mark_down(shared: &Arc<(Mutex<Shared>, Condvar)>) -> bool {
         return true;
     }
     guard.live = false;
+    guard.epoch = guard.epoch.wrapping_add(1);
+    guard.leader = None;
+    guard.probes.clear();
+    guard.wave = guard.wave.wrapping_add(1);
     cv.notify_all();
     false
 }
@@ -469,6 +688,184 @@ enum SessionEnd {
     Reorg,
 }
 
+fn is_shutdown(shared: &Arc<(Mutex<Shared>, Condvar)>) -> bool {
+    let (lock, _) = &**shared;
+    lock.lock().unwrap_or_else(|err| err.into_inner()).shutdown
+}
+
+fn next_session_id(shared: &Arc<(Mutex<Shared>, Condvar)>) -> u64 {
+    let (lock, _) = &**shared;
+    let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    guard.next_id = guard.next_id.wrapping_add(1);
+    guard.next_id
+}
+
+/// True when this session may keep syncing. The seed race picks the leader
+/// from first-batch times. Until that pick, every racer stays.
+fn still_racing(shared: &Arc<(Mutex<Shared>, Condvar)>, session_id: u64) -> bool {
+    match leader_of(shared) {
+        Some(leader) => leader == session_id,
+        None => true,
+    }
+}
+
+fn leader_of(shared: &Arc<(Mutex<Shared>, Condvar)>) -> Option<u64> {
+    let (lock, _) = &**shared;
+    lock.lock().unwrap_or_else(|err| err.into_inner()).leader
+}
+
+fn wave_of(shared: &Arc<(Mutex<Shared>, Condvar)>) -> u64 {
+    let (lock, _) = &**shared;
+    lock.lock().unwrap_or_else(|err| err.into_inner()).wave
+}
+
+fn await_seed_leader(
+    shared: &Arc<(Mutex<Shared>, Condvar)>,
+    session_id: u64,
+    epoch: u64,
+    wave: u64,
+) -> Result<(), &'static str> {
+    let deadline = Instant::now() + Duration::from_secs(4);
+    loop {
+        if is_shutdown(shared) {
+            return Err("shutdown");
+        }
+        if epoch_of(shared) != epoch || wave_of(shared) != wave {
+            return Err("superseded");
+        }
+        match leader_of(shared) {
+            Some(id) if id == session_id => return Ok(()),
+            Some(_) => return Err("superseded"),
+            None => {}
+        }
+        if Instant::now() >= deadline {
+            return Err("superseded");
+        }
+        thread::sleep(Duration::from_millis(40));
+    }
+}
+
+fn note_probe(shared: &Arc<(Mutex<Shared>, Condvar)>, session_id: u64, millis: u128) {
+    let (lock, _) = &**shared;
+    let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    if !guard.probes.iter().any(|(id, _)| *id == session_id) {
+        guard.probes.push((session_id, millis));
+    }
+}
+
+/// Pick the racer whose first batch came back fast enough to finish the
+/// sync in about half a minute. A slower wave is dropped when more
+/// addresses remain.
+fn consider_leader(
+    shared: &Arc<(Mutex<Shared>, Condvar)>,
+    more_addresses: bool,
+    wave_age: Duration,
+) {
+    let (lock, _) = &**shared;
+    let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    if guard.leader.is_some() || guard.live || guard.probes.is_empty() {
+        return;
+    }
+    let Some((id, millis)) = guard
+        .probes
+        .iter()
+        .min_by_key(|(_, millis)| *millis)
+        .copied()
+    else {
+        return;
+    };
+    // One batch is one round trip. About 486 of them make the sync.
+    // A first batch near 140 ms has finished the sync in about 40 s here.
+    // A slower wave is dropped while other addresses remain.
+    const FAST_BATCH_MS: u128 = 200;
+    const SLOW_BATCH_MS: u128 = 350;
+    if millis <= FAST_BATCH_MS
+        || (wave_age >= Duration::from_secs(3) && (millis <= SLOW_BATCH_MS || !more_addresses))
+    {
+        guard.leader = Some(id);
+        eprintln!("gossip_seed_leader call_site=gossip_peer session={id} first_batch_ms={millis}");
+        return;
+    }
+    if wave_age >= Duration::from_secs(3) && more_addresses {
+        eprintln!("gossip_seed_wave call_site=gossip_peer best_ms={millis} action=next");
+        guard.wave = guard.wave.wrapping_add(1);
+        guard.probes.clear();
+        guard.leader = None;
+    }
+}
+
+struct RaceRole {
+    shared: Arc<(Mutex<Shared>, Condvar)>,
+    id: u64,
+}
+
+impl Drop for RaceRole {
+    fn drop(&mut self) {
+        let (lock, _) = &*self.shared;
+        let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+        if guard.leader == Some(self.id) && !guard.live {
+            guard.leader = None;
+            guard.probes.clear();
+            guard.wave = guard.wave.wrapping_add(1);
+        }
+    }
+}
+
+fn peer_lost_the_race(shared: &Arc<(Mutex<Shared>, Condvar)>, session_id: u64) -> bool {
+    let (lock, _) = &**shared;
+    let guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    match guard.leader {
+        Some(leader) => leader != session_id,
+        None => false,
+    }
+}
+
+fn session_has_the_tip(shared: &Arc<(Mutex<Shared>, Condvar)>, applied: u64) -> bool {
+    let (lock, _) = &**shared;
+    let guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    guard.chain.tip_height > 0 && applied >= guard.chain.tip_height
+}
+
+fn epoch_of(shared: &Arc<(Mutex<Shared>, Condvar)>) -> u64 {
+    let (lock, _) = &**shared;
+    lock.lock().unwrap_or_else(|err| err.into_inner()).epoch
+}
+
+fn is_live(shared: &Arc<(Mutex<Shared>, Condvar)>) -> bool {
+    let (lock, _) = &**shared;
+    lock.lock().unwrap_or_else(|err| err.into_inner()).live
+}
+
+fn is_reorg(shared: &Arc<(Mutex<Shared>, Condvar)>) -> bool {
+    let (lock, _) = &**shared;
+    lock.lock().unwrap_or_else(|err| err.into_inner()).reorg
+}
+
+fn adjust_peers(shared: &Arc<(Mutex<Shared>, Condvar)>, delta: i32) {
+    let (lock, cv) = &**shared;
+    let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    guard.peers = guard.peers.saturating_add_signed(delta);
+    cv.notify_all();
+}
+
+/// Counts one established peer until the session ends.
+struct PeerSlot<'a> {
+    shared: &'a Arc<(Mutex<Shared>, Condvar)>,
+}
+
+impl<'a> PeerSlot<'a> {
+    fn enter(shared: &'a Arc<(Mutex<Shared>, Condvar)>) -> Self {
+        adjust_peers(shared, 1);
+        Self { shared }
+    }
+}
+
+impl Drop for PeerSlot<'_> {
+    fn drop(&mut self) {
+        adjust_peers(self.shared, -1);
+    }
+}
+
 fn session(
     opts: &ClockOpts,
     peer: &str,
@@ -476,10 +873,46 @@ fn session(
     learn: bool,
     learned: &mut Vec<SocketAddr>,
 ) -> Result<SessionEnd, &'static str> {
+    // Captured before the handshake. A later attempt bumps the epoch and
+    // this session must not mark that attempt live.
+    let epoch = epoch_of(shared);
+    let wave = wave_of(shared);
+    let session_id = next_session_id(shared);
+    // Clears the leader if this sync ends before the tip is live, so the
+    // next address can take the sync.
+    let _role = RaceRole {
+        shared: Arc::clone(shared),
+        id: session_id,
+    };
     let mut stream = connect_peer(peer, opts.connect_timeout)?;
     stream.set_nodelay(true).map_err(|_| "peer_silence")?;
     let magic = opts.network.magic();
-    handshake(&mut stream, magic, opts.connect_timeout)?;
+    let mut inbox = StreamBuf::default();
+    // Armed only after the handshake. A peer that loses the race must not
+    // report shutdown: that would end the whole subscription.
+    let armed = AtomicBool::new(false);
+    let down = || {
+        is_shutdown(shared)
+            || epoch_of(shared) != epoch
+            || (armed.load(Ordering::Relaxed)
+                && (peer_lost_the_race(shared, session_id) || wave_of(shared) != wave))
+    };
+    if epoch_of(shared) != epoch {
+        return Err("superseded");
+    }
+    handshake(&mut stream, &mut inbox, magic, opts.connect_timeout, &down)?;
+    armed.store(true, Ordering::Relaxed);
+    if is_shutdown(shared) {
+        return Err("shutdown");
+    }
+    if epoch_of(shared) != epoch || is_reorg(shared) {
+        return if is_reorg(shared) {
+            Ok(SessionEnd::Reorg)
+        } else {
+            Err("superseded")
+        };
+    }
+    let _slot = PeerSlot::enter(shared);
     emit(
         &opts.log,
         format!("gossip_estab call_site=gossip_peer peer={peer}"),
@@ -495,14 +928,58 @@ fn session(
     // when the tip header is recent, means the peer has nothing newer. The
     // seed Observe is that tip. It does not wait for the next block.
     let mut asked_for_more = false;
+    // Pings and addr messages are not the tip. A peer that has finished the
+    // handshake and then sends no headers is dropped so the next address is tried.
+    let mut last_headers = Instant::now();
+    let session_started = Instant::now();
+    // Headers this session applied. The shared tip is not this peer's pace:
+    // another racer may have moved it.
+    let mut applied = 0u64;
+    const HEADER_STALL: Duration = Duration::from_secs(8);
     send_getheaders(opts, shared, &mut stream)?;
     loop {
+        if is_shutdown(shared) {
+            return Err("shutdown");
+        }
+        if epoch_of(shared) != epoch {
+            return Err("superseded");
+        }
+        if is_reorg(shared) {
+            return Ok(SessionEnd::Reorg);
+        }
+        // Another peer already has the tip. This sync is not the seed.
+        if !synced && is_live(shared) {
+            return Err("superseded");
+        }
+        // One streaming peer finishes the sync. The others close so they do
+        // not each pull a full copy of the chain.
+        if !synced && !still_racing(shared, session_id) {
+            return Err("superseded");
+        }
+        if !synced && header_sync_is_too_slow(session_started.elapsed(), applied) {
+            emit(
+                &opts.log,
+                format!(
+                    "gossip_seed_pace call_site=gossip_peer peer={peer} applied={applied} elapsed_ms={}",
+                    session_started.elapsed().as_millis()
+                ),
+            );
+            return Err("peer_silence");
+        }
+        if !synced && last_headers.elapsed() >= HEADER_STALL {
+            return Err("peer_silence");
+        }
         let read_for = if synced {
             opts.ping_interval
         } else {
-            opts.connect_timeout
+            // The lab clock's connect timeout is shorter than the stall.
+            // A quiet peer after a full batch still marks the tip live on that timeout.
+            HEADER_STALL
+                .saturating_sub(last_headers.elapsed())
+                .min(opts.connect_timeout)
+                .max(Duration::from_millis(50))
         };
-        match read_message(&mut stream, magic, read_for) {
+        match inbox.read_message(&mut stream, magic, read_for, &down) {
             Ok(message) => {
                 waiting_pong = None;
                 if message.command == "ping" {
@@ -521,6 +998,13 @@ fn session(
                     continue;
                 }
                 if message.command == "headers" {
+                    if epoch_of(shared) != epoch {
+                        return Err("superseded");
+                    }
+                    // Receipt time, before the chain lock. Apply time must
+                    // not make a fast peer look slow.
+                    let batch_ms = session_started.elapsed().as_millis();
+                    last_headers = Instant::now();
                     match apply_headers(opts, shared, &message.payload)? {
                         HeadersApply::Reorg => return Ok(SessionEnd::Reorg),
                         HeadersApply::Gap => {
@@ -528,11 +1012,31 @@ fn session(
                             send_getheaders(opts, shared, &mut stream)?;
                         }
                         HeadersApply::Batch { count } => {
+                            applied = applied.saturating_add(count as u64);
                             if !synced {
                                 if count < MAX_HEADERS {
-                                    mark_live(shared);
+                                    // A short batch is that peer's tip. On
+                                    // mainnet an old tip is not the seed.
+                                    if opts.network == GossipNetwork::Mainnet
+                                        && !tip_is_recent(shared)
+                                    {
+                                        return Err("peer_silence");
+                                    }
+                                    if !mark_live_if(shared, epoch) {
+                                        return Err("superseded");
+                                    }
                                     synced = true;
                                     asked_for_more = false;
+                                } else if matches!(opts.dial, Dial::MainnetSeeds(_))
+                                    && applied == count as u64
+                                {
+                                    // First full batch. Wait until this peer is
+                                    // the one chosen to finish the sync, so the
+                                    // others do not pull a second copy.
+                                    note_probe(shared, session_id, batch_ms);
+                                    await_seed_leader(shared, session_id, epoch, wave)?;
+                                    asked_for_more = true;
+                                    send_getheaders(opts, shared, &mut stream)?;
                                 } else {
                                     asked_for_more = true;
                                     send_getheaders(opts, shared, &mut stream)?;
@@ -543,8 +1047,17 @@ fn session(
                     continue;
                 }
             }
-            Err("timeout") if !synced && asked_for_more && tip_is_recent(shared) => {
-                mark_live(shared);
+            Err("shutdown") if is_shutdown(shared) => return Err("shutdown"),
+            Err("shutdown") => return Err("superseded"),
+            Err("timeout")
+                if !synced
+                    && asked_for_more
+                    && tip_is_recent(shared)
+                    && session_has_the_tip(shared, applied) =>
+            {
+                if !mark_live_if(shared, epoch) {
+                    return Err("superseded");
+                }
                 synced = true;
                 asked_for_more = false;
             }
@@ -568,11 +1081,34 @@ fn session(
     }
 }
 
-fn mark_live(shared: &Arc<(Mutex<Shared>, Condvar)>) {
+/// A peer that is not delivering the chain already in its hand is not the seed.
+/// The chain is about a million headers. A responsive peer finishes that sync
+/// in about half a minute. A peer a little slower still finishes inside about
+/// a minute, and these floors leave that sync alone. `applied` is how many
+/// headers this session has taken. Quiet peers are dropped by the stall timer.
+/// These floors drop a peer that is still talking but is far behind a
+/// one-minute sync. They do not drop a sync that already has most of the
+/// chain: starting again then misses that minute. A lab chain answers before
+/// the first floor.
+fn header_sync_is_too_slow(elapsed: Duration, applied: u64) -> bool {
+    (elapsed >= Duration::from_secs(8) && applied < 60_000)
+        || (elapsed >= Duration::from_secs(15) && applied < 200_000)
+        || (elapsed >= Duration::from_secs(30) && applied < 400_000)
+        || (elapsed >= Duration::from_secs(45) && applied < 600_000)
+        || elapsed >= Duration::from_secs(75)
+}
+
+/// Marks the tip live for this attempt. Returns false when a newer attempt
+/// has started, or the run has ended, so this session must not publish it.
+fn mark_live_if(shared: &Arc<(Mutex<Shared>, Condvar)>, epoch: u64) -> bool {
     let (lock, cv) = &**shared;
     let mut guard = lock.lock().unwrap_or_else(|err| err.into_inner());
+    if guard.epoch != epoch || guard.reorg || guard.shutdown {
+        return false;
+    }
     guard.live = true;
     cv.notify_all();
+    true
 }
 
 /// The tip header is close to now, so this is the peer's tip rather than an
@@ -682,8 +1218,10 @@ fn emit(log: &Option<Arc<Mutex<Vec<String>>>>, line: String) {
 
 fn handshake(
     stream: &mut TcpStream,
+    inbox: &mut StreamBuf,
     magic: [u8; 4],
     timeout: Duration,
+    shutdown: &dyn Fn() -> bool,
 ) -> Result<(), &'static str> {
     write_message(stream, magic, "version", &version_payload(0))?;
     let mut got_version = false;
@@ -694,7 +1232,7 @@ fn handshake(
         if left.is_zero() {
             return Err("peer_silence");
         }
-        let message = match read_message(stream, magic, left) {
+        let message = match inbox.read_message(stream, magic, left, shutdown) {
             Ok(message) => message,
             Err("timeout") => return Err("peer_silence"),
             Err(class) => return Err(class),
@@ -774,6 +1312,12 @@ fn resolve_mainnet_seeds(
             }
         }
     }
+    // IPv4 first. A stalled IPv6 path must not sit in front of a peer that
+    // already has the tip. Both families stay in the list.
+    out.sort_by_key(|addr| match addr {
+        SocketAddr::V4(_) => 0,
+        SocketAddr::V6(_) => 1,
+    });
     out
 }
 
@@ -1090,6 +1634,83 @@ fn write_message(
     stream
         .write_all(&frame)
         .map_err(|err| io_kind_class(err.kind()).unwrap_or("peer_silence"))
+}
+
+/// Bytes already read from the peer. A short read keeps what arrived, so a
+/// stop during a large `headers` message does not desynchronise the stream.
+#[derive(Default)]
+struct StreamBuf {
+    pending: Vec<u8>,
+}
+
+impl StreamBuf {
+    fn read_message(
+        &mut self,
+        stream: &mut TcpStream,
+        magic: [u8; 4],
+        timeout: Duration,
+        shutdown: &dyn Fn() -> bool,
+    ) -> Result<Message, &'static str> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            if shutdown() {
+                return Err("shutdown");
+            }
+            if let Some(message) = pop_message(&mut self.pending, magic)? {
+                return Ok(message);
+            }
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err("timeout");
+            }
+            let slice = Duration::from_millis(200).min(left);
+            stream
+                .set_read_timeout(Some(slice))
+                .map_err(|_| "peer_silence")?;
+            let mut tmp = [0u8; 65_536];
+            match stream.read(&mut tmp) {
+                Ok(0) => return Err("peer_silence"),
+                Ok(n) => self.pending.extend_from_slice(&tmp[..n]),
+                Err(err)
+                    if err.kind() == std::io::ErrorKind::TimedOut
+                        || err.kind() == std::io::ErrorKind::WouldBlock =>
+                {
+                    continue;
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(err) => return Err(io_kind_class(err.kind()).unwrap_or("peer_silence")),
+            }
+        }
+    }
+}
+
+fn pop_message(buf: &mut Vec<u8>, magic: [u8; 4]) -> Result<Option<Message>, &'static str> {
+    if buf.len() < 24 {
+        return Ok(None);
+    }
+    if buf[0..4] != magic {
+        return Err("peer_silence");
+    }
+    let length = u32::from_le_bytes(buf[16..20].try_into().unwrap()) as usize;
+    if length > MAX_MESSAGE {
+        return Err("peer_silence");
+    }
+    let total = 24 + length;
+    if buf.len() < total {
+        return Ok(None);
+    }
+    let frame: Vec<u8> = buf.drain(..total).collect();
+    let payload = frame[24..].to_vec();
+    let sum = sha256d(&payload);
+    if frame[20..24] != sum[..4] {
+        return Err("peer_silence");
+    }
+    let command = frame[4..16]
+        .iter()
+        .take_while(|byte| **byte != 0)
+        .map(|byte| *byte as char)
+        .collect();
+    Ok(Some(Message { command, payload }))
 }
 
 fn read_message(
@@ -2026,7 +2647,15 @@ mod tests {
     fn drop_subscribed_peer(peer: &str) {
         let mut stream = TcpStream::connect(peer).unwrap();
         let magic = GossipNetwork::Regtest.magic();
-        handshake(&mut stream, magic, Duration::from_secs(2)).unwrap();
+        let mut inbox = StreamBuf::default();
+        handshake(
+            &mut stream,
+            &mut inbox,
+            magic,
+            Duration::from_secs(2),
+            &|| false,
+        )
+        .unwrap();
         write_message(&mut stream, magic, "sendheaders", &[]).unwrap();
     }
 
@@ -2272,5 +2901,88 @@ mod tests {
             height, MAX_HEADERS as u64,
             "the seed Observe is the header already in hand"
         );
+    }
+
+    #[test]
+    fn a_slow_header_walk_is_not_kept() {
+        assert!(!header_sync_is_too_slow(Duration::from_secs(7), 0));
+        assert!(header_sync_is_too_slow(Duration::from_secs(8), 1_000));
+        assert!(!header_sync_is_too_slow(Duration::from_secs(8), 60_000));
+        assert!(!header_sync_is_too_slow(Duration::from_secs(15), 200_000));
+        assert!(header_sync_is_too_slow(Duration::from_secs(15), 10_000));
+        // 522_000 headers at 30 s is still on pace for about a minute.
+        // Cutting that sync off and dialing again misses the minute.
+        assert!(!header_sync_is_too_slow(Duration::from_secs(30), 522_000));
+        assert!(!header_sync_is_too_slow(Duration::from_secs(30), 400_000));
+        assert!(header_sync_is_too_slow(Duration::from_secs(30), 100_000));
+        assert!(!header_sync_is_too_slow(Duration::from_secs(45), 970_000));
+        assert!(header_sync_is_too_slow(Duration::from_secs(45), 200_000));
+        assert!(header_sync_is_too_slow(Duration::from_secs(75), 970_000));
+    }
+
+    /// The slow peer is listed first and never sends headers. The fast peer
+    /// already has the tip. The seed is that tip, without waiting out the
+    /// slow peer's read.
+    #[test]
+    fn seed_race_reads_the_peer_that_already_has_the_tip() {
+        let slow_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let slow_addr = slow_listener.local_addr().unwrap();
+        thread::spawn(move || {
+            if let Ok((stream, _)) = slow_listener.accept() {
+                serve_quiet(stream);
+            }
+        });
+        let fast_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let fast_addr = fast_listener.local_addr().unwrap();
+        let fast_chain = regtest_chain(4);
+        thread::spawn(move || {
+            if let Ok((stream, _)) = fast_listener.accept() {
+                serve_caught_up(stream, fast_chain, true);
+            }
+        });
+        let lookup = Arc::new(move |seed: &str| -> Result<Vec<SocketAddr>, ()> {
+            if seed == MAINNET_DNS_SEEDS[0] {
+                Ok(vec![slow_addr, fast_addr])
+            } else {
+                Err(())
+            }
+        });
+        let clock = HeaderClock::spawn(ClockOpts {
+            dial: Dial::MainnetSeeds(lookup),
+            network: GossipNetwork::Regtest,
+            connect_timeout: Duration::from_secs(2),
+            ping_interval: Duration::from_secs(30),
+            silence_timeout: Duration::from_secs(30),
+            skip_pause: true,
+            log: None,
+        });
+        let started = Instant::now();
+        let (_tip, height) = wait_observe(&clock);
+        let elapsed = started.elapsed();
+        assert_eq!(height, 4);
+        assert!(
+            elapsed < Duration::from_millis(1500),
+            "slow peer blocked the seed for {elapsed:?}"
+        );
+        clock.shutdown();
+    }
+
+    /// Handshake, then no headers. Answers ping so a stall is not a dead socket.
+    fn serve_quiet(mut stream: TcpStream) {
+        let magic = GossipNetwork::Regtest.magic();
+        let mut got_version = false;
+        loop {
+            let message = match read_message(&mut stream, magic, Duration::from_secs(2)) {
+                Ok(message) => message,
+                Err(_) => return,
+            };
+            if message.command == "version" && !got_version {
+                got_version = true;
+                let _ = write_message(&mut stream, magic, "version", &version_payload(1));
+                let _ = write_message(&mut stream, magic, "verack", &[]);
+            } else if message.command == "ping" {
+                let _ = write_message(&mut stream, magic, "pong", &message.payload);
+            }
+        }
     }
 }

@@ -2,11 +2,11 @@
 
 Planning map for the Groundinglab fork of Primal Android. This document names files and symbols that already exist. It does not add product behavior.
 
-PCOC (cost-backed hike objects) lives in [groundinglab/pcoc-private](https://github.com/groundinglab/pcoc-private). This repository consumes that work later as a dependency. It does not host the protocol.
+PCOC (cost-backed hike objects) lives in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This repository consumes that work later as a dependency. It does not host the protocol.
 
 Terms used below, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation. First-ship intent is parked until the Bari waypoint-anchoring GO. Assume the **live** profile. TEST stays paused: do not add a profile switch in this app.
 
-Issue [#87](https://github.com/groundinglab/pcoc-private/issues/87) on `groundinglab/pcoc-private` was not readable from this environment (HTTP 404). The locks below are the ones given for this plan. Confirm them against the issue before any code phase in [DEV-PLAN.md](DEV-PLAN.md).
+The locks below are the ones given for this plan. The normative text is the specification in [groundinglab/pcoc](https://github.com/groundinglab/pcoc) ([`spec/`](https://github.com/groundinglab/pcoc/tree/main/spec)).
 
 ## Locks carried into the map
 
@@ -110,12 +110,12 @@ Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged
 Checked and absent:
 
 - Account → PCOC lives in `net.primal.android.pcoc`. Enroll stores the picked file bytes for the signed-in account. It does not call `hike::yielded_public_key` or `object_public_key`, and it does not load a hike JNI library.
-- `pcoc-bridge/` vendors the hike crate from groundinglab/pcoc-private origin/main `148d6bac84a6e8987ad4faab168881f9403523be` and exposes produce and verify through JNI.
+- `pcoc-bridge/` vendors the hike crate from [groundinglab/pcoc](https://github.com/groundinglab/pcoc) tag [`ref-rust-v2.0.4`](https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike) and exposes produce and verify through JNI.
 - No `leg` / `leg result` types.
 
 The JNI that does exist for signatures is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Request service admission calls it on the 32 bytes of query `h`. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for admission. `CryptoUtils.verify` checks a Nostr event signature. The phone does not show a local verify result. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.
 
-No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc-private` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
+No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
 
 `STAGES` is 18. A leg is 1,000,000 steps. Verify any uses those constants. It does not invent a per-stage table, and it does not show a leg or a leg result.
 

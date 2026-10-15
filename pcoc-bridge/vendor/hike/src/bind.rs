@@ -142,7 +142,6 @@ mod tests {
         let fold = [0x55; 32];
         let pre = waypoint_preimage(&beacon, &slot, &opening, &fold);
         assert_eq!(pre.len(), 16_480);
-        assert_eq!(pre.len(), WAYPOINT_PREIMAGE_LEN);
         assert_eq!(&pre[..32], &beacon);
         assert_eq!(pre[32], 0x22);
         assert_eq!(pre[32 + SLOT_BYTES - 1], 0x33);

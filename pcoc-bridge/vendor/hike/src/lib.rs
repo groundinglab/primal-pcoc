@@ -10,7 +10,6 @@ mod args;
 mod audit;
 mod bind;
 mod cbor;
-mod chainrpc;
 mod clock;
 mod consts;
 mod gossip;
@@ -19,7 +18,7 @@ mod hex;
 mod http;
 mod object;
 mod pathbody;
-mod pathchain;
+pub mod pathchain;
 mod plane;
 mod produce;
 mod producelog;
@@ -40,13 +39,14 @@ pub use args::{
 pub use bind::{
     checkpoint_sized, successor_waypoint, successor_waypoint_sized, terrain_sample_sized,
 };
-pub use chainrpc::ChainRpc;
 pub use clock::{parse_index_beacon, parse_index_document, IndexBeacon};
 pub use consts::{
-    anchor_window, height_in_anchor_window, Sizes, ANCHOR_WINDOW_OFFSETS, CHECKPOINT_PREIMAGE_LEN,
-    DEFAULT_BIND_THREADS, DEFAULT_INDEX_URL, EARLIER_KINDS, KIND, LEG_RATE_FLOOR_DEFAULT,
-    LEG_RATE_FLOOR_LENIENT, LEG_RATE_FLOOR_STRICT, N_SLOTS, OFFSET_MODULUS, SAMPLE_BYTES,
-    SLOT_BYTES, STEPS_PER_LEG,
+    anchor_window, height_in_anchor_window, Sizes, ANCHOR_WINDOW_OFFSETS, BEACON_BYTES,
+    CHECKPOINT_PREIMAGE_LEN, DEFAULT_BIND_THREADS, DEFAULT_INDEX_URL, EARLIER_KINDS, FILL,
+    HASH_BYTES, KIND, LEG_RATE_FLOOR_DEFAULT, LEG_RATE_FLOOR_LENIENT, LEG_RATE_FLOOR_STRICT,
+    LEG_RESULT_BYTES, MIX_ADD, MIX_MUL1, MIX_MUL2, N_SLOTS, OFFSET_MODULUS, PARENT_MUL,
+    PUBLIC_KEY_BYTES, SAMPLE_BYTES, SEAL_DOMAIN, SEED_DOMAIN, SLOT_BYTES, SLOT_MUL, STAGES,
+    STEPS_PER_LEG, TERRAIN_BYTES, WORDS_PER_SLOT, WORD_XOR,
 };
 pub use gossip::{
     note_produce_headers, serve_synth, GossipNetwork, HeaderClock, TipTick, MAINNET_DNS_PORT,
@@ -64,12 +64,9 @@ pub use object::{
     earlier_object_kind, encode_hike, encode_hike_sized, object_public_key, structural_object,
     yielded_public_key, Hike, Stage, YieldedKey,
 };
-pub use pathbody::{encode_path_in_block, encode_single_leaf, PathLocators};
+pub use pathbody::{encode_path_in_block, encode_single_leaf, path_locators, PathError, PathLocators};
 pub use pathchain::{direct_facts, direct_matches, proxy_matches, DirectFacts, MAINNET_NETWORK};
-pub use plane::{
-    judge_test_policy, live_plane_host, names_retired_tip, GateJudgment, GateSkip,
-    TestGateMeasurement,
-};
+pub use plane::live_plane_host;
 pub use produce::{
     produce, produce_stage, produce_with_settlement, produce_with_settlement_sized, ProduceFailure,
     StageRun,

@@ -246,7 +246,7 @@ impl CanonicalPathBody {
     }
 }
 
-pub(crate) fn path_locators(bytes: &[u8]) -> Result<PathLocators, PathError> {
+pub fn path_locators(bytes: &[u8]) -> Result<PathLocators, PathError> {
     Ok(CanonicalPathBody::decode(bytes)?.locators())
 }
 

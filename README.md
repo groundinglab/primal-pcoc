@@ -5,7 +5,7 @@
 > - Upstream project: [github.com/PrimalHQ/primal-android-app](https://github.com/PrimalHQ/primal-android-app)
 > - Upstream product: [primal.net](https://primal.net)
 > - License: MIT — see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md)
-> - PCOC lab monorepo (separate): [groundinglab/pcoc-private](https://github.com/groundinglab/pcoc-private). Tonight MVP SPEC: [docs/pcoc/FEATURES-v0.1.md](docs/pcoc/FEATURES-v0.1.md). Cut points and the development plan: [docs/pcoc/CUT-POINTS.md](docs/pcoc/CUT-POINTS.md), [docs/pcoc/DEV-PLAN.md](docs/pcoc/DEV-PLAN.md).
+> - PCOC specification and reference (separate): [groundinglab/pcoc](https://github.com/groundinglab/pcoc). Tonight MVP SPEC: [docs/pcoc/FEATURES-v0.1.md](docs/pcoc/FEATURES-v0.1.md). Cut points and the development plan: [docs/pcoc/CUT-POINTS.md](docs/pcoc/CUT-POINTS.md), [docs/pcoc/DEV-PLAN.md](docs/pcoc/DEV-PLAN.md).
 >
 > This fork is **not** an official Primal release. Do not confuse it with builds from Primal Systems Inc.
 

@@ -11,6 +11,9 @@ pub const STAGES: usize = 18;
 /// Section 9 and section 14. A JSON integer on the verify record stays inside this bound.
 pub(crate) const JSON_INT_MAX: u64 = (1 << 53) - 1;
 pub const HASH_BYTES: usize = 32;
+pub const LEG_RESULT_BYTES: usize = 8;
+pub const PUBLIC_KEY_BYTES: usize = 32;
+pub const BEACON_BYTES: usize = 32;
 
 pub const SEAL_DOMAIN: &[u8; 12] = b"pcoc-walk-v1";
 pub const SEED_DOMAIN: &[u8; 8] = b"PSEED64\0";
@@ -38,7 +41,6 @@ pub const PARENT_MUL: u64 = 0xD1B54A32D192ED03;
 pub const SLOT_MUL: u64 = 0xA24BAED4963EE407;
 
 pub const CHECKPOINT_PREIMAGE_LEN: usize = 32 + 32 + SAMPLE_BYTES + 8;
-pub const WAYPOINT_PREIMAGE_LEN: usize = 32 + SLOT_BYTES + 32 + 32;
 
 /// Live Bari. Filled only by the explicit live profile.
 pub const LIVE_BARI_URL: &str = "https://bari.groundinglab.io";
@@ -55,7 +57,6 @@ const _: () = assert!(N_SLOTS == TERRAIN_BYTES / SLOT_BYTES);
 const _: () = assert!(TERRAIN_BYTES == N_SLOTS * SLOT_BYTES);
 const _: () = assert!(OFFSET_MODULUS == (TERRAIN_BYTES - SAMPLE_BYTES + 1) as u64);
 const _: () = assert!(CHECKPOINT_PREIMAGE_LEN == 1096);
-const _: () = assert!(WAYPOINT_PREIMAGE_LEN == 16_480);
 const _: () = assert!(STEPS_PER_LEG == 2_000_000);
 const _: () = assert!(STAGES == 18);
 const _: () = assert!(ANCHOR_WINDOW_OFFSETS[0] == 2);
@@ -97,7 +98,7 @@ impl Sizes {
     ///
     /// Same integers as the Go and Java `ConformanceSmallV2` profile:
     /// sample 32, slot 64, terrain 256, steps 32.
-    /// `WORDS_PER_SLOT` is 8, `N_SLOTS` is 4, `OFFSET_MODULUS` is 225.
+    /// Words per slot is 8, `N_SLOTS` is 4, `OFFSET_MODULUS` is 225.
     pub const fn conformance_small() -> Self {
         Self {
             sample_bytes: 32,
@@ -127,17 +128,20 @@ impl Sizes {
     }
 }
 
-const SMALL: Sizes = Sizes::conformance_small();
-const _: () = assert!(SMALL.slot_bytes >= 8 && SMALL.slot_bytes % 8 == 0);
-const _: () = assert!(SMALL.slot_bytes <= SLOT_BYTES);
-const _: () = assert!(SMALL.steps_per_leg >= 1 && SMALL.steps_per_leg <= STEPS_PER_LEG);
-const _: () = assert!(SMALL.sample_bytes >= 1 && SMALL.sample_bytes <= SAMPLE_BYTES);
-const _: () = assert!(SMALL.terrain_bytes <= TERRAIN_BYTES);
-const _: () = assert!(SMALL.terrain_bytes % SMALL.slot_bytes == 0);
-const _: () = assert!(SMALL.offset_modulus() >= 1);
-const _: () = assert!(SMALL.words_per_slot() == 8);
-const _: () = assert!(SMALL.n_slots() == 4);
-const _: () = assert!(SMALL.offset_modulus() == 225);
+// Section 6 small-size profile, checked at compile time.
+const _: () = {
+    let small = Sizes::conformance_small();
+    assert!(small.slot_bytes >= 8 && small.slot_bytes % 8 == 0);
+    assert!(small.slot_bytes <= SLOT_BYTES);
+    assert!(small.steps_per_leg >= 1 && small.steps_per_leg <= STEPS_PER_LEG);
+    assert!(small.sample_bytes >= 1 && small.sample_bytes <= SAMPLE_BYTES);
+    assert!(small.terrain_bytes <= TERRAIN_BYTES);
+    assert!(small.terrain_bytes % small.slot_bytes == 0);
+    assert!(small.offset_modulus() >= 1);
+    assert!(small.words_per_slot() == 8);
+    assert!(small.n_slots() == 4);
+    assert!(small.offset_modulus() == 225);
+};
 
 /// Section 13.1. The one height H: the stage's stored beacon height.
 ///
@@ -196,7 +200,12 @@ mod tests {
     fn p6_23_conformance_small_keeps_the_section_6_formulas() {
         let small = Sizes::conformance_small();
         assert_eq!(
-            (small.sample_bytes, small.slot_bytes, small.terrain_bytes, small.steps_per_leg),
+            (
+                small.sample_bytes,
+                small.slot_bytes,
+                small.terrain_bytes,
+                small.steps_per_leg
+            ),
             (32, 64, 256, 32)
         );
         assert_eq!(small.words_per_slot(), small.slot_bytes / 8);
@@ -240,5 +249,70 @@ mod tests {
         assert!(below(7, 20, 1, 4));
         assert!(meets(1, 4, 1, 4));
         assert!(meets(1, 8, 1, 4));
+    }
+}
+
+/// SPEC v2.0 section 6, rules P6.1-P6.25, and the section 16.1
+/// conformance-small sizes. Changing or removing any of these fails CI.
+#[cfg(test)]
+mod spec6_pins {
+    use super::*;
+
+    #[test]
+    fn spec6_constants_are_pinned() {
+        assert_eq!(SLOT_BYTES, 16384, "P6.1");
+        assert_eq!(SLOT_BYTES / 8, 2048, "P6.2 WORDS_PER_SLOT");
+        assert_eq!(SLOT_BYTES % 8, 0, "P6.23");
+        assert_eq!(TERRAIN_BYTES, 268_435_456, "P6.3");
+        assert_eq!(N_SLOTS, 16384, "P6.4");
+        assert_eq!(N_SLOTS * SLOT_BYTES, TERRAIN_BYTES, "P6.24");
+        assert_eq!(SAMPLE_BYTES, 1024, "P6.5");
+        assert_eq!(OFFSET_MODULUS, 268_434_433, "P6.6");
+        assert_eq!(
+            OFFSET_MODULUS,
+            (TERRAIN_BYTES - SAMPLE_BYTES + 1) as u64,
+            "P6.25"
+        );
+        assert_eq!(STEPS_PER_LEG, 2_000_000, "P6.7");
+        assert_eq!(STAGES, 18, "P6.8");
+        assert_eq!(HASH_BYTES, 32, "P6.9");
+        assert_eq!(SEAL_DOMAIN, b"pcoc-walk-v1", "P6.13");
+        assert_eq!(SEED_DOMAIN, b"PSEED64\0", "P6.14");
+        assert_eq!(KIND, "satoshi-hike-v2.0-object", "P6.15");
+        assert_eq!(FILL, "dag2", "P6.16");
+        assert_eq!(MIX_ADD, 0x9E3779B97F4A7C15, "P6.17");
+        assert_eq!(MIX_MUL1, 0xBF58476D1CE4E5B9, "P6.18");
+        assert_eq!(MIX_MUL2, 0x94D049BB133111EB, "P6.19");
+        assert_eq!(WORD_XOR, 0xC0FFEE, "P6.20");
+        assert_eq!(PARENT_MUL, 0xD1B54A32D192ED03, "P6.21");
+        assert_eq!(SLOT_MUL, 0xA24BAED4963EE407, "P6.22");
+        assert_eq!(
+            Sizes::production(),
+            Sizes {
+                sample_bytes: 1024,
+                slot_bytes: 16384,
+                terrain_bytes: 268_435_456,
+                steps_per_leg: 2_000_000
+            }
+        );
+    }
+
+    #[test]
+    fn conformance_small_sizes_are_pinned() {
+        let s = Sizes::conformance_small();
+        assert_eq!(
+            s,
+            Sizes {
+                sample_bytes: 32,
+                slot_bytes: 64,
+                terrain_bytes: 256,
+                steps_per_leg: 32
+            },
+            "16.1"
+        );
+        assert_eq!(s.slot_bytes / 8, 8, "P6.23 small");
+        assert_eq!(s.terrain_bytes / s.slot_bytes, 4, "P6.24 small");
+        assert_eq!(s.terrain_bytes - s.sample_bytes + 1, 225, "P6.25 small");
+        assert!(!s.is_production());
     }
 }

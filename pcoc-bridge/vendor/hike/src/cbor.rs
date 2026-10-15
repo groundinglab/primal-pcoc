@@ -142,6 +142,7 @@ pub(crate) fn decode_head(data: &[u8]) -> Result<(Cbor, bool), Fail> {
     Ok((value, cur.i != data.len()))
 }
 
+#[cfg(test)]
 pub(crate) fn decode_one(data: &[u8]) -> Result<Cbor, Fail> {
     let (value, trailing) = decode_head(data)?;
     if trailing {

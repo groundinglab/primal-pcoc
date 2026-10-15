@@ -196,7 +196,7 @@ pub enum SixLegs {
     Rewalked {
         /// Global indices in the order drawn.
         indices: Vec<u64>,
-        /// Same order. True when the re-walked leg result equals the stored leg result.
+        /// Same order. True when the recomputed leg result equals the stored leg result.
         matches: Vec<bool>,
     },
 }
@@ -2257,7 +2257,7 @@ mod tests {
     fn block_hash_on_p_b_p_g_and_claimed_block_is_display_order() {
         let pin: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(format!(
-                "{}/../../conformance/blockhash-display.json",
+                "{}/../../../spec/conformance/blockhash-display.json",
                 env!("CARGO_MANIFEST_DIR")
             ))
             .unwrap(),

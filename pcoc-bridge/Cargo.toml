@@ -1,7 +1,6 @@
 # Android bridge workspace.
-# hike is vendored from groundinglab/pcoc-private origin/main
-# 148d6bac84a6e8987ad4faab168881f9403523be.
-# Live Bari and index hosts retargeted to groundinglab.io (pcoc#317).
+# hike is vendored from groundinglab/pcoc tag ref-rust-v2.0.4 (reference/rust/hike).
+# Live Bari and index hosts are groundinglab.io.
 [workspace]
 resolver = "2"
 members = ["vendor/hike", "bridge"]

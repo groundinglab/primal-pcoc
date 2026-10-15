@@ -1,7 +1,7 @@
 use crate::consts::*;
 use crate::sha::sha256;
 
-/// Next walk state after one step. `s_folded` is the integer folded into the seal.
+/// Next leg state after one step. `s_folded` is the integer folded into the seal.
 pub fn seal(s_folded: u64) -> u64 {
     let mut pre = [0u8; 20];
     pre[..12].copy_from_slice(SEAL_DOMAIN);
