@@ -26,6 +26,33 @@ fn live_zone_host(host: &str) -> bool {
     bytes.len() > suffix.len() && bytes[bytes.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
 }
 
+/// An `https` origin URL with no userinfo, path, query, or fragment, on any
+/// host and port. The live profile accepts any operator's origin.
+pub fn is_https_origin(url: &str) -> bool {
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return false;
+    };
+    if !scheme.eq_ignore_ascii_case("https") {
+        return false;
+    }
+    if rest.is_empty() || rest.contains(['/', '?', '#', '@']) {
+        return false;
+    }
+    match rest.rsplit_once(':') {
+        Some((name, port)) => !name.is_empty() && port.parse::<u16>().is_ok_and(|p| p != 0),
+        None => true,
+    }
+}
+
+/// Warning for a live URL whose host is not the example deployment's. The
+/// command still proceeds with the operator the caller named.
+pub fn other_operator_warning(flag: &str, url: &str, example_host: &str) -> String {
+    format!(
+        "warning: {flag} {url} is not {example_host}, groundinglab's example deployment. \
+         Proceeding with the operator you named."
+    )
+}
+
 /// `https://{host}` with optional port 443. Scheme is case-insensitive.
 pub fn is_https_live_origin(url: &str, host: &str) -> bool {
     let Some((scheme, rest)) = url.split_once("://") else {
@@ -80,6 +107,19 @@ fn url_hostname(url: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn any_https_operator_origin_is_accepted() {
+        assert!(is_https_origin("https://bari.example.org"));
+        assert!(is_https_origin("https://index.example.org:8443"));
+        assert!(!is_https_origin("http://bari.example.org"));
+        assert!(!is_https_origin("https://bari.example.org/path"));
+        assert!(!is_https_origin("https://user@bari.example.org"));
+        assert!(!is_https_origin("https://bari.example.org:0"));
+        let w = other_operator_warning("--bari-url", "https://bari.example.org", LIVE_BARI_HOST);
+        assert!(w.starts_with("warning: --bari-url https://bari.example.org is not bari.groundinglab.io"));
+        assert!(w.ends_with("Proceeding with the operator you named."));
+    }
 
     #[test]
     fn live_hosts_are_recognized_without_filling_them() {
