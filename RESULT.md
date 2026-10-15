@@ -20,7 +20,7 @@ Vendored hike crate from [groundinglab/pcoc](https://github.com/groundinglab/pco
 
 Sibling checkout: `/home/hodl315/pcoc-build/worktrees/pcoc-main-android-ref` (detached at that commit). Tag `ref-v2.0.0` is `6e62e4c` / `ed88a47`, which is behind main. Main is the pin because it includes the verify block-hash display-order fix. `pcoc-bridge/vendor/hike/tests/` was not copied. The library sources are otherwise the reference.
 
-The vendored crate names `tip.pcoc.app` only so it can refuse that retired host. Product copy does not dial it. Live produce posts to `https://bari.pcoc.app`. Verify reads `https://index.pcoc.app`.
+The vendored crate names `tip.pcoc.app` only so it can refuse that retired host. Product copy does not dial it. Live produce posts to `https://bari.groundinglab.io`. Verify reads `https://index.groundinglab.io`.
 
 ## What landed
 
