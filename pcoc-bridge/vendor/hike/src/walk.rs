@@ -2,6 +2,7 @@ use crate::consts::*;
 use crate::sha::sha256;
 
 /// Next leg state after one step. `s_folded` is the integer folded into the seal.
+#[inline(always)]
 pub fn seal(s_folded: u64) -> u64 {
     let mut pre = [0u8; 20];
     pre[..12].copy_from_slice(SEAL_DOMAIN);
@@ -11,8 +12,28 @@ pub fn seal(s_folded: u64) -> u64 {
     u64::from_le_bytes(digest[..8].try_into().unwrap())
 }
 
+/// Production step. Slot count and words-per-slot are literals here so LLVM
+/// can turn `state % N_SLOTS` into a mask and vectorise the 2048-word fold.
+/// The sized path below keeps the generic profile for conformance.
+#[inline(always)]
 pub fn step(terrain: &[u8], state: u64) -> u64 {
-    step_sized(terrain, state, Sizes::production())
+    debug_assert_eq!(terrain.len(), TERRAIN_BYTES);
+    // N_SLOTS is 16384 = 2^14 (see consts.rs). A mask matches `%` for every u64.
+    const _: () = assert!(N_SLOTS.is_power_of_two());
+    const N_SLOTS_MASK: u64 = (N_SLOTS as u64) - 1;
+    let i = (state & N_SLOTS_MASK) as usize;
+    let start = i * SLOT_BYTES;
+    // i < N_SLOTS and len == TERRAIN_BYTES, so the slot is in range. One slice
+    // check covers the whole fold; the per-word indexing below is then exact.
+    let slot = &terrain[start..start + SLOT_BYTES];
+    let mut folded = state;
+    // Const trip count WORDS_PER_SLOT (2048): LLVM vectorises under release.
+    for w in 0..WORDS_PER_SLOT {
+        let off = w * 8;
+        let word = u64::from_le_bytes(slot[off..off + 8].try_into().unwrap());
+        folded ^= word ^ (w as u64);
+    }
+    seal(folded)
 }
 
 pub fn step_sized(terrain: &[u8], state: u64, sizes: Sizes) -> u64 {
@@ -88,5 +109,22 @@ mod tests {
         assert_eq!(sizes.steps_per_leg, 32);
         assert_ne!(state, start);
         assert_eq!(leg_result_sized(&terrain, &previous, sizes), state);
+    }
+
+    /// Production step matches the sized path with production sizes (mask ≡ %).
+    #[test]
+    fn production_step_matches_sized() {
+        let sizes = Sizes::production();
+        let mut terrain = vec![0u8; sizes.terrain_bytes];
+        for (i, b) in terrain.iter_mut().enumerate() {
+            *b = (i as u8).wrapping_mul(17).wrapping_add(3);
+        }
+        let mut state = 0x0123_4567_89ab_cdefu64;
+        for _ in 0..64 {
+            let a = step(&terrain, state);
+            let b = step_sized(&terrain, state, sizes);
+            assert_eq!(a, b);
+            state = a;
+        }
     }
 }

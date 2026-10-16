@@ -1,5 +1,5 @@
 # Android bridge workspace.
-# hike is vendored from groundinglab/pcoc tag ref-rust-v2.0.5 (reference/rust/hike).
+# hike is vendored from groundinglab/pcoc branch perf/produce-speed (walk specialize + sha2 asm).
 # Live Bari and index hosts default to groundinglab.io; other https origins warn and proceed.
 [workspace]
 resolver = "2"
@@ -10,4 +10,7 @@ members = ["vendor/hike", "bridge"]
 opt-level = 3
 
 [profile.release]
-lto = "thin"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
