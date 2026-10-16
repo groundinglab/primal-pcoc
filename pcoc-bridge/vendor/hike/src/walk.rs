@@ -12,31 +12,44 @@ pub fn seal(s_folded: u64) -> u64 {
     u64::from_le_bytes(digest[..8].try_into().unwrap())
 }
 
-/// `N_SLOTS` is a power of two for the section 6 sizes (16384 = 2^14).
-/// Checked at compile time; if a future profile breaks that, `step` falls
-/// back to the generic `step_sized` instead of the mask.
-pub const N_SLOTS_IS_POW2: bool = N_SLOTS.is_power_of_two();
-const _: () = assert!(N_SLOTS_IS_POW2, "production N_SLOTS must be a power of two for the mask path");
-
-/// Production step. Slot count and words-per-slot are literals here so LLVM
-/// can turn `state % N_SLOTS` into a mask and vectorise the 2048-word fold.
+/// Mask path. Only valid when `n_slots` is a power of two; callers select it
+/// with `is_power_of_two()`. With production constants inlined, LLVM turns the
+/// mask into a shift and vectorises the fold.
 #[inline(always)]
-pub fn step(terrain: &[u8], state: u64) -> u64 {
-    if !N_SLOTS_IS_POW2 {
-        return step_sized(terrain, state, Sizes::production());
-    }
-    const N_SLOTS_MASK: u64 = (N_SLOTS as u64).wrapping_sub(1);
-    let i = (state & N_SLOTS_MASK) as usize;
-    let start = i * SLOT_BYTES;
-    // One slice check covers the whole fold.
-    let slot = &terrain[start..start + SLOT_BYTES];
+fn step_masked(terrain: &[u8], state: u64, n_slots: usize, slot_bytes: usize) -> u64 {
+    debug_assert!(n_slots.is_power_of_two());
+    let i = (state & (n_slots as u64 - 1)) as usize;
+    let start = i * slot_bytes;
+    let slot = &terrain[start..start + slot_bytes];
     let mut folded = state;
-    for w in 0..WORDS_PER_SLOT {
+    for w in 0..slot_bytes / 8 {
         let off = w * 8;
         let word = u64::from_le_bytes(slot[off..off + 8].try_into().unwrap());
         folded ^= word ^ (w as u64);
     }
     seal(folded)
+}
+
+/// Picks the mask path for power-of-two slot counts, else the generic `%`.
+#[inline(always)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn step_select(terrain: &[u8], state: u64, sizes: Sizes) -> u64 {
+    let n = sizes.n_slots();
+    if n.is_power_of_two() {
+        step_masked(terrain, state, n, sizes.slot_bytes)
+    } else {
+        step_sized(terrain, state, sizes)
+    }
+}
+
+/// Production step (section 6 sizes, constants visible to LLVM).
+#[inline(always)]
+pub fn step(terrain: &[u8], state: u64) -> u64 {
+    if N_SLOTS.is_power_of_two() {
+        step_masked(terrain, state, N_SLOTS, SLOT_BYTES)
+    } else {
+        step_sized(terrain, state, Sizes::production())
+    }
 }
 
 pub fn step_sized(terrain: &[u8], state: u64, sizes: Sizes) -> u64 {
@@ -144,17 +157,19 @@ mod tests {
         seal(folded)
     }
 
-    /// Non-power-of-two slot counts go through `step_sized` and match `%`.
+    /// Non-power-of-two slot counts take the `step_sized` fallback in
+    /// `step_select` and match `%`; N=4 and 8 take the mask path.
     #[test]
     fn step_sized_non_pow2_matches_modulo_reference() {
-        for n in [3usize, 5, 6] {
+        for n in [3usize, 5, 6, 4, 8] {
             let sizes = Sizes { sample_bytes: 32, slot_bytes: 64, terrain_bytes: 64 * n, steps_per_leg: 8 };
             assert_eq!(sizes.n_slots(), n);
             let terrain: Vec<u8> = (0..sizes.terrain_bytes).map(|i| (i as u8).wrapping_mul(31).wrapping_add(7)).collect();
             let mut state = 0xdead_beef_0bad_f00du64;
             for _ in 0..200 {
-                let a = step_sized(&terrain, state, sizes);
+                let a = step_select(&terrain, state, sizes);
                 assert_eq!(a, step_reference(&terrain, state, 64), "n={n}");
+                assert_eq!(a, step_sized(&terrain, state, sizes), "n={n}");
                 state = a;
             }
         }

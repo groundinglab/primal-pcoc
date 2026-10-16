@@ -1,5 +1,5 @@
 # Android bridge workspace.
-# hike is vendored from pcoc PR #48 head 060ef5d (walk specialize + sha2 asm).
+# hike is vendored from pcoc PR #48 head 4043f35 (walk specialize + sha2 asm).
 # TODO: re-vendor from the ref-rust tag after pcoc #48 merges.
 # Live Bari and index hosts default to groundinglab.io; other https origins warn and proceed.
 [workspace]
