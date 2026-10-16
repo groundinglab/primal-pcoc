@@ -1,5 +1,6 @@
 # Android bridge workspace.
-# hike is vendored from groundinglab/pcoc tag ref-rust-v2.0.5 (reference/rust/hike).
+# hike is vendored from pcoc PR #48 head 4043f35 (walk specialize + sha2 asm).
+# TODO: re-vendor from the ref-rust tag after pcoc #48 merges.
 # Live Bari and index hosts default to groundinglab.io; other https origins warn and proceed.
 [workspace]
 resolver = "2"
@@ -10,4 +11,7 @@ members = ["vendor/hike", "bridge"]
 opt-level = 3
 
 [profile.release]
+opt-level = 3
 lto = "thin"
+codegen-units = 1
+# No panic = "abort": jni.rs and produce.rs rely on catch_unwind.
