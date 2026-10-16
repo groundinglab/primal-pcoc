@@ -22,11 +22,16 @@ build_one() {
     abi="$2"
     clang="$3"
     key=$(printf '%s' "$target" | tr 'a-z-' 'A-Z_')
+    # sha2 `asm` builds sha2-asm through the cc crate; give it the NDK clang/ar
+    # under both env spellings cc accepts.
+    key_lc=$(printf '%s' "$target" | tr '-' '_')
     mkdir -p "$OUT/$abi"
     env \
         "CARGO_TARGET_${key}_LINKER=$TOOLCHAIN/$clang" \
         "CC_$target=$TOOLCHAIN/$clang" \
+        "CC_$key_lc=$TOOLCHAIN/$clang" \
         "AR_$target=$TOOLCHAIN/llvm-ar" \
+        "AR_$key_lc=$TOOLCHAIN/llvm-ar" \
         "RANLIB_$target=$TOOLCHAIN/llvm-ranlib" \
         RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" \
         cargo build --release -p pcoc-bridge --target "$target"

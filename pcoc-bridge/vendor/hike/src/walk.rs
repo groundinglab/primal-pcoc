@@ -12,22 +12,25 @@ pub fn seal(s_folded: u64) -> u64 {
     u64::from_le_bytes(digest[..8].try_into().unwrap())
 }
 
+/// `N_SLOTS` is a power of two for the section 6 sizes (16384 = 2^14).
+/// Checked at compile time; if a future profile breaks that, `step` falls
+/// back to the generic `step_sized` instead of the mask.
+pub const N_SLOTS_IS_POW2: bool = N_SLOTS.is_power_of_two();
+const _: () = assert!(N_SLOTS_IS_POW2, "production N_SLOTS must be a power of two for the mask path");
+
 /// Production step. Slot count and words-per-slot are literals here so LLVM
 /// can turn `state % N_SLOTS` into a mask and vectorise the 2048-word fold.
-/// The sized path below keeps the generic profile for conformance.
 #[inline(always)]
 pub fn step(terrain: &[u8], state: u64) -> u64 {
-    debug_assert_eq!(terrain.len(), TERRAIN_BYTES);
-    // N_SLOTS is 16384 = 2^14 (see consts.rs). A mask matches `%` for every u64.
-    const _: () = assert!(N_SLOTS.is_power_of_two());
-    const N_SLOTS_MASK: u64 = (N_SLOTS as u64) - 1;
+    if !N_SLOTS_IS_POW2 {
+        return step_sized(terrain, state, Sizes::production());
+    }
+    const N_SLOTS_MASK: u64 = (N_SLOTS as u64).wrapping_sub(1);
     let i = (state & N_SLOTS_MASK) as usize;
     let start = i * SLOT_BYTES;
-    // i < N_SLOTS and len == TERRAIN_BYTES, so the slot is in range. One slice
-    // check covers the whole fold; the per-word indexing below is then exact.
+    // One slice check covers the whole fold.
     let slot = &terrain[start..start + SLOT_BYTES];
     let mut folded = state;
-    // Const trip count WORDS_PER_SLOT (2048): LLVM vectorises under release.
     for w in 0..WORDS_PER_SLOT {
         let off = w * 8;
         let word = u64::from_le_bytes(slot[off..off + 8].try_into().unwrap());
@@ -125,6 +128,35 @@ mod tests {
             let b = step_sized(&terrain, state, sizes);
             assert_eq!(a, b);
             state = a;
+        }
+    }
+
+    /// Plain `%` reference for one step at any slot count.
+    fn step_reference(terrain: &[u8], state: u64, slot_bytes: usize) -> u64 {
+        let n = (terrain.len() / slot_bytes) as u64;
+        let i = (state % n) as usize;
+        let slot = &terrain[i * slot_bytes..(i + 1) * slot_bytes];
+        let mut folded = state;
+        for w in 0..slot_bytes / 8 {
+            let word = u64::from_le_bytes(slot[w * 8..w * 8 + 8].try_into().unwrap());
+            folded ^= word ^ (w as u64);
+        }
+        seal(folded)
+    }
+
+    /// Non-power-of-two slot counts go through `step_sized` and match `%`.
+    #[test]
+    fn step_sized_non_pow2_matches_modulo_reference() {
+        for n in [3usize, 5, 6] {
+            let sizes = Sizes { sample_bytes: 32, slot_bytes: 64, terrain_bytes: 64 * n, steps_per_leg: 8 };
+            assert_eq!(sizes.n_slots(), n);
+            let terrain: Vec<u8> = (0..sizes.terrain_bytes).map(|i| (i as u8).wrapping_mul(31).wrapping_add(7)).collect();
+            let mut state = 0xdead_beef_0bad_f00du64;
+            for _ in 0..200 {
+                let a = step_sized(&terrain, state, sizes);
+                assert_eq!(a, step_reference(&terrain, state, 64), "n={n}");
+                state = a;
+            }
         }
     }
 }

@@ -313,6 +313,16 @@ val pcocBridgeAndroid = tasks.register<Exec>("pcocBridgeAndroid") {
     workingDir(rootProject.projectDir)
     val outDir = layout.buildDirectory.dir("pcoc-jni")
     commandLine("sh", "pcoc-bridge/build-android.sh", outDir.get().asFile.absolutePath)
+    // sha2 `asm` compiles C/asm via the cc crate, so the NDK clang and llvm-ar
+    // must be visible to cargo for each Android target.
+    val ndkDir = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("ANDROID_NDK_ROOT")
+        ?: "${System.getProperty("user.home")}/Android/Sdk/ndk/26.3.11579264"
+    val ndkBin = "$ndkDir/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    environment("ANDROID_NDK_HOME", ndkDir)
+    environment("CC_aarch64_linux_android", "$ndkBin/aarch64-linux-android26-clang")
+    environment("AR_aarch64_linux_android", "$ndkBin/llvm-ar")
+    environment("CC_x86_64_linux_android", "$ndkBin/x86_64-linux-android26-clang")
+    environment("AR_x86_64_linux_android", "$ndkBin/llvm-ar")
     inputs.dir(rootProject.file("pcoc-bridge/bridge/src"))
     inputs.dir(rootProject.file("pcoc-bridge/vendor/hike/src"))
     inputs.file(rootProject.file("pcoc-bridge/Cargo.lock"))

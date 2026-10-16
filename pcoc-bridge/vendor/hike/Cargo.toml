@@ -1,6 +1,7 @@
-# Vendored from groundinglab/pcoc branch perf/produce-speed
-# (reference/rust/hike). Copied verbatim; tests/ is not included. Licence: Apache-2.0.
-# After pcoc merges and tags a new ref-rust, re-vendor from that tag.
+# Vendored from groundinglab/pcoc draft PR #48 head 060ef5d (reference/rust/hike),
+# NOT a release tag. Copied verbatim; tests/ is not included. Licence: Apache-2.0.
+# TODO(before merge): once pcoc #48 merges and a ref-rust tag is cut, re-vendor
+# from that tag and replace this header with the tag name. Do not ship from this.
 
 [package]
 name = "hike"
