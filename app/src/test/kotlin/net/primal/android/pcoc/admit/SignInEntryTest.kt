@@ -101,6 +101,67 @@ class SignInEntryTest {
     }
 
     @Test
+    fun `an opened app path maps to the locked link and signs the same bytes`() {
+        val opened = "https://groundinglab.io/sign-in/app/?v=1&nonce=$nonce&exp=1791780671"
+        val ready = classifyLink(opened, LinkSource.AppLink).shouldBeInstanceOf<LinkInput.Ready>()
+        ready.link.text shouldBe link
+        ready.link.nonceHex shouldBe nonce
+        ready.link.exp shouldBe 1791780671uL
+        ready.link.origin shouldBe SIGN_IN_ORIGIN
+
+        val direct = classifyLink(link, LinkSource.Entered).shouldBeInstanceOf<LinkInput.Ready>()
+        val objectSha = ByteArray(32) { it.toByte() }
+        SignInChallenge.challengeBytes(ready.link, objectSha)
+            .contentEquals(SignInChallenge.challengeBytes(direct.link, objectSha)) shouldBe true
+    }
+
+    @Test
+    fun `the bare app path is not a code`() {
+        classifyLink(SIGN_IN_APP_OPEN, LinkSource.AppLink) shouldBe LinkInput.Ignore
+        classifyLink("https://groundinglab.io/sign-in/app", LinkSource.AppLink) shouldBe LinkInput.Ignore
+    }
+
+    @Test
+    fun `the app path does not loosen the grammar`() {
+        val app = "https://groundinglab.io/sign-in/app/"
+        classifyLink("$app?h=$nonce", LinkSource.AppLink) shouldBe LinkInput.Rejected(
+            problem = ScanProblem.RetiredCode,
+            why = "It is the older sign-in code.",
+        )
+        classifyLink("$app?v=1&nonce=$nonce&exp=1791780671&x=1", LinkSource.AppLink) shouldBe LinkInput.Rejected(
+            problem = ScanProblem.NotASignInLink,
+            why = "It has an extra parameter.",
+        )
+        classifyLink("$app?v=1&nonce=$nonce&exp=1791780671#f", LinkSource.AppLink) shouldBe LinkInput.Rejected(
+            problem = ScanProblem.NotASignInLink,
+            why = "It has a fragment.",
+        )
+        classifyLink(
+            "https://www.groundinglab.io/sign-in/app/?v=1&nonce=$nonce&exp=1791780671",
+            LinkSource.AppLink,
+        ) shouldBe LinkInput.Rejected(problem = ScanProblem.NotASignInLink, why = "The host is www.")
+        classifyLink(
+            "http://groundinglab.io/sign-in/app/?v=1&nonce=$nonce&exp=1791780671",
+            LinkSource.AppLink,
+        ) shouldBe LinkInput.Rejected(problem = ScanProblem.NotASignInLink, why = "It is not https.")
+        listOf(
+            "${app}app/?v=1&nonce=$nonce&exp=1791780671",
+            "https://groundinglab.io/Sign-In/app/?v=1&nonce=$nonce&exp=1791780671",
+            "$app?v=1&nonce=${nonce.uppercase()}&exp=1791780671",
+        ).forEach { raw ->
+            classifyLink(raw, LinkSource.AppLink).shouldBeInstanceOf<LinkInput.Rejected>()
+        }
+    }
+
+    @Test
+    fun `scan and paste stay strict, and an old-form opened link still parses`() {
+        val opened = "https://groundinglab.io/sign-in/app/?v=1&nonce=$nonce&exp=1791780671"
+        classifyLink(opened, LinkSource.Entered).shouldBeInstanceOf<LinkInput.Rejected>()
+            .problem shouldBe ScanProblem.NotASignInLink
+        classifyLink(link, LinkSource.AppLink).shouldBeInstanceOf<LinkInput.Ready>()
+    }
+
+    @Test
     fun `a blank paste is ignored and a blank is not the not-a-link error`() {
         classifyLink("", LinkSource.Entered) shouldBe LinkInput.Ignore
         classifyLink(" \t\n", LinkSource.Entered) shouldBe LinkInput.Ignore

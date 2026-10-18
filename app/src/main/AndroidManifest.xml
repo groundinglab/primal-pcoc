@@ -114,9 +114,9 @@
                     android:host="signer"
                     android:scheme="primal" />
             </intent-filter>
-            <intent-filter
-                android:autoVerify="true"
-                android:label="Sign in">
+            <!-- PCOC sign-in, opened only by the site's explicit "Open in app" (an intent: URL).
+                 Not /sign-in/: the browser sign-in page lives there. No autoVerify: no assetlinks. -->
+            <intent-filter android:label="Sign in">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -124,7 +124,7 @@
 
                 <data
                     android:host="groundinglab.io"
-                    android:path="/sign-in/"
+                    android:path="/sign-in/app/"
                     android:scheme="https" />
             </intent-filter>
             <intent-filter

@@ -175,25 +175,32 @@ class SignInHubTest {
     }
 
     @Test
-    fun `version name is 3_5_46`() {
+    fun `version name is 3_5_49`() {
         val gradle = sourceFile("build.gradle.kts")
-        gradle.contains("val appVersionName = \"3.5.46\"") shouldBe true
-        gradle.contains("val appVersionCode = 2743") shouldBe true
+        gradle.contains("val appVersionName = \"3.5.49\"") shouldBe true
+        gradle.contains("val appVersionCode = 2746") shouldBe true
     }
 
     @Test
-    fun `sign in app link is verified on the apex path`() {
+    fun `sign in opens only on the app path, unverified, never on the browser sign-in page`() {
         val manifest = sourceFile("src/main/AndroidManifest.xml")
         val filter = Regex(
-            """<intent-filter\s+android:autoVerify="true"\s+android:label="Sign in">[\s\S]*?</intent-filter>""",
+            """<intent-filter\s+android:label="Sign in">[\s\S]*?</intent-filter>""",
         ).find(manifest)?.value
         filter?.contains("""android:host="groundinglab.io"""") shouldBe true
-        filter?.contains("""android:path="/sign-in/"""") shouldBe true
+        filter?.contains("""android:path="/sign-in/app/"""") shouldBe true
         filter?.contains("""android:scheme="https"""") shouldBe true
+        filter?.contains("android.intent.category.BROWSABLE") shouldBe true
+        filter?.contains("android.intent.category.DEFAULT") shouldBe true
+        // No filter claims the browser page /sign-in/, and the sign-in filter asks for no verification.
+        manifest.contains("""android:path="/sign-in/"""") shouldBe false
+        Regex("""android:pathPrefix="/sign-in""").containsMatchIn(manifest) shouldBe false
+        Regex("""android:pathPattern="/sign-in""").containsMatchIn(manifest) shouldBe false
+        Regex("""android:autoVerify="true"\s+android:label="Sign in"""").containsMatchIn(manifest) shouldBe false
         manifest.contains("""android:host="pcoc.app"""") shouldBe false
         manifest.contains("""android:host="www.groundinglab.io"""") shouldBe false
         sourceFile("src/main/kotlin/net/primal/android/navigation/PcocNavigation.kt")
-            .contains("uriPattern = SIGN_IN_APP_LINK") shouldBe true
+            .contains("uriPattern = SIGN_IN_APP_OPEN") shouldBe true
     }
 
     private fun stringsXml(): String = sourceFile("src/main/res/values/strings.xml")

@@ -40,7 +40,9 @@ internal sealed interface LinkInput {
  * URL that fails [SignInLinks.parse], and any non-blank value from scan or paste, is a rejection.
  */
 internal fun classifyLink(raw: String, source: LinkSource): LinkInput {
-    val text = raw.trimAsciiWhitespace()
+    // Only an opened link is mapped from the app-open path. Scan and paste keep the one strict grammar.
+    val trimmed = raw.trimAsciiWhitespace()
+    val text = if (source == LinkSource.AppLink) appOpenToLockedLink(trimmed) else trimmed
     if (text.isEmpty()) return LinkInput.Ignore
     if (source == LinkSource.AppLink && !isOpenedSignInUrl(text)) return LinkInput.Ignore
     return when (val parsed = SignInLinks.parse(text)) {

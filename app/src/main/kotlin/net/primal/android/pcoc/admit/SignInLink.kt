@@ -101,8 +101,26 @@ internal fun String.trimAsciiWhitespace(): String = trim { it in ASCII_WHITESPAC
 /** WebAuthn origin bound into `challenge_bytes`. 23 UTF-8 bytes. Not `www`, and not `pcoc.app`. */
 const val SIGN_IN_ORIGIN = "https://groundinglab.io"
 
-/** Exact app-link prefix. Trailing slash, no query. The intent filter and the nav deep link use it. */
+/** The locked §15.1 link prefix: the QR and the paste string. Trailing slash, no query. Not the app-open path. */
 const val SIGN_IN_APP_LINK = "$SIGN_IN_ORIGIN/sign-in/"
+
+/**
+ * The path the site's "Open in app" opens, and the only groundinglab.io path the intent filter and the
+ * nav deep link claim. The site never visits it. It is not part of the §15.1 wire.
+ */
+const val SIGN_IN_APP_OPEN = "$SIGN_IN_ORIGIN/sign-in/app/"
+
+/**
+ * An opened `https://groundinglab.io/sign-in/app/?<q>` becomes `https://groundinglab.io/sign-in/?<q>`,
+ * byte for byte after the prefix. The bare app path becomes the bare locked prefix, which is ignored.
+ * Anything else is returned unchanged. No decoding, no case folding, applied once.
+ */
+internal fun appOpenToLockedLink(raw: String): String =
+    when {
+        raw == SIGN_IN_APP_OPEN || raw == "$SIGN_IN_ORIGIN/sign-in/app" -> SIGN_IN_APP_LINK
+        raw.startsWith("$SIGN_IN_APP_OPEN?") -> SIGN_IN_APP_LINK + raw.removePrefix(SIGN_IN_APP_OPEN)
+        else -> raw
+    }
 
 private const val ASCII_WHITESPACE = " \t\n\u000C\r"
 private const val SIGN_IN_SKEW_S = 5uL

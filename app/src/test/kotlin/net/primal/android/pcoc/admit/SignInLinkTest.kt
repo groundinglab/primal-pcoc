@@ -6,6 +6,20 @@ import org.junit.Test
 
 class SignInLinkTest {
 
+    @Test
+    fun `app-open path maps to the locked prefix by an exact prefix swap`() {
+        val query = "?v=1&nonce=$nonce&exp=1893456000"
+        appOpenToLockedLink("$SIGN_IN_APP_OPEN$query") shouldBe canonical
+        appOpenToLockedLink(SIGN_IN_APP_OPEN) shouldBe SIGN_IN_APP_LINK
+        appOpenToLockedLink("https://groundinglab.io/sign-in/app") shouldBe SIGN_IN_APP_LINK
+        appOpenToLockedLink(canonical) shouldBe canonical
+        appOpenToLockedLink("https://primal.net/home") shouldBe "https://primal.net/home"
+        appOpenToLockedLink("$SIGN_IN_APP_OPEN?") shouldBe "$SIGN_IN_APP_LINK?"
+        SignInLinks.parse("$SIGN_IN_APP_LINK?") shouldBe SignInLinkParse.NotASignInLink
+        // The app path itself is never a §15.1 link.
+        SignInLinks.parse("$SIGN_IN_APP_OPEN$query") shouldBe SignInLinkParse.NotASignInLink
+    }
+
     private val nonce = "0123456789abcdef".repeat(4)
     private val canonical = "https://groundinglab.io/sign-in/?v=1&nonce=$nonce&exp=1893456000"
 
