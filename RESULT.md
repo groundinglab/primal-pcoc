@@ -16,7 +16,7 @@ The configured SSH signing key (`~/.ssh/id_ed25519_groundinglab.pub`) is not on 
 
 ## Reference pin
 
-Vendored hike crate from [groundinglab/pcoc](https://github.com/groundinglab/pcoc) tag [`ref-rust-v2.0.4`](https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike).
+Vendored hike crate from [groundinglab/pcoc](https://github.com/groundinglab/pcoc) tag [`ref-rust-v2.0.4`](https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike). That pin is not SPEC v2.1. `pcoc-bridge/vendor/hike` is still the pre-v2.1 hike. Re-vendor it from `sdk/rust` after SPEC v2.1 merges. Until then it is not the step or the fill.
 
 Sibling checkout: `/home/hodl315/pcoc-build/worktrees/pcoc-main-android-ref` (detached at that commit). Tag `ref-v2.0.0` is `6e62e4c` / `ed88a47`, which is behind main. Main is the pin because it includes the verify block-hash display-order fix. `pcoc-bridge/vendor/hike/tests/` was not copied. The library sources are otherwise the reference.
 

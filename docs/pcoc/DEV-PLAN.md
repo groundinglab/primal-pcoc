@@ -2,7 +2,7 @@
 
 Short sequence for integrating PCOC into this fork. Tonight’s product SPEC is [FEATURES-v0.1.md](FEATURES-v0.1.md). The file and symbol map is [CUT-POINTS.md](CUT-POINTS.md). This plan adds no product code.
 
-PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This repo integrates a dependency. It does not re-home the protocol, **STAGES 18**, or a signature scheme. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
+PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This repo integrates a dependency. It does not re-home the protocol, **STAGES 18**, or a signature scheme. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
 
 ## Gates
 
@@ -10,7 +10,7 @@ PCOC stays in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This re
 
 **Later** (in-app produce, screen-off tip observe, Option B admit) stay behind their own asks. Verify any is the Java verifier in [FEATURES-v0.1.md](FEATURES-v0.1.md). In-app produce still waits on the Bari GO and on a published produce artifact. A leg and a leg result in sample objects belong to those later phases. Live profile only. TEST stays paused: no test-profile flag in the app.
 
-Issue #87 was not readable here (HTTP 404). Docs still owes the BIP-340 one-liner there. The phone door signs the 32 hash bytes with `CryptoUtils.sign`, as locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The earlier “POST the gate from the phone” sentence is superseded for these doors.
+The phone door signs the 32 hash bytes with `CryptoUtils.sign`, as locked in [FEATURES-v0.1.md](FEATURES-v0.1.md). The construction is SPEC v2.1 in groundinglab/pcoc. The earlier “POST the gate from the phone” sentence is superseded for these doors.
 
 ## Ordered phases
 
@@ -50,7 +50,7 @@ Produce-on-centre and admit-on-centre are Ask Christian only. This phase does no
 
 Depends on a published Android-callable API from `groundinglab/pcoc` whose symbols are written down (ask list). This phase adds that dependency only. It does not place the call on Wallet, and it does not retarget the centre.
 
-Finishing produce associates the object. Do not add a register function. Do not add a JNI or UniFFI layer in this repo to invent the call. `STAGES 18` remains inside pcoc. The UI shows the sample object’s leg and leg result. A leg is 1,000,000 steps.
+Finishing produce associates the object. Do not add a register function. Do not add a JNI or UniFFI layer in this repo to invent the call. `STAGES 18` remains inside pcoc. The UI shows the sample object’s leg and leg result. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn.
 
 If the artifact is not published, or the call site is still unnamed, this phase does not start. A stub that returns a made-up object is out of scope.
 
@@ -66,7 +66,7 @@ The door reads the live index. It does not keep a header archive and it does not
 
 Blocked on the tip client (ask list). Not tonight. `PrimalNwcService` is a pattern only: `start` → `startForegroundService` → `onStartCommand` → `startForeground`, with `foregroundServiceType="specialUse"`. That lifecycle is NWC’s. It is not the hike.
 
-Do not invent a service whose start or stop follows produce, a leg, or a leg result. Do not assign start or stop to a leg. A leg is 1,000,000 steps. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
+Do not invent a service whose start or stop follows produce, a leg, or a leg result. Do not assign start or stop to a leg. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
 
 No header client is added in this phase. The app does not keep a header archive. Screen-off work on an `aosp` build does not use `PrimalFirebaseMessagingService`. `MempoolApiService` stays the wallet deposit client. `libs.bitcoinj.core` being on the classpath is not an observe path.
 
