@@ -1,5 +1,7 @@
 # Android bridge workspace.
-# hike is vendored from groundinglab/pcoc tag ref-rust-v2.0.5 (reference/rust/hike).
+# hike under vendor/ is still the pre-v2.1 tree (tag ref-rust-v2.0.5).
+# Re-vendor from groundinglab/pcoc sdk/rust after SPEC v2.1 merges.
+# Until then vendor/ is not the step or the fill. Do not edit it on this branch.
 # Live Bari and index hosts default to groundinglab.io; other https origins warn and proceed.
 [workspace]
 resolver = "2"

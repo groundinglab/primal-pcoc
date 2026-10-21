@@ -2,11 +2,11 @@
 
 Product SPEC for the Account → PCOC doors. Cut points stay in [CUT-POINTS.md](CUT-POINTS.md). Phase order stays in [DEV-PLAN.md](DEV-PLAN.md).
 
-Terms, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 1,000,000 steps. The tip interrupts the drive. Live profile only. TEST is paused.
+Terms, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. The vendored hike is not that step or that fill until it is re-vendored from `sdk/rust` after SPEC v2.1 merges. The tip interrupts the drive. Live profile only. TEST is paused.
 
 This SPEC is the 2026-10-05 Account doors lock. For these doors it supersedes the earlier phone→gate POST (`https://admission.pcoc.app/v1/sign-in`) and the bare-hash QR. The admission gate, the website, Cloudflare, and R2 are not changed here. A conformant HTTPS site is a later Public Site/Infra change.
 
-The signature is BIP-340 over the 32 hash bytes (`CryptoUtils.sign` / `secp256k1.signSchnorr`). Docs still owes that one-liner on pcoc-prototype issue 87. This sentence is the phone cross-reference only.
+The signature is BIP-340 over the 32 hash bytes (`CryptoUtils.sign` / `secp256k1.signSchnorr`). This sentence is the phone cross-reference. The construction is SPEC v2.1 in groundinglab/pcoc.
 
 ## 1. Menu
 
