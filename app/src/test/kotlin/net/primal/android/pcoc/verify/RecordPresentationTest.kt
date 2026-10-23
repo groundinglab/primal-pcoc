@@ -30,6 +30,14 @@ class RecordPresentationTest {
     }
 
     @Test
+    fun `an unknown kind is a measurement`() {
+        val presented = presentRecord(
+            """{"kind":"unknown kind","kind_text":"satoshi-hike-v1.35-object"}""",
+        )
+        presented.shouldBeInstanceOf<Presented.Earlier>().kind shouldBe "satoshi-hike-v1.35-object"
+    }
+
+    @Test
     fun `index status names the host and the reads`() {
         indexStatus("https://index.groundinglab.io", issued = 0, answered = 0, totalMs = 0) shouldBe
             "Portable index not read · index.groundinglab.io"

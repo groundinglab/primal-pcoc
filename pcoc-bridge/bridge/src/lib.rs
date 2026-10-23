@@ -1,20 +1,20 @@
-//! On-phone produce and verify, in-process, on the vendored `hike` crate.
+//! On-phone produce and verify, in-process, on the pcoc Rust SDK.
 //!
-//! Produce is the desktop live profile: Bitcoin mainnet gossip, posts to
-//! Bari, paths from the same book. Verify is the section 14 measurement.
-//! Neither surface is a policy verdict.
+//! Produce on this build fails closed: the SDK has no live header source.
+//! Verify is `pcoc::verify`, the section 14 measurement. Neither surface is a
+//! policy verdict. Object kind and domain bytes come from the SDK exports.
 
 mod jni;
 mod produce;
 mod verify;
 
-pub use produce::{produce_args, scripted, LiveConfig, STOPPED};
+pub use produce::{scripted, LiveConfig, STOPPED};
 pub use verify::{verify_object, IndexReads, VerifyOutcome};
 
-/// Live Bari. `parse_produce` of `--profile live` fills this origin.
+/// Live Bari. This SDK build does not post to it.
 pub const BARI_URL: &str = "https://bari.groundinglab.io";
-/// Live portable index. Verify reads this and nothing else.
-pub const INDEX_URL: &str = hike::DEFAULT_INDEX_URL;
+/// Live portable index. Verify reads this. The SDK does not name a default index.
+pub const INDEX_URL: &str = "https://index.groundinglab.io";
 
 pub fn redact(line: &str) -> String {
     const CHARSET: &str = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
@@ -49,40 +49,6 @@ mod tests {
     fn live_hosts_are_bari_and_the_index() {
         assert_eq!(BARI_URL, "https://bari.groundinglab.io");
         assert_eq!(INDEX_URL, "https://index.groundinglab.io");
-        assert_eq!(hike::DEFAULT_INDEX_URL, INDEX_URL);
-    }
-
-    #[test]
-    fn live_args_parse_as_the_reference_live_profile() {
-        let config = LiveConfig {
-            public_key_hex: "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
-                .into(),
-            output: "/tmp/hike.cbor".into(),
-            gossip_peer: None,
-        };
-        let parsed = hike::parse_produce(&produce_args(&config)).expect("parses");
-        assert_eq!(parsed.profile, hike::PlaneProfile::Live);
-        assert_eq!(parsed.bari_url, BARI_URL);
-        assert!(matches!(
-            parsed.clock,
-            hike::ProduceClock::Gossip {
-                dial: hike::GossipDial::MainnetDnsSeeds,
-                ..
-            }
-        ));
-
-        let named = LiveConfig {
-            gossip_peer: Some(" 192.0.2.7:8333 ".into()),
-            ..config
-        };
-        let parsed = hike::parse_produce(&produce_args(&named)).expect("named peer parses");
-        assert!(matches!(
-            parsed.clock,
-            hike::ProduceClock::Gossip {
-                dial: hike::GossipDial::Named(ref peer),
-                ..
-            } if peer == "192.0.2.7:8333"
-        ));
     }
 
     #[test]

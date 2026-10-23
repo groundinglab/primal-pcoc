@@ -29,6 +29,9 @@ internal sealed class Presented {
 /** Section 14 JSON as the fields the screen lists. Null when it is not that object. */
 internal fun presentRecord(json: String): Presented? {
     val obj = runCatching { Json.parseToJsonElement(json.trim()).jsonObject }.getOrNull() ?: return null
+    if (obj.string("kind") == "unknown kind") {
+        return Presented.Earlier(kind = obj.string("kind_text").orEmpty())
+    }
     if (obj.string("version") == "earlier version") {
         return Presented.Earlier(kind = obj.string("kind").orEmpty())
     }

@@ -2,6 +2,7 @@ package net.primal.android.pcoc.bridge
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.Test
 
 class PcocBridgeSmokeTest {
@@ -15,11 +16,12 @@ class PcocBridgeSmokeTest {
     }
 
     @Test
-    fun `junk bytes are unreadable without treating that as a verdict`() {
+    fun `junk bytes are a measurement record and not a verdict`() {
         val text = PcocNative.verify(byteArrayOf(0xff.toByte(), 0, 1), INDEX_URL, 2)
-        val outcome = parseVerifyOutcome(text)
-        outcome shouldBe VerifyNativeOutcome.Unreadable
-        text.shouldContain("unreadable")
+        val outcome = parseVerifyOutcome(text).shouldBeInstanceOf<VerifyNativeOutcome.Record>()
+        outcome.json.shouldContain("\"profile\"")
+        text.shouldContain("\"outcome\":\"record\"")
+        outcome.issued shouldBe 0
     }
 
     @Test

@@ -3,7 +3,7 @@ package net.primal.android.pcoc.hike
 import net.primal.android.pcoc.bridge.PcocNative
 
 /**
- * Reference `public_key` when the bytes yield one.
+ * Object `public_key` when the bytes yield one.
  * This does not verify the hike, and enroll does not call it.
  */
 internal fun hikeObjectPublicKey(bytes: ByteArray): ByteArray? {
