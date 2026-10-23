@@ -227,8 +227,8 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "pcoc"
-version = "2.2.0"
-source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.2.0#9ca6073690e9f94990a6bf06e21b336d2ada41ff"
+version = "2.3.0"
+source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.0#9c0c408469e3a0c359e15ebcb4ed7e19cbc38d5c"
 dependencies = [
  "cpufeatures",
  "secp256k1",
@@ -250,8 +250,8 @@ dependencies = [
 
 [[package]]
 name = "pcoc-produce"
-version = "2.2.0"
-source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.2.0#9ca6073690e9f94990a6bf06e21b336d2ada41ff"
+version = "2.3.0"
+source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.0#9c0c408469e3a0c359e15ebcb4ed7e19cbc38d5c"
 dependencies = [
  "pcoc",
 ]
