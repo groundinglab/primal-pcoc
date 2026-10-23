@@ -1,12 +1,14 @@
 # Android v2 produce and verify
 
-The sections below are the history of the ref-rust 2.0 pin. The bridge now uses the pcoc Rust SDK (tag `sdk-rust-v2.3.1`, set in `pcoc-bridge/bridge/Cargo.toml`).
+The sections below are the record of an earlier pin, ref-rust 2.0. They include that pin's test counts and the Gradle task `assembleDebug`. They are not the current build guide.
+
+The current guide is the README: `mkdir -p pcoc-bridge/target`, then `./gradlew :app:assembleAospDebug`. The bridge no longer vendors ref-rust-v2.0.4. It uses the pcoc Rust SDK (tag `sdk-rust-v2.3.1`, set in `pcoc-bridge/bridge/Cargo.toml`).
 
 ## PR
 
 https://github.com/groundinglab/primal-pcoc/pull/24
 
-Ready for review. Not merged. Not deployed.
+That pull request was the record of the pin. It is not the current build guide.
 
 ## Commit
 
@@ -14,23 +16,27 @@ Ready for review. Not merged. Not deployed.
 
 Branch `android/v2-produce-verify`, rebased on `origin/main` (`1665b5a`) before the work.
 
-The configured SSH signing key (`~/.ssh/id_ed25519_groundinglab.pub`) is not on this machine, so this commit is unsigned.
+The commit was unsigned. The signing key was not available on the machine that made it.
 
 ## Reference pin
 
-Vendored hike crate from [groundinglab/pcoc](https://github.com/groundinglab/pcoc) tag [`ref-rust-v2.0.4`](https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike). That pin is not SPEC v2.1. `pcoc-bridge/vendor/hike` is still the pre-v2.1 hike. Re-vendor it from `sdk/rust` after SPEC v2.1 merges. Until then it is not the step or the fill.
+Vendored hike crate from [groundinglab/pcoc](https://github.com/groundinglab/pcoc) tag [`ref-rust-v2.0.4`](https://github.com/groundinglab/pcoc/tree/ref-rust-v2.0.4/reference/rust/hike). That pin was not SPEC v2.1. At that pin, `pcoc-bridge/vendor/hike` was the pre-v2.1 hike. The note then was to re-vendor it from `sdk/rust` after SPEC v2.1. The bridge no longer vendors ref-rust-v2.0.4.
 
-Sibling checkout: `/home/hodl315/pcoc-build/worktrees/pcoc-main-android-ref` (detached at that commit). Tag `ref-v2.0.0` is `6e62e4c` / `ed88a47`, which is behind main. Main is the pin because it includes the verify block-hash display-order fix. `pcoc-bridge/vendor/hike/tests/` was not copied. The library sources are otherwise the reference.
+A sibling checkout of pcoc, detached at that commit, supplied the pin. Tag `ref-v2.0.0` is `6e62e4c` / `ed88a47`, which was behind main. Main was the pin because it includes the verify block-hash display-order fix. `pcoc-bridge/vendor/hike/tests/` was not copied. The library sources were otherwise the reference.
 
-The vendored crate names `tip.pcoc.app` only so it can refuse that retired host. Product copy does not dial it. Live produce posts to `https://bari.groundinglab.io`. Verify reads `https://index.groundinglab.io`.
+The vendored crate named `tip.pcoc.app` only so it could refuse that retired host. Product copy did not dial it. Live produce posted to `https://bari.groundinglab.io`. Verify read `https://index.groundinglab.io`.
 
 ## What landed
 
-- Create runs the reference live produce in-process through JNI (`libpcoc_bridge.so`). Stop writes no object. The object is written only when the run returns, then saved for the signed-in account.
+Record of that pin:
+
+- Create ran the reference live produce in-process through JNI (`libpcoc_bridge.so`). Stop writes no object. The object is written only when the run returns, then saved for the signed-in account.
 - Verify uses the same crate's section 14 measurement. The v1.35 Java verify path is deleted.
 - Sign-in was already the locked Gate §15.1 door and was left as it is.
 
 ## Tests
+
+These counts are the record of that pin. They are not a new run.
 
 `./gradlew test ktlintCheck assembleDebug` — BUILD SUCCESSFUL (1166 tasks; the retry after a daemon exit completed the remaining work).
 
@@ -53,4 +59,4 @@ Both contain `lib/arm64-v8a/libpcoc_bridge.so` and `lib/x86_64/libpcoc_bridge.so
 
 ## Unfinished
 
-A full live hike on a handset was not run. That is about 18 Bitcoin blocks, and this job does not touch live hosts beyond the code that will dial them when someone starts a hike. 32-bit ABIs are not in the bridge library.
+A full live hike on a handset was not run for that pin. That is about 18 Bitcoin blocks, and that job did not touch live hosts beyond the code that dials them when someone starts a hike. At that pin, 32-bit ABIs were not in the bridge library.
