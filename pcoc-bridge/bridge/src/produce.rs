@@ -1,50 +1,86 @@
 //! Produce, in-process.
 //!
-//! Live produce fails closed. The SDK build has no live header source and no
-//! Bari client, so Start hike does not dial and writes nothing. The scripted
-//! path is `pcoc_produce::produce_on_rig` for tests. Stop writes nothing.
+//! Start hike uses the SDK live header source (`GossipSource`) and posts
+//! waypoints to Bari. A source that fails closed writes no object. The
+//! scripted path is `pcoc_produce::produce_on_rig` for tests. Stop writes
+//! nothing. Host tests pass a mock source and do not dial.
 
 use crate::redact;
-use pcoc::hexutil::hex_decode;
+use pcoc::hexutil::{hex_decode, hex_encode};
+use pcoc::profile::Profile;
+#[cfg(test)]
+use pcoc_produce::bari::SilentBari;
+use pcoc_produce::bari::{BariHub, HttpBari, LiveEvent, Progress as LiveProgress, RESEND_AFTER};
+use pcoc_produce::live::{produce_live, write_atomically, LiveRunOpts, LiveStop};
+#[cfg(test)]
+use pcoc_produce::source::{FailClosedSource, HeldTip, ManualSource, FAIL_CLOSED};
+use pcoc_produce::source::{GossipSource, TipSource};
 use pcoc_produce::{
     cases_profile, cases_rig, encode_produced, path_skip_stderr, produce_on_rig, Case,
     ProduceOutcome, Progress,
 };
 use serde_json::{json, Value};
-use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 pub const STOPPED: &str = "stopped by the user";
 
-/// The sentence the desktop app shows when produce is started without a rig.
-pub const LIVE_HEADER_SOURCE: &str = "live header source is not in this build";
-
 const SETTINGS_REFUSED: &str = "the produce settings were refused by the reference parser";
+
+type Emit = Arc<dyn Fn(Value) + Send + Sync>;
 
 #[derive(Clone, Debug)]
 pub struct LiveConfig {
     pub public_key_hex: String,
     pub output: String,
-    /// `host:port`. Kept for a later header source. This build does not dial it.
+    /// `host:port`. Empty selects the Bitcoin DNS seeds.
     pub gossip_peer: Option<String>,
 }
 
-/// Live produce. `emit` is called on the produce thread. Nothing is written.
-pub fn run_live(config: LiveConfig, _stop: &AtomicBool, emit: &dyn Fn(Value)) {
-    if decode_pubkey(&config.public_key_hex).is_none() {
+/// Live produce. `emit` is called on the produce thread and on the Bari threads.
+pub fn run_live(config: LiveConfig, stop: &Arc<AtomicBool>, emit: &Emit) {
+    let Some(key) = decode_pubkey(&config.public_key_hex) else {
         fail(emit, SETTINGS_REFUSED);
         return;
-    }
+    };
     if let Err(err) = parent_dir_exists(&config.output) {
         fail(emit, &err);
         return;
     }
-    // `config.gossip_peer` is kept for a later header source. This build does not dial it.
-    fail(emit, LIVE_HEADER_SOURCE);
+    emit(json!({
+        "kind": "started",
+        "output": config.output,
+    }));
+    let peer = config.gossip_peer.clone().unwrap_or_default();
+    let source = GossipSource::spawn(&peer, Arc::clone(stop));
+    let progress = map_progress(emit);
+    let bari = match HttpBari::open(
+        crate::BARI_URL,
+        RESEND_AFTER,
+        source.tip_fn(),
+        Arc::clone(&progress),
+    ) {
+        Ok(bari) => bari,
+        Err(message) => {
+            drop(source);
+            fail(emit, &message);
+            return;
+        }
+    };
+    finish(
+        &config,
+        key,
+        &Profile::production(),
+        &source,
+        &bari,
+        stop,
+        emit,
+        &progress,
+    );
 }
 
-fn fail(emit: &dyn Fn(Value), message: &str) {
+fn fail(emit: &Emit, message: &str) {
     emit(json!({
         "kind": "failed",
         "message": redact(message),
@@ -77,6 +113,109 @@ fn parent_dir_exists(path: &str) -> Result<(), String> {
         return Err("parent directory does not exist".into());
     }
     Ok(())
+}
+
+/// Phone JSON for the SDK live events. Leg counts reset when a stage closes.
+fn map_progress(emit: &Emit) -> LiveProgress {
+    let emit = Arc::clone(emit);
+    let legs = Arc::new(AtomicU64::new(0));
+    let seeded = Arc::new(AtomicBool::new(false));
+    let beacon_height = Arc::new(AtomicU64::new(0));
+    Arc::new(move |event| match event {
+        LiveEvent::Terrain => emit(json!({ "kind": "terrain" })),
+        LiveEvent::Leg { stage, leg, .. } => {
+            let stored = legs.fetch_add(1, Ordering::SeqCst) + 1;
+            emit(json!({
+                "kind": "leg",
+                "stage": stage,
+                "j": leg,
+                "stored": stored,
+            }));
+        }
+        LiveEvent::Interrupt { stage, height } => {
+            let stored = legs.swap(0, Ordering::SeqCst);
+            beacon_height.store(height, Ordering::SeqCst);
+            emit(json!({
+                "kind": "stage_closed",
+                "stage": stage,
+                "legs": stored,
+                "height": height,
+            }));
+        }
+        LiveEvent::Header { height, n_time, .. } => {
+            if !seeded.swap(true, Ordering::SeqCst) {
+                emit(json!({
+                    "kind": "seed",
+                    "height": height,
+                    "time": n_time,
+                }));
+            }
+            emit(json!({ "kind": "tip", "height": height }));
+        }
+        LiveEvent::Waypoint { .. } => {
+            emit(json!({
+                "kind": "posting",
+                "beacon_height": beacon_height.load(Ordering::SeqCst),
+            }));
+        }
+        LiveEvent::Alert { name, .. } => emit(json!({ "kind": "log", "line": name })),
+        LiveEvent::Posted {
+            stage,
+            status,
+            succeeded,
+            ..
+        } => {
+            let code = status
+                .map(|code| code.to_string())
+                .unwrap_or_else(|| "none".to_owned());
+            emit(json!({
+                "kind": "log",
+                "line": format!("waypoint {stage} posted={succeeded} status={code}"),
+            }));
+        }
+        LiveEvent::Fetch { stage, worked, .. } => emit(json!({
+            "kind": "log",
+            "line": format!("path {stage} worked={worked}"),
+        })),
+        LiveEvent::Checked { .. } => {}
+        LiveEvent::Closed => emit(json!({ "kind": "settling" })),
+    })
+}
+
+fn finish(
+    config: &LiveConfig,
+    key: [u8; 32],
+    profile: &Profile,
+    source: &dyn TipSource,
+    bari: &dyn BariHub,
+    stop: &AtomicBool,
+    emit: &Emit,
+    progress: &LiveProgress,
+) {
+    let out = PathBuf::from(&config.output);
+    let opts = LiveRunOpts {
+        public_key: &key,
+        profile,
+        out: &out,
+        cancel: stop,
+    };
+    match produce_live(&opts, source, bari, progress) {
+        Ok(product) => match write_atomically(&out, &product.bytes) {
+            Ok(()) => {
+                let lines: Vec<String> = product.stderr.lines().map(str::to_owned).collect();
+                emit(json!({ "kind": "paths", "lines": lines }));
+                emit(json!({
+                    "kind": "written",
+                    "path": config.output,
+                    "bytes": product.bytes.len(),
+                    "sha256": hex_encode(&pcoc::hash::sha256(&product.bytes)),
+                }));
+            }
+            Err(err) => fail(emit, &format!("could not write the object: {err}")),
+        },
+        Err(LiveStop::Cancelled) => emit(json!({ "kind": "stopped" })),
+        Err(LiveStop::Failed(message)) => fail(emit, &message),
+    }
 }
 
 #[cfg(test)]
@@ -142,45 +281,12 @@ pub fn scripted(stop_after: Option<u64>) -> (Result<Vec<u8>, String>, Vec<Value>
     (result, events)
 }
 
-/// Temporary sibling, sync, then rename. A failure leaves no partial object.
-/// Live produce does not call this: that path writes nothing.
-#[cfg(test)]
-fn write_atomically(dest: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let parent = match dest.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent,
-        _ => Path::new("."),
-    };
-    let name = dest
-        .file_name()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "no file name"))?;
-    let tmp = parent.join(format!(
-        ".{}.tmp-{}",
-        name.to_string_lossy(),
-        std::process::id()
-    ));
-    let result = (|| {
-        use std::io::Write;
-        let mut file = std::fs::File::create(&tmp)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        std::fs::rename(&tmp, dest)
-    })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(&tmp);
-    }
-    result
-}
-
-pub fn spawn_live(
-    config: LiveConfig,
-    stop: Arc<AtomicBool>,
-    emit: Arc<dyn Fn(Value) + Send + Sync>,
-) {
+pub fn spawn_live(config: LiveConfig, stop: Arc<AtomicBool>, emit: Emit) {
     std::thread::Builder::new()
         .name("pcoc-produce".into())
         .spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run_live(config, &stop, &|event| emit(event));
+                run_live(config, &stop, &emit);
             }));
             if result.is_err() {
                 emit(json!({
@@ -190,6 +296,31 @@ pub fn spawn_live(
             }
         })
         .expect("spawn produce thread");
+}
+
+#[cfg(test)]
+fn collect(emit_into: &Arc<std::sync::Mutex<Vec<Value>>>) -> Emit {
+    let slot = Arc::clone(emit_into);
+    Arc::new(move |event| {
+        slot.lock().expect("events").push(event);
+    })
+}
+
+#[cfg(test)]
+fn small_profile() -> Profile {
+    Profile::conformance_small(32, 64, 65_536, 1).expect("profile")
+}
+
+#[cfg(test)]
+fn mock_tip(height: u64) -> HeldTip {
+    let mut hash = [0u8; 32];
+    hash[..8].copy_from_slice(&height.to_le_bytes());
+    HeldTip {
+        hash,
+        height,
+        header: [0u8; 80],
+        n_time: 1_700_000_000,
+    }
 }
 
 #[cfg(test)]
@@ -270,22 +401,31 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("pcoc-bridge-live-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let dest = dir.join("hike.cbor");
-        let events = std::cell::RefCell::new(Vec::new());
-        let stop = AtomicBool::new(false);
-        run_live(
-            LiveConfig {
-                public_key_hex: "11".repeat(32),
-                output: dest.display().to_string(),
-                gossip_peer: Some("192.0.2.7:8333".into()),
-            },
-            &stop,
-            &|event| events.borrow_mut().push(event),
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let emit = collect(&events);
+        let config = LiveConfig {
+            public_key_hex: "11".repeat(32),
+            output: dest.display().to_string(),
+            gossip_peer: Some("192.0.2.7:8333".into()),
+        };
+        let key = decode_pubkey(&config.public_key_hex).unwrap();
+        let progress = map_progress(&emit);
+        finish(
+            &config,
+            key,
+            &small_profile(),
+            &FailClosedSource::new(FAIL_CLOSED),
+            &SilentBari,
+            &AtomicBool::new(false),
+            &emit,
+            &progress,
         );
-        let events = events.into_inner();
+        let events = events.lock().expect("events");
         assert_eq!(events.len(), 1);
         assert_eq!(events[0]["kind"], "failed");
-        assert_eq!(events[0]["message"], LIVE_HEADER_SOURCE);
+        assert_eq!(events[0]["message"], FAIL_CLOSED);
         assert!(!dest.exists());
+        drop(events);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -294,19 +434,64 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("pcoc-bridge-badkey-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let dest = dir.join("hike.cbor");
-        let events = std::cell::RefCell::new(Vec::new());
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let emit = collect(&events);
         run_live(
             LiveConfig {
                 public_key_hex: "zz".into(),
                 output: dest.display().to_string(),
                 gossip_peer: None,
             },
-            &AtomicBool::new(false),
-            &|event| events.borrow_mut().push(event),
+            &Arc::new(AtomicBool::new(false)),
+            &emit,
         );
-        let events = events.into_inner();
+        let events = events.lock().expect("events");
         assert_eq!(events[0]["message"], SETTINGS_REFUSED);
         assert!(!dest.exists());
+        drop(events);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn stop_on_the_live_path_writes_no_object() {
+        let dir =
+            std::env::temp_dir().join(format!("pcoc-bridge-live-stop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let dest = dir.join("hike.cbor");
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let emit = collect(&events);
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_flag = Arc::clone(&stop);
+        let emit: Emit = Arc::new(move |event: Value| {
+            if event.get("kind").and_then(Value::as_str) == Some("leg") {
+                stop_flag.store(true, Ordering::SeqCst);
+            }
+            emit(event);
+        });
+        let config = LiveConfig {
+            public_key_hex: "22".repeat(32),
+            output: dest.display().to_string(),
+            gossip_peer: None,
+        };
+        let key = decode_pubkey(&config.public_key_hex).unwrap();
+        let progress = map_progress(&emit);
+        finish(
+            &config,
+            key,
+            &small_profile(),
+            &ManualSource::holding(mock_tip(972_685)),
+            &SilentBari,
+            stop.as_ref(),
+            &emit,
+            &progress,
+        );
+        let events = events.lock().expect("events");
+        assert!(events.iter().any(|event| event["kind"] == "leg"));
+        assert!(events.iter().any(|event| event["kind"] == "stopped"));
+        assert!(!events.iter().any(|event| event["kind"] == "written"));
+        assert!(!dest.exists());
+        drop(events);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -92,14 +92,20 @@ class SignInHubTest {
     }
 
     @Test
-    fun `create new pcoc offers start hike and does not dial`() {
+    fun `create new pcoc offers start hike on the live header source`() {
         val xml = stringsXml()
         xml.contains("Coming soon") shouldBe false
         xml.contains("coming soon") shouldBe false
         stringValue(xml, "pcoc_create_start") shouldBe "Start hike"
         stringValue(xml, "pcoc_create_idle_title") shouldBe "New hike"
         val body = stringValue(xml, "pcoc_create_body")
-        listOf("https://bari.groundinglab.io", "public key", "writes no object", "live header source").forEach {
+        listOf(
+            "https://bari.groundinglab.io",
+            "public key",
+            "writes no object",
+            "live header source",
+            "dials Bitcoin",
+        ).forEach {
             body shouldContain it
         }
         body.contains("nsec") shouldBe false
