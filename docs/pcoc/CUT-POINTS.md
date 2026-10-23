@@ -152,7 +152,7 @@ The fork still presents as upstream Primal:
 - `R.string.app_name` is `Primal` (`app/src/main/res/values/strings.xml`).
 - `AndroidManifest` `android:label="@string/app_name"`.
 - `applicationId` is `net.primal.android` (`app/build.gradle.kts`). Signer and file-provider authorities are `${applicationId}.*`.
-- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.30`).
+- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.49`).
 - `user/domain/Badges.kt` is `unreadNotificationsCount` and `unreadMessagesCount`. `PrimalNavigationBar` paints a badge only for `PrimalTopLevelDestination.Alerts`. `PrimalDrawer`’s `showPremiumBadge` is Primal Premium.
 
 The badge cut is the visible name and the settings version row: `app_name` and `VersionListItem`. `Badges` and the premium drawer badge stay notification and premium UI.
@@ -171,13 +171,14 @@ Option B admit, when it is eventually shown, is lab-only. The existing lab surfa
 
 ## 3. Build baseline
 
-Documented debug command (also in the README):
+Documented debug command (also in the README). On a clean tree the `mkdir` is required; see below.
 
 ```bash
+mkdir -p pcoc-bridge/target
 ./gradlew :app:assembleAospDebug
 ```
 
-Variant facts from `app/build.gradle.kts` and `gradle/libs.versions.toml` (these override the older README line that says compileSdk 36, AGP 8.13+, Kotlin 2.2):
+Variant facts from `app/build.gradle.kts` and `gradle/libs.versions.toml` (the same pins as the README):
 
 | Item | Value |
 | --- | --- |
@@ -187,15 +188,19 @@ Variant facts from `app/build.gradle.kts` and `gradle/libs.versions.toml` (these
 | `applicationId` | `net.primal.android` |
 | compileSdk / targetSdk / minSdk | 37 / 36 / 26 |
 | AGP / Kotlin / JDK | 9.2.1 / 2.4.0 / 21 |
-| Version | `appVersionName` `3.5.30`, `appVersionCode` `2727` |
+| Gradle wrapper | 9.6.0 (`./gradlew`) |
+| NDK | `26.3.11579264`. Set `ANDROID_NDK_HOME` or `ANDROID_NDK_ROOT`. `pcoc-bridge/build-android.sh` does not read `ANDROID_HOME`. If neither variable is set it uses `$HOME/Android/Sdk/ndk/26.3.11579264`. |
+| Rust | 1.83 or newer, targets `aarch64-linux-android` and `x86_64-linux-android`. `python3` is required by `pcoc-bridge/build-android.sh`. |
+| SDK packages | `platforms;android-37.0` (there is no `platforms;android-37`), `build-tools;37.0.0`, `platform-tools`. Set `ANDROID_HOME` or `sdk.dir`. |
+| Version | `appVersionName` `3.5.49`, `appVersionCode` `2746` |
 | `google` extras | Play billing, Firebase messaging, ML Kit barcode — not on the `aosp` classpath |
 | `aosp` extra | ZXing (`aospImplementation`) |
 
-`aospDebug` needs no `config.properties`. Debug encryption is `NoEncryption`, and Room uses `FrameworkSQLiteOpenHelperFactory`. Release builds require `localStorage.keyAlias` in `config.properties` because `AESEncryption` reads `BuildConfig.LOCAL_STORAGE_KEY_ALIAS`. `googlePlayRelease` and `aospAltRelease` can take signing properties; otherwise they fall back to the debug keystore.
+`aospDebug` needs no `config.properties`. On a clean tree, run `mkdir -p pcoc-bridge/target` before `./gradlew :app:assembleAospDebug`. The bridge script copies a crate into that directory and does not create it. Debug encryption is `NoEncryption`, and Room uses `FrameworkSQLiteOpenHelperFactory`. Release builds require `localStorage.keyAlias` in `config.properties` because `AESEncryption` reads `BuildConfig.LOCAL_STORAGE_KEY_ALIAS`. `googlePlayRelease` and `aospAltRelease` can take signing properties; otherwise they fall back to the debug keystore.
 
 The Google Services plugin is applied to the whole `:app` module. `app/src/aosp/google-services.json` is present so an `aosp` assemble can configure it. FCM code remains in `src/google`.
 
-This planning environment had JDK 21 and no Android SDK (`ANDROID_HOME` unset). `./gradlew :app:assembleAospDebug` was not executed for this docs change. The command above is still the baseline to re-run on a machine with the SDK before any later code phase. A green `aospDebug` assemble is the build gate. Do not treat `googleDebug` as the gate: it pulls Firebase and Play dependencies the screen-off path must not require.
+A green `aospDebug` assemble is the build gate. The command needs JDK 21 (`JAVA_HOME`), the SDK packages in the table (`ANDROID_HOME` or `sdk.dir`), NDK `26.3.11579264` (`ANDROID_NDK_HOME`), Rust 1.83 or newer with the two Android targets, `python3`, and `mkdir -p pcoc-bridge/target` on a clean tree. Do not treat `googleDebug` as the gate: it pulls Firebase and Play dependencies the screen-off path must not require.
 
 ## 4. Absent on purpose
 

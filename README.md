@@ -139,22 +139,37 @@ following an MVI + Clean Architecture approach.
 ### Prerequisites
 
 This project requires the following pre-requisites:
-- Java 21;
-- Android SDK (compileSdk 36);
-- Android Studio (latest stable, AGP 8.13+, Kotlin 2.2.x);
-- Android 8.0+ (API 26) device or emulator;
+
+- JDK 21, with `JAVA_HOME` set to that JDK so `java` is on `PATH`. `./gradlew` stops with `JAVA_HOME is not set and no 'java' command could be found in your PATH` when neither is set.
+- An Android SDK. Set `ANDROID_HOME` to that directory, or set `sdk.dir` in `local.properties` at the project root (`local.properties` is gitignored). The wrapper does not choose a directory. `./gradlew` fails with `SDK location not found` until one of those is set. Install these packages (compileSdk is 37 in `gradle/libs.versions.toml`; there is no `platforms;android-37` package):
+  - `platforms;android-37.0`
+  - `build-tools;37.0.0`
+  - `platform-tools`
+- Android NDK `26.3.11579264`. A debug assemble builds `libpcoc_bridge.so` through `pcoc-bridge/build-android.sh`. That script reads `ANDROID_NDK_HOME` or `ANDROID_NDK_ROOT`. It does not read `ANDROID_HOME`. If neither NDK variable is set it looks only at `$HOME/Android/Sdk/ndk/26.3.11579264`.
+- Rust 1.83 or newer (`rust-version` in `pcoc-bridge/bridge/Cargo.toml`), with `rustup` on `PATH`. The Android script runs `rustup target add aarch64-linux-android x86_64-linux-android`, then `cargo build --release -j4` for those two targets.
+- `python3` on `PATH`. `pcoc-bridge/build-android.sh` uses it.
+- An Android 8.0+ (API 26) device or emulator only to install or run the app. Assembling a debug APK does not need one.
+
+`./gradlew` is the Gradle 9.6.0 wrapper. The Android Gradle Plugin in this tree is 9.2.1 and Kotlin is 2.4.0. Android Studio is optional for the commands below.
 
 The app ships in two product flavors (`aosp` and `google`), each with `debug`, `altRelease`, and `playRelease`
 build types — giving variants such as `aospDebug`, `aospAltRelease`, and `googlePlayRelease`.
 
 ## Building
 ### Debug
-To build debug builds no extra configuration is required, just execute `./gradlew :app:assembleAospDebug`
-(or `:app:assembleGoogleDebug`) or run in Android Studio.
+A debug assemble does not read `config.properties`. It does need the JDK, SDK, NDK, and Rust toolchain above. On a clean checkout, create the bridge build directory first. `pcoc-bridge/build-android.sh` copies a crate into `pcoc-bridge/target/` and does not create that directory, so the task fails with `cp: cannot create directory` until it exists.
+
+```bash
+mkdir -p pcoc-bridge/target
+./gradlew :app:assembleAospDebug
+```
+
+`:app:assembleGoogleDebug` is the Google flavor. The baseline is `aospDebug`. You can also run that variant in Android Studio once the SDK and NDK are installed.
 
 To sideload that APK from pepebook onto a phone on the same network, serve the APK folder and open the computer's LAN address in the phone browser. This does not use Cloudflare:
 
 ```bash
+mkdir -p pcoc-bridge/target
 ./gradlew :app:assembleAospDebug
 python3 -m http.server 8000 --directory app/build/outputs/apk/aosp/debug
 ```
