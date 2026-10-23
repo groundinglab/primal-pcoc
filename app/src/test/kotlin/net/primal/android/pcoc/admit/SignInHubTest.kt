@@ -92,14 +92,14 @@ class SignInHubTest {
     }
 
     @Test
-    fun `create new pcoc starts a hike on this phone`() {
+    fun `create new pcoc offers start hike and does not dial`() {
         val xml = stringsXml()
         xml.contains("Coming soon") shouldBe false
         xml.contains("coming soon") shouldBe false
         stringValue(xml, "pcoc_create_start") shouldBe "Start hike"
         stringValue(xml, "pcoc_create_idle_title") shouldBe "New hike"
         val body = stringValue(xml, "pcoc_create_body")
-        listOf("256 MiB", "https://bari.groundinglab.io", "W_1", "W_17", "public key").forEach {
+        listOf("https://bari.groundinglab.io", "public key", "writes no object", "live header source").forEach {
             body shouldContain it
         }
         body.contains("nsec") shouldBe false

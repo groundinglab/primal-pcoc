@@ -19,8 +19,9 @@ import net.primal.android.pcoc.enroll.EnrolledPcocStore
 import net.primal.domain.nostr.cryptography.utils.hexToNpubHrp
 
 /**
- * One live hike for the process. Leaving the screen does not stop it.
- * The object is written only when the reference returns. Stop writes nothing.
+ * One hike for the process. Leaving the screen does not stop it.
+ * This SDK build has no live header source, so start fails closed and writes nothing.
+ * Stop writes nothing.
  */
 @Singleton
 class ProduceSession @Inject constructor(

@@ -54,8 +54,8 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2744
-val appVersionName = "3.5.47"
+val appVersionCode = 2745
+val appVersionName = "3.5.48"
 
 tasks.register("generateReleaseProperties") {
     doLast {
@@ -302,7 +302,7 @@ val pcocBridgeHost = tasks.register<Exec>("pcocBridgeHost") {
     workingDir(rootProject.projectDir)
     commandLine("cargo", "build", "-p", "pcoc-bridge", "--manifest-path", "pcoc-bridge/Cargo.toml")
     inputs.dir(rootProject.file("pcoc-bridge/bridge/src"))
-    inputs.dir(rootProject.file("pcoc-bridge/vendor/hike/src"))
+    inputs.file(rootProject.file("pcoc-bridge/bridge/Cargo.toml"))
     inputs.file(rootProject.file("pcoc-bridge/Cargo.lock"))
     outputs.file(rootProject.file("pcoc-bridge/target/debug/libpcoc_bridge.so"))
 }
@@ -314,7 +314,7 @@ val pcocBridgeAndroid = tasks.register<Exec>("pcocBridgeAndroid") {
     val outDir = layout.buildDirectory.dir("pcoc-jni")
     commandLine("sh", "pcoc-bridge/build-android.sh", outDir.get().asFile.absolutePath)
     inputs.dir(rootProject.file("pcoc-bridge/bridge/src"))
-    inputs.dir(rootProject.file("pcoc-bridge/vendor/hike/src"))
+    inputs.file(rootProject.file("pcoc-bridge/bridge/Cargo.toml"))
     inputs.file(rootProject.file("pcoc-bridge/Cargo.lock"))
     outputs.dir(outDir)
 }

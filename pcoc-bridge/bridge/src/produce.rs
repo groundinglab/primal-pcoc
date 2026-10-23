@@ -1,326 +1,151 @@
-//! Produce, in-process, on the reference live profile.
+//! Produce, in-process.
 //!
-//! Progress comes from the crate's own callbacks. Stop is checked at a stage
-//! boundary, after the leg in progress. The object is written only when the
-//! run returns. A stop writes nothing.
+//! Live produce fails closed. The SDK build has no live header source and no
+//! Bari client, so Start hike does not dial and writes nothing. The scripted
+//! path is `pcoc_produce::produce_on_rig` for tests. Stop writes nothing.
 
 use crate::redact;
-use hike::{ProduceFailure, Sizes, Stage};
+use pcoc::hexutil::hex_decode;
+use pcoc_produce::{
+    cases_profile, cases_rig, encode_produced, path_skip_stderr, produce_on_rig, Case,
+    ProduceOutcome, Progress,
+};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
-use std::cell::RefCell;
-use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 pub const STOPPED: &str = "stopped by the user";
 
+/// The sentence the desktop app shows when produce is started without a rig.
+pub const LIVE_HEADER_SOURCE: &str = "live header source is not in this build";
+
+const SETTINGS_REFUSED: &str = "the produce settings were refused by the reference parser";
+
 #[derive(Clone, Debug)]
 pub struct LiveConfig {
     pub public_key_hex: String,
     pub output: String,
-    /// `host:port`. Empty starts from the mainnet DNS seeds.
+    /// `host:port`. Kept for a later header source. This build does not dial it.
     pub gossip_peer: Option<String>,
 }
 
-pub fn produce_args(config: &LiveConfig) -> Vec<String> {
-    let mut args = vec![
-        "--pubkey-hex".to_owned(),
-        config.public_key_hex.trim().to_owned(),
-        "--output".to_owned(),
-        config.output.clone(),
-        "--profile".to_owned(),
-        "live".to_owned(),
-    ];
-    if let Some(peer) = config
-        .gossip_peer
-        .as_ref()
-        .map(|peer| peer.trim())
-        .filter(|peer| !peer.is_empty())
-    {
-        args.push("--gossip-peer".to_owned());
-        args.push(peer.to_owned());
-    }
-    args
-}
-
-struct Tracker<'a> {
-    emit: &'a dyn Fn(Value),
-    calls: u64,
-    stage: usize,
-    legs_in_stage: u64,
-    beacon: ([u8; 32], u64),
-}
-
-impl Tracker<'_> {
-    fn observed(&mut self, tip: [u8; 32], height: u64, header_time: u32) {
-        self.calls += 1;
-        if self.calls == 1 {
-            self.beacon = (tip, height);
-            (self.emit)(json!({
-                "kind": "seed",
-                "height": height,
-                "hash": hike::encode_hex32(&tip),
-                "time": header_time,
-            }));
-            (self.emit)(tip_event(tip, height));
-            return;
-        }
-        if self.calls == 2 {
-            (self.emit)(json!({ "kind": "terrain" }));
-        }
-        let j = self.legs_in_stage;
-        self.legs_in_stage += 1;
-        (self.emit)(json!({
-            "kind": "leg",
-            "stage": self.stage,
-            "j": j,
-            "stored": j + 1,
-        }));
-        if tip != self.beacon.0 {
-            (self.emit)(tip_event(tip, height));
-        }
-        if tip != self.beacon.0 && height > self.beacon.1 {
-            (self.emit)(json!({
-                "kind": "stage_closed",
-                "stage": self.stage,
-                "legs": self.legs_in_stage,
-                "height": height,
-            }));
-            self.stage += 1;
-            self.legs_in_stage = 0;
-            self.beacon = (tip, height);
-        }
-    }
-}
-
-fn tip_event(hash: [u8; 32], height: u64) -> Value {
-    json!({
-        "kind": "tip",
-        "height": height,
-        "hash": hike::encode_hex32(&hash),
-    })
-}
-
-/// Run the crate's produce with progress events and a stop flag.
-pub fn drive<O, P, S>(
-    public_key: [u8; 32],
-    sizes: Sizes,
-    stop: &AtomicBool,
-    emit: &dyn Fn(Value),
-    mut observe: O,
-    mut open_stage: P,
-    mut settle: S,
-) -> Result<Vec<u8>, ProduceFailure>
-where
-    O: FnMut() -> Result<([u8; 32], u64, u32), ProduceFailure>,
-    P: FnMut(&[u8; 32], u64) -> Result<Vec<u8>, ProduceFailure>,
-    S: FnMut(&mut [Stage], u64) -> Result<(), ProduceFailure>,
-{
-    let tracker = RefCell::new(Tracker {
-        emit,
-        calls: 0,
-        stage: 0,
-        legs_in_stage: 0,
-        beacon: ([0; 32], 0),
-    });
-    let stopped = || stop.load(Ordering::SeqCst);
-    hike::produce_with_settlement_sized(
-        public_key,
-        sizes,
-        || {
-            if stopped() {
-                return Err(ProduceFailure::new(STOPPED));
-            }
-            let (tip, height, header_time) = observe()?;
-            tracker.borrow_mut().observed(tip, height, header_time);
-            Ok((tip, height))
-        },
-        |waypoint, beacon_height| {
-            if stopped() {
-                return Err(ProduceFailure::new(STOPPED));
-            }
-            open_stage(waypoint, beacon_height)
-        },
-        |stages, cut_off| {
-            if stopped() {
-                return Err(ProduceFailure::new(STOPPED));
-            }
-            emit(json!({ "kind": "settling" }));
-            settle(stages, cut_off)
-        },
-    )
-}
-
-pub fn is_stop(err: &ProduceFailure) -> bool {
-    err.message == STOPPED
-}
-
-/// Live produce. `emit` is called on the produce thread.
-pub fn run_live(config: LiveConfig, stop: &AtomicBool, emit: &dyn Fn(Value)) {
-    let parsed = match hike::parse_produce(&produce_args(&config)) {
-        Ok(parsed) => parsed,
-        Err(_) => {
-            emit(json!({
-                "kind": "failed",
-                "message": "the produce settings were refused by the reference parser",
-            }));
-            return;
-        }
-    };
-    if let Err(err) = hike::parent_dir_exists(&parsed.output) {
-        emit(json!({ "kind": "failed", "message": err }));
+/// Live produce. `emit` is called on the produce thread. Nothing is written.
+pub fn run_live(config: LiveConfig, _stop: &AtomicBool, emit: &dyn Fn(Value)) {
+    if decode_pubkey(&config.public_key_hex).is_none() {
+        fail(emit, SETTINGS_REFUSED);
         return;
     }
-    let (dial, network) = match parsed.clock {
-        hike::ProduceClock::Gossip { dial, network } => (dial, network),
-        hike::ProduceClock::Http { .. } => {
-            emit(json!({
-                "kind": "failed",
-                "message": "HTTP tip is not a produce clock",
-            }));
-            return;
-        }
-    };
-    emit(json!({
-        "kind": "started",
-        "output": config.output,
-        "public_key": hike::encode_hex32(&parsed.public_key),
-    }));
-
-    let mut book = hike::LivePathBook::new(hike::produce_http_agent(), parsed.bari_url.clone());
-    let log_path = hike::produce_event_log_path(&parsed.output);
-    match book.open_event_log(&parsed.output) {
-        Ok(()) => emit(json!({
-            "kind": "log",
-            "line": format!("event log {}", log_path.display()),
-        })),
-        Err(err) => emit(json!({
-            "kind": "log",
-            "line": format!("event log {}: {err}", log_path.display()),
-        })),
+    if let Err(err) = parent_dir_exists(&config.output) {
+        fail(emit, &err);
+        return;
     }
-
-    let clock = match dial {
-        hike::GossipDial::Named(peer) => {
-            emit(json!({ "kind": "log", "line": format!("gossip peer {peer}") }));
-            hike::HeaderClock::start(peer, network)
-        }
-        hike::GossipDial::MainnetDnsSeeds => {
-            emit(json!({
-                "kind": "log",
-                "line": "gossip from the mainnet DNS seeds",
-            }));
-            hike::HeaderClock::start_mainnet_dns_seeds()
-        }
-    };
-    let bits = hike::effective_bits();
-    let produced = produce_live(&clock, book, bits, parsed.public_key, stop, emit);
-    let ops = hike::take_ops_capture();
-    let (path_lines, other): (Vec<&str>, Vec<&str>) = ops.lines().partition(|line| {
-        line.starts_with("path_skip ") || line.starts_with("not fetched by design")
-    });
-    for line in other {
-        let redacted = redact(line);
-        if !redacted.is_empty() {
-            emit(json!({ "kind": "log", "line": redacted }));
-        }
-    }
-
-    match produced {
-        Ok(_) if stop.load(Ordering::SeqCst) => emit(json!({ "kind": "stopped" })),
-        Ok(bytes) => {
-            if !path_lines.is_empty() {
-                emit(json!({
-                    "kind": "paths",
-                    "lines": path_lines.iter().map(|line| redact(line)).collect::<Vec<_>>(),
-                }));
-            }
-            match write_atomically(Path::new(&config.output), &bytes) {
-                Ok(()) => emit(json!({
-                    "kind": "written",
-                    "path": config.output,
-                    "bytes": bytes.len() as u64,
-                    "sha256": hex_sha(&bytes),
-                })),
-                Err(err) => emit(json!({
-                    "kind": "failed",
-                    "message": format!("could not write the object: {err}"),
-                })),
-            }
-        }
-        Err(err) if is_stop(&err) => emit(json!({ "kind": "stopped" })),
-        Err(err) => emit(json!({ "kind": "failed", "message": redact(&err.message) })),
-    }
+    // `config.gossip_peer` is kept for a later header source. This build does not dial it.
+    fail(emit, LIVE_HEADER_SOURCE);
 }
 
-fn produce_live(
-    clock: &hike::HeaderClock,
-    book: hike::LivePathBook,
-    bits: u32,
-    public_key: [u8; 32],
-    stop: &AtomicBool,
-    emit: &dyn Fn(Value),
-) -> Result<Vec<u8>, ProduceFailure> {
-    let book = RefCell::new(book);
-    let tip = |hash: [u8; 32], height: u64| {
-        emit(tip_event(hash, height));
+fn fail(emit: &dyn Fn(Value), message: &str) {
+    emit(json!({
+        "kind": "failed",
+        "message": redact(message),
+    }));
+}
+
+fn decode_pubkey(hex: &str) -> Option<[u8; 32]> {
+    let bytes = hex_decode(hex.trim())?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&bytes);
+    Some(key)
+}
+
+fn parent_dir_exists(path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("path is empty".into());
+    }
+    let path = Path::new(path);
+    if path.is_dir() {
+        return Err("path is a directory".into());
+    }
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
     };
-    hike::begin_ops_capture();
-    drive(
-        public_key,
-        hike::Sizes::production(),
-        stop,
-        emit,
-        || {
-            let (hash, height) = hike::note_produce_headers(clock, &mut book.borrow_mut())?;
-            Ok((hash, height, header_time(clock, hash)))
-        },
-        |waypoint, beacon_height| {
-            emit(json!({ "kind": "posting", "beacon_height": beacon_height }));
-            let (now_tip, height) = hike::note_produce_headers(clock, &mut book.borrow_mut())?;
-            hike::emit_tip_in_hashcash(&now_tip, height);
-            book.borrow_mut().post_observing(
-                waypoint,
-                &now_tip,
-                height,
-                beacon_height,
-                bits,
-                |after| {
-                    clock.headers_since(after).map(|ticks| {
-                        ticks
-                            .into_iter()
-                            .map(|tick| {
-                                tip(tick.hash, tick.height);
-                                (tick.hash, tick.height)
-                            })
-                            .collect()
-                    })
-                },
-            )?;
-            Ok(Vec::new())
-        },
-        |stages, cut_off| {
-            book.borrow_mut().finish(stages, cut_off, |after| {
-                if stop.load(Ordering::SeqCst) {
-                    return Err(ProduceFailure::new(STOPPED));
+    if !parent.is_dir() {
+        return Err("parent directory does not exist".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn is_stop(err: &str) -> bool {
+    err == STOPPED
+}
+
+/// CASES S1 rig. `stop_after` cancels once that many legs have been reported.
+/// Not a live dial. The object kind is the SDK export.
+pub fn scripted(stop_after: Option<u64>) -> (Result<Vec<u8>, String>, Vec<Value>) {
+    let profile = cases_profile(Case::S1);
+    let rig = cases_rig(Case::S1);
+    let seed_height = rig.seed_height;
+    let key = [0x11u8; 32];
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_cb = Arc::clone(&stop);
+    let mut events = Vec::new();
+    let mut legs_in_stage = 0u64;
+    let mut legs_seen = 0u64;
+    let outcome = produce_on_rig(
+        &key,
+        &profile,
+        &rig,
+        stop.as_ref(),
+        |progress| match progress {
+            Progress::TerrainFilled => {
+                events.push(json!({ "kind": "seed", "height": seed_height }));
+                events.push(json!({ "kind": "terrain" }));
+            }
+            Progress::Leg { stage, leg, .. } => {
+                legs_in_stage = leg as u64 + 1;
+                legs_seen += 1;
+                events.push(json!({
+                    "kind": "leg",
+                    "stage": stage,
+                    "j": leg,
+                    "stored": legs_in_stage,
+                }));
+                if stop_after.is_some_and(|limit| legs_seen >= limit) {
+                    stop_cb.store(true, Ordering::SeqCst);
                 }
-                let ticks = clock.wait_tips_after(after)?;
-                Ok(ticks
-                    .into_iter()
-                    .map(|tick| {
-                        tip(tick.hash, tick.height);
-                        (tick.hash, tick.height)
-                    })
-                    .collect())
-            })
+            }
+            Progress::Interrupt { stage, height } => {
+                events.push(json!({
+                    "kind": "stage_closed",
+                    "stage": stage,
+                    "legs": legs_in_stage,
+                    "height": height,
+                }));
+                legs_in_stage = 0;
+            }
+            Progress::Closed => events.push(json!({ "kind": "settling" })),
         },
-    )
+    );
+    let result = match outcome {
+        ProduceOutcome::Cancelled => Err(STOPPED.to_owned()),
+        ProduceOutcome::Object(obj) => {
+            let lines: Vec<String> = path_skip_stderr().lines().map(str::to_owned).collect();
+            events.push(json!({ "kind": "paths", "lines": lines }));
+            Ok(encode_produced(&obj))
+        }
+    };
+    (result, events)
 }
 
 /// Temporary sibling, sync, then rename. A failure leaves no partial object.
-pub fn write_atomically(dest: &Path, bytes: &[u8]) -> std::io::Result<()> {
+/// Live produce does not call this: that path writes nothing.
+#[cfg(test)]
+fn write_atomically(dest: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let parent = match dest.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
@@ -334,6 +159,7 @@ pub fn write_atomically(dest: &Path, bytes: &[u8]) -> std::io::Result<()> {
         std::process::id()
     ));
     let result = (|| {
+        use std::io::Write;
         let mut file = std::fs::File::create(&tmp)?;
         file.write_all(bytes)?;
         file.sync_all()?;
@@ -343,83 +169,6 @@ pub fn write_atomically(dest: &Path, bytes: &[u8]) -> std::io::Result<()> {
         let _ = std::fs::remove_file(&tmp);
     }
     result
-}
-
-fn hex_sha(bytes: &[u8]) -> String {
-    let digest: [u8; 32] = Sha256::digest(bytes).into();
-    hike::encode_hex32(&digest)
-}
-
-/// A finite tip script for tests. Stage `g` records `legs[g]` legs.
-/// Not a live dial.
-pub fn scripted(
-    legs: &[u64; 18],
-    stop_after: Option<u64>,
-) -> (Result<Vec<u8>, ProduceFailure>, Vec<Value>) {
-    let tips = script(legs, 1_000);
-    let events = RefCell::new(Vec::new());
-    let stop = AtomicBool::new(false);
-    let emit = |event: Value| {
-        if let (Some(limit), Some("leg")) = (stop_after, event.get("kind").and_then(Value::as_str))
-        {
-            let seen = events
-                .borrow()
-                .iter()
-                .filter(|event: &&Value| event.get("kind").and_then(Value::as_str) == Some("leg"))
-                .count() as u64;
-            if seen + 1 >= limit {
-                stop.store(true, Ordering::SeqCst);
-            }
-        }
-        events.borrow_mut().push(event);
-    };
-    let mut at = 0usize;
-    let result = drive(
-        [0x11; 32],
-        Sizes::conformance_small(),
-        &stop,
-        &emit,
-        || {
-            let tip = tips[at];
-            at += 1;
-            Ok((tip.0, tip.1, 1_700_000_000))
-        },
-        |_, _| Ok(Vec::new()),
-        |_, _| Ok(()),
-    );
-    (result, events.into_inner())
-}
-
-fn script(legs: &[u64; 18], first_height: u64) -> Vec<([u8; 32], u64)> {
-    let mut hash = [0u8; 32];
-    hash[0] = 1;
-    let mut height = first_height;
-    let mut tips = vec![(hash, height)];
-    for &count in legs {
-        for _ in 1..count {
-            tips.push((hash, height));
-        }
-        hash[0] = hash[0].wrapping_add(1);
-        hash[1] = 0xee;
-        height += 1;
-        tips.push((hash, height));
-    }
-    tips
-}
-
-/// `nTime` of `hash` when that header is the tip. Zero when it was not read.
-fn header_time(clock: &hike::HeaderClock, hash: [u8; 32]) -> u32 {
-    clock
-        .headers_since(Some(hash))
-        .ok()
-        .and_then(|ticks| {
-            ticks
-                .iter()
-                .rev()
-                .find(|tick| tick.hash == hash)
-                .map(|tick| tick.n_time)
-        })
-        .unwrap_or(0)
 }
 
 pub fn spawn_live(
@@ -447,13 +196,14 @@ pub fn spawn_live(
 mod tests {
     use super::*;
 
-    const LEGS: [u64; 18] = [3, 1, 2, 1, 4, 1, 1, 2, 1, 1, 3, 1, 1, 1, 2, 1, 1, 2];
-
     #[test]
-    fn events_follow_the_reference_stage_boundaries() {
-        let (result, events) = scripted(&LEGS, None);
+    fn events_follow_the_sdk_stage_boundaries() {
+        let (result, events) = scripted(None);
         let bytes = result.expect("scripted produce");
-        assert!(!bytes.is_empty());
+        let obj = pcoc::decode_object(&bytes).expect("sdk object");
+        assert_eq!(obj.kind, pcoc::constants::KIND);
+        assert_eq!(obj.fill, pcoc::constants::FILL);
+        assert_eq!(obj.public_key, [0x11; 32]);
 
         let closed: Vec<(u64, u64)> = events
             .iter()
@@ -467,13 +217,8 @@ mod tests {
                 ))
             })
             .collect();
-        assert_eq!(
-            closed,
-            LEGS.iter()
-                .enumerate()
-                .map(|(stage, legs)| (stage as u64, *legs))
-                .collect::<Vec<_>>()
-        );
+        assert_eq!(closed.len(), 18);
+        assert!(closed.iter().all(|(_, legs)| *legs == 1));
         assert_eq!(
             events
                 .iter()
@@ -492,12 +237,14 @@ mod tests {
             event.get("kind").and_then(Value::as_str) == Some("seed")
                 && event.get("height").and_then(Value::as_u64) == Some(1_000)
         }));
+        assert!(events
+            .iter()
+            .any(|event| { event.get("kind").and_then(Value::as_str) == Some("paths") }));
 
         let outcome = crate::verify::verify_object_sized(&bytes, "http://127.0.0.1:9", 2);
         match outcome {
             crate::verify::VerifyOutcome::Record { json, reads, .. } => {
                 assert!(json.contains("\"profile\":\"conformance-small\""));
-                assert!(json.ends_with('\n'));
                 assert!(reads.issued > 0);
                 assert_eq!(reads.answered, 0);
             }
@@ -507,7 +254,7 @@ mod tests {
 
     #[test]
     fn stop_writes_no_object() {
-        let (result, events) = scripted(&LEGS, Some(2));
+        let (result, events) = scripted(Some(2));
         assert!(result.is_err());
         assert!(is_stop(&result.unwrap_err()));
         assert!(events
@@ -516,6 +263,51 @@ mod tests {
         assert!(!events
             .iter()
             .any(|event| event.get("kind").and_then(Value::as_str) == Some("written")));
+    }
+
+    #[test]
+    fn live_produce_fails_closed_without_a_header_source() {
+        let dir = std::env::temp_dir().join(format!("pcoc-bridge-live-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let dest = dir.join("hike.cbor");
+        let events = std::cell::RefCell::new(Vec::new());
+        let stop = AtomicBool::new(false);
+        run_live(
+            LiveConfig {
+                public_key_hex: "11".repeat(32),
+                output: dest.display().to_string(),
+                gossip_peer: Some("192.0.2.7:8333".into()),
+            },
+            &stop,
+            &|event| events.borrow_mut().push(event),
+        );
+        let events = events.into_inner();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["kind"], "failed");
+        assert_eq!(events[0]["message"], LIVE_HEADER_SOURCE);
+        assert!(!dest.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_bad_key_is_refused_before_the_header_source() {
+        let dir = std::env::temp_dir().join(format!("pcoc-bridge-badkey-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let dest = dir.join("hike.cbor");
+        let events = std::cell::RefCell::new(Vec::new());
+        run_live(
+            LiveConfig {
+                public_key_hex: "zz".into(),
+                output: dest.display().to_string(),
+                gossip_peer: None,
+            },
+            &AtomicBool::new(false),
+            &|event| events.borrow_mut().push(event),
+        );
+        let events = events.into_inner();
+        assert_eq!(events[0]["message"], SETTINGS_REFUSED);
+        assert!(!dest.exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

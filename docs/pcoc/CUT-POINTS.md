@@ -4,7 +4,7 @@ Planning map for the Groundinglab fork of Primal Android. This document names fi
 
 PCOC (cost-backed hike objects) lives in [groundinglab/pcoc](https://github.com/groundinglab/pcoc). This repository consumes that work later as a dependency. It does not host the protocol.
 
-Terms used below, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation. First-ship intent is parked until the Bari waypoint-anchoring GO. Assume the **live** profile. TEST stays paused: do not add a profile switch in this app.
+Terms used below, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation. First-ship intent is parked until the Bari waypoint-anchoring GO. Assume the **live** profile. TEST stays paused: do not add a profile switch in this app.
 
 The locks below are the ones given for this plan. The normative text is the specification in [groundinglab/pcoc](https://github.com/groundinglab/pcoc) ([`spec/`](https://github.com/groundinglab/pcoc/tree/main/spec)).
 
@@ -110,14 +110,14 @@ Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged
 Checked and absent:
 
 - Account → PCOC lives in `net.primal.android.pcoc`. Enroll stores the picked file bytes for the signed-in account. It does not call `hike::yielded_public_key` or `object_public_key`, and it does not load a hike JNI library.
-- `pcoc-bridge/` vendors the pre-v2.1 hike and exposes produce and verify through JNI. Re-vendor it from [groundinglab/pcoc](https://github.com/groundinglab/pcoc) `sdk/rust` after SPEC v2.1 merges. Until then it is not the step or the fill.
+- `pcoc-bridge/` links the pcoc Rust SDK (tag `sdk-rust-v2.3.0`) and exposes produce and verify through JNI. The SDK is the step and the fill. A live header source is not in this SDK build.
 - No `leg` / `leg result` types.
 
 The JNI that does exist for signatures is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Request service admission calls it on the 32 bytes of query `h`. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for admission. `CryptoUtils.verify` checks a Nostr event signature. The phone does not show a local verify result. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.
 
 No produce call site exists. Do not place one on Wallet. Where an in-app produce call would sit is Ask Christian, after `groundinglab/pcoc` publishes an Android-callable artifact whose symbols are known. This plan does not name those symbols and does not add a Rust bridge.
 
-`STAGES` is 18. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Verify any uses those constants. It does not invent a per-stage table, and it does not show a leg or a leg result.
+`STAGES` is 18. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Verify any uses those constants. It does not invent a per-stage table, and it does not show a leg or a leg result.
 
 ### Local verify
 
@@ -139,7 +139,7 @@ There is no observer of the public tip, and no header client. Leave both absent 
 - Permissions already present: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`.
 - What the NWC service does today: `PrimalNwcService.start` → `startForegroundService` → `onStartCommand` → `startForeground`.
 
-That start and stop is NWC’s lifecycle. It is not the hike. Do not invent a service that starts when produce begins, when a leg begins, or when a leg result is in. Do not assign start or stop to a leg. A leg is 2,000,000 steps (SPEC v2.1 `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
+That start and stop is NWC’s lifecycle. It is not the hike. Do not invent a service that starts when produce begins, when a leg begins, or when a leg result is in. Do not assign start or stop to a leg. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. STAGES is 18. The tip interrupts the drive. A leg ending is not the end of observation.
 
 The app does not keep a header archive. The missing client is not `WalletSessionBridge`, not `keepAliveSocketsHttpClient`, and not `MempoolApiService`.
 

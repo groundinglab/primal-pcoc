@@ -1,7 +1,7 @@
 [package]
 name = "pcoc-bridge"
-description = "JNI bridge from the Android app to the vendored hike reference."
-version = "0.1.0"
+description = "JNI bridge from the Android app to the pcoc Rust SDK."
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.83"
 publish = false
@@ -11,7 +11,10 @@ name = "pcoc_bridge"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-hike = { path = "../vendor/hike" }
+# `pcoc` and `pcoc-produce` come from one tag, sdk-rust-v2.3.0. Move both strings together.
+pcoc-produce = { git = "https://github.com/groundinglab/pcoc.git", tag = "sdk-rust-v2.3.0" }
+pcoc = { git = "https://github.com/groundinglab/pcoc.git", tag = "sdk-rust-v2.3.0" }
 jni = { version = "=0.21.1", default-features = false }
 serde_json = "=1.0.151"
 sha2 = "0.10"
+ureq = { version = "=2.12.1", default-features = false, features = ["tls"] }

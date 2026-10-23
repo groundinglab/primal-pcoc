@@ -1,11 +1,8 @@
 # Android bridge workspace.
-# hike under vendor/ is still the pre-v2.1 tree (tag ref-rust-v2.0.5).
-# Re-vendor from groundinglab/pcoc sdk/rust after SPEC v2.1 merges.
-# Until then vendor/ is not the step or the fill. Do not edit it on this branch.
-# Live Bari and index hosts default to groundinglab.io; other https origins warn and proceed.
+# The engine is the pcoc Rust SDK. The pin lives in bridge/Cargo.toml.
 [workspace]
 resolver = "2"
-members = ["vendor/hike", "bridge"]
+members = ["bridge"]
 
 [profile.dev.package."*"]
 # Legs are not usable unoptimised. Same choice as the desktop app.

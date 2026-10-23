@@ -1,9 +1,9 @@
 package net.primal.android.pcoc.bridge
 
-/** Live portable index. The same origin the reference uses for `--profile live`. */
+/** Live portable index. Verify reads this origin. The SDK does not name a default index. */
 internal const val INDEX_URL = "https://index.groundinglab.io"
 
-/** Live Bari. Produce posts waypoints here. */
+/** Live Bari. This SDK build does not post to it. */
 internal const val BARI_URL = "https://bari.groundinglab.io"
 
 /**
@@ -31,7 +31,7 @@ internal object PcocNative {
     @JvmStatic
     external fun verify(objectBytes: ByteArray, indexUrl: String, threads: Int): String
 
-    /** Reference `public_key` when the bytes yield one. Null otherwise. */
+    /** 32-byte `public_key` when the bytes yield one. Null otherwise. */
     @JvmStatic
     external fun yieldedPublicKey(objectBytes: ByteArray): ByteArray?
 
