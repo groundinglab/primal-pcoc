@@ -1,6 +1,6 @@
 //! On-phone produce and verify, in-process, on the pcoc Rust SDK.
 //!
-//! Produce on this build fails closed: the SDK has no live header source.
+//! Produce on this build uses the SDK live header source.
 //! Verify is `pcoc::verify`, the section 14 measurement. Neither surface is a
 //! policy verdict. Object kind and domain bytes come from the SDK exports.
 
@@ -11,7 +11,7 @@ mod verify;
 pub use produce::{scripted, LiveConfig, STOPPED};
 pub use verify::{verify_object, IndexReads, VerifyOutcome};
 
-/// Live Bari. This SDK build does not post to it.
+/// Live Bari. Produce posts waypoints here.
 pub const BARI_URL: &str = "https://bari.groundinglab.io";
 /// Live portable index. Verify reads this. The SDK does not name a default index.
 pub const INDEX_URL: &str = "https://index.groundinglab.io";

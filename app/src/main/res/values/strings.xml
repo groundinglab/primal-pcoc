@@ -201,8 +201,8 @@
     <string name="pcoc_create_public_key">Public key</string>
     <string name="pcoc_create_no_key">No public key yet. Sign in to an account first.</string>
     <string name="pcoc_create_gossip">Gossip</string>
-    <string name="pcoc_create_gossip_body">A named peer is remembered and is not dialed. A live header source is not in this build.</string>
-    <string name="pcoc_create_body">Start hike uses the pcoc Rust SDK on this phone. A live header source is not in this build, so it does not dial Bitcoin and it does not post to https://bari.groundinglab.io. It writes no object. Stop writes no object. It uses this account\'s public key. It does not need the private key. If the phone stops the app, no object is written. A hike cannot pause or resume.</string>
+    <string name="pcoc_create_gossip_body">No named peer. Start hike uses the Bitcoin DNS seeds as the live header source.</string>
+    <string name="pcoc_create_body">Start hike uses the pcoc Rust SDK on this phone. The live header source is in this build. It dials Bitcoin and posts waypoints to https://bari.groundinglab.io. Stop writes no object. It uses this account\'s public key. It does not need the private key. If the phone stops the app, no object is written. A hike cannot pause or resume.</string>
     <string name="pcoc_create_start">Start hike</string>
     <string name="pcoc_create_running">Hike running</string>
     <string name="pcoc_create_settling">Settling paths</string>

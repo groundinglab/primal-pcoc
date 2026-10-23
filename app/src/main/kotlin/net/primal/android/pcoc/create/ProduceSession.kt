@@ -20,7 +20,7 @@ import net.primal.domain.nostr.cryptography.utils.hexToNpubHrp
 
 /**
  * One hike for the process. Leaving the screen does not stop it.
- * This SDK build has no live header source, so start fails closed and writes nothing.
+ * Start hike uses the SDK live header source. Stop writes nothing.
  * Stop writes nothing.
  */
 @Singleton

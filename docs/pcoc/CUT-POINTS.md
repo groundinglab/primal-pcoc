@@ -110,7 +110,7 @@ Do not retarget Wallet. Do not change `PrimalTopLevelDestination`, `onTabChanged
 Checked and absent:
 
 - Account → PCOC lives in `net.primal.android.pcoc`. Enroll stores the picked file bytes for the signed-in account. It does not call `hike::yielded_public_key` or `object_public_key`, and it does not load a hike JNI library.
-- `pcoc-bridge/` links the pcoc Rust SDK (tag `sdk-rust-v2.3.0`) and exposes produce and verify through JNI. The SDK is the step and the fill. A live header source is not in this SDK build.
+- `pcoc-bridge/` links the pcoc Rust SDK (tag `sdk-rust-v2.3.1`) and exposes produce and verify through JNI. The SDK is the step, the fill, and the live header source.
 - No `leg` / `leg result` types.
 
 The JNI that does exist for signatures is `fr.acinq.secp256k1` behind `CryptoUtils` (`domain/nostr/.../CryptoUtils.kt`). `CryptoUtils.sign` (`secp256k1.signSchnorr`) is the BIP-340 primitive. Request service admission calls it on the 32 bytes of query `h`. Nostr event signing stays on `NostrNotary.signNostrEvent` and `NostrUnsignedEvent.signOrThrow`. Do not use those for admission. `CryptoUtils.verify` checks a Nostr event signature. The phone does not show a local verify result. Breez Spark (`WalletRepositoryFactory`, `EnsureSparkWalletExistsUseCase`) is the Lightning wallet. Neither Spark nor the Nostr event signer is a produce call.

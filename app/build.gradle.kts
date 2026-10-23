@@ -54,8 +54,8 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2745
-val appVersionName = "3.5.48"
+val appVersionCode = 2746
+val appVersionName = "3.5.49"
 
 tasks.register("generateReleaseProperties") {
     doLast {
@@ -300,7 +300,7 @@ val pcocBridgeHost = tasks.register<Exec>("pcocBridgeHost") {
     group = "pcoc"
     description = "Build the host hike bridge for unit tests."
     workingDir(rootProject.projectDir)
-    commandLine("cargo", "build", "-p", "pcoc-bridge", "--manifest-path", "pcoc-bridge/Cargo.toml")
+    commandLine("cargo", "build", "-j4", "-p", "pcoc-bridge", "--manifest-path", "pcoc-bridge/Cargo.toml")
     inputs.dir(rootProject.file("pcoc-bridge/bridge/src"))
     inputs.file(rootProject.file("pcoc-bridge/bridge/Cargo.toml"))
     inputs.file(rootProject.file("pcoc-bridge/Cargo.lock"))

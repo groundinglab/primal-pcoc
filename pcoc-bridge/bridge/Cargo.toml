@@ -11,9 +11,9 @@ name = "pcoc_bridge"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# `pcoc` and `pcoc-produce` come from one tag, sdk-rust-v2.3.0. Move both strings together.
-pcoc-produce = { git = "https://github.com/groundinglab/pcoc.git", tag = "sdk-rust-v2.3.0" }
-pcoc = { git = "https://github.com/groundinglab/pcoc.git", tag = "sdk-rust-v2.3.0" }
+# `pcoc` and `pcoc-produce` come from one tag, sdk-rust-v2.3.1. Move both strings together.
+pcoc-produce = { git = "https://github.com/groundinglab/pcoc.git", tag = "sdk-rust-v2.3.1" }
+pcoc = { git = "https://github.com/groundinglab/pcoc.git", tag = "sdk-rust-v2.3.1" }
 jni = { version = "=0.21.1", default-features = false }
 serde_json = "=1.0.151"
 sha2 = "0.10"

@@ -227,8 +227,8 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "pcoc"
-version = "2.3.0"
-source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.0#9c0c408469e3a0c359e15ebcb4ed7e19cbc38d5c"
+version = "2.3.1"
+source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.1#be0d5b85f064e6286299510de46be196287ae648"
 dependencies = [
  "cpufeatures",
  "secp256k1",
@@ -249,11 +249,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "pcoc-produce"
-version = "2.3.0"
-source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.0#9c0c408469e3a0c359e15ebcb4ed7e19cbc38d5c"
+name = "pcoc-gossip"
+version = "2.3.1"
+source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.1#be0d5b85f064e6286299510de46be196287ae648"
 dependencies = [
  "pcoc",
+ "sha2",
+]
+
+[[package]]
+name = "pcoc-produce"
+version = "2.3.1"
+source = "git+https://github.com/groundinglab/pcoc.git?tag=sdk-rust-v2.3.1#be0d5b85f064e6286299510de46be196287ae648"
+dependencies = [
+ "pcoc",
+ "pcoc-gossip",
+ "ureq",
 ]
 
 [[package]]

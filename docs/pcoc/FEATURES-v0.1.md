@@ -2,7 +2,7 @@
 
 Product SPEC for the Account → PCOC doors. Cut points stay in [CUT-POINTS.md](CUT-POINTS.md). Phase order stays in [DEV-PLAN.md](DEV-PLAN.md).
 
-Terms, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. The phone bridge links the pcoc Rust SDK (tag `sdk-rust-v2.3.0`). That SDK is the step and the fill. A live header source is not in this SDK build, so Create fails closed and writes no object. The tip interrupts the drive when a header source is present. Live profile only. TEST is paused.
+Terms, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. The phone bridge links the pcoc Rust SDK (tag `sdk-rust-v2.3.1`). That SDK is the step, the fill, and the live header source, so Start hike uses it. Stop writes no object. The tip interrupts the drive when a header source is present. Live profile only. TEST is paused.
 
 This SPEC is the 2026-10-05 Account doors lock. For these doors it supersedes the earlier phone→gate POST (`https://admission.pcoc.app/v1/sign-in`) and the bare-hash QR. The admission gate, the website, Cloudflare, and R2 are not changed here. A conformant HTTPS site is a later Public Site/Infra change.
 
@@ -14,7 +14,7 @@ Entry is Account → PCOC (the drawer tile immediately before Settings). Four do
 
 1. **Enroll your PCOC** — working.
 2. **Verify any PCOC** — full verify. The door writes a measurement record. It lists Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. It does not show valid or invalid.
-3. **Create a PCOC** — SDK bridge on this phone. A live header source is not in this build, so Start hike fails closed and writes no object.
+3. **Create a PCOC** — SDK bridge on this phone. Start hike uses the live header source. Stop writes no object.
 4. **Request service admission** — working.
 
 The centre stays Wallet.
@@ -72,7 +72,7 @@ This door does not POST the admission gate.
 
 ## 5. Create shell
 
-Create a PCOC calls the SDK bridge. A live header source is not in this build, so Start hike fails closed and writes no object.
+Create a PCOC calls the SDK bridge. Start hike uses the live header source. Stop writes no object.
 
 - Create does not plant, gossip, call Bari, grow a seed list, or run produce. It does not create an object and does not show an admission result.
 
@@ -93,7 +93,7 @@ These stay on the gate and the site. This phone package does not edit them.
 | Entry | This package | Account drawer tile immediately before Settings. Route `pcoc`. | Pass: Account → PCOC opens the four doors. The centre stays Wallet. |
 | Enroll your PCOC | This package | File picker (`OpenDocument`). `EnrolledPcocStore` keeps the picked object bytes per account hex, plus the file name and the date saved. | Pass: the picked file is stored for the signed-in account, with no local key check. The stored state says it will be checked by the service when you sign in, and shows the file name and the date saved. No key and no hex. Clear deletes object bytes only. The admission site decides. Fail: a local public-key read, a match against the account, a JNI or `.so` gate, storing an nsec or mnemonic, or copy that reads like the phone already approved the file. |
 | Verify any PCOC | This package | `VerifyPcocScreen`. SDK section 14 measurement, off the main thread, one run at a time. Live index `https://index.groundinglab.io` with `User-Agent: pcoc-hike`. Spinner, stage text, Cancel. Terrain is one `long[]` room, released when the run ends. | Pass: after the run finishes, the screen lists Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. Profile says production. The other rows say match, mismatch, not read, or not defined. Leg rate not read also says the rate was not read and that this is not a verdict. An unreadable or undecodable file says the object file could not be read, and that is not a verdict. Index fetch failure is a plain retry message. Cancel interrupts the run and releases the room. Debug timing for headers, terrain, and legs. VivoBook bare metal is the timing host. Phone wall time is not that clock. Fewer than 6 legs records Six leg as not defined. Allocation failure or a run that does not finish says verify did not finish. Fail: a valid or invalid headline, section 15 on this door, a shorter procedure, a second room kept after cancel, a gate POST, Bari, synth, a `test-*` host, or accept, deny, refuse, or revoke on this screen. |
-| Create a PCOC | This package | `CreatePcocScreen`. Rust bridge to the pcoc SDK. A live header source is not in this build, so Start hike does not dial Bitcoin and does not post to `https://bari.groundinglab.io`. | Pass: Start hike fails closed and writes no object. Stop writes no object. |
+| Create a PCOC | This package | `CreatePcocScreen`. Rust bridge to the pcoc SDK. Start hike uses the live header source: it dials Bitcoin and posts waypoints to `https://bari.groundinglab.io`. | Pass: Start hike uses the live header source. Stop writes no object. |
 | Request service admission | This package | Camera QR after an enrolled object. Confirm sign in, OK or Cancel, no PIN. `AdmissionQr`, `AdmissionSigner` (`CryptoUtils.sign`), `AdmissionSiteClient`. | Pass: the page says to scan the service QR and does not show hash or header text. No enrolled object shows guidance instead of the scanner. The wire is still one HTTPS URL, `h` is 64 hex, BIP-340 over those 32 bytes, POST `{object_b64, signature}` to that URL, accept/deny only from `decision`, and whether the check ran when `verifier_ran` is a boolean. Fail: bare-hash QR, phone→gate POST, redirect to another host, nsec in the body, Option B, polling, or timeout/empty/garbage shown as deny. |
 | Wrong login | This package | `Credential.admissionPrivateKeyOrNull` is `CredentialType.PrivateKey` only. | Pass: npub-only, internal signer, and external signer do not submit. |
 
@@ -111,6 +111,6 @@ These stay on the gate and the site. This phone package does not edit them.
 - [ ] The POST body is only `{object_b64, signature}` to the exact scanned URL. The phone does not POST the admission gate and does not follow a redirect onto another host.
 - [ ] The phone shows accept or deny only from `decision`, and whether the check ran when `verifier_ran` is present. Timeout, empty, or garbage is a failed request, not a denial.
 - [ ] Verify any runs the section 14 measurement off the main thread, one run at a time, with a spinner, stage text, and Cancel. Cancel interrupts the run and releases the terrain room. It does not apply section 15. When the object decodes, it says a measurement record was written and lists Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. Profile says production. The other rows say match, mismatch, not read, or not defined. Leg rate not read also says the rate was not read and that this is not a verdict. An unreadable or undecodable file says the object file could not be read. A failed index fetch is a plain retry message. Allocation failure or a run that does not finish says verify did not finish. Fewer than 6 legs records Six leg as not defined. VivoBook bare metal is the timing acceptance host. Phone wall time is not that clock. On an A34-class phone the terrain build is expected to take a few seconds. That is not the VivoBook clock.
-- [ ] Create uses the pcoc Rust SDK. A live header source is not in this build, so Start hike does not dial Bitcoin and does not post to `https://bari.groundinglab.io`. Stop writes no object.
+- [ ] Create uses the pcoc Rust SDK. Start hike uses the live header source: it dials Bitcoin and posts waypoints to `https://bari.groundinglab.io`. Stop writes no object.
 - [ ] The centre tab is still Wallet.
 - [ ] This package does not change the admission gate, the website, Cloudflare, or R2.
