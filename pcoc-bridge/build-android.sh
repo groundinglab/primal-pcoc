@@ -18,7 +18,7 @@ fi
 rustup target add aarch64-linux-android x86_64-linux-android
 cargo fetch --manifest-path "$ROOT/Cargo.toml"
 
-# sdk-rust-v2.2.0 probes SHA-NI with x86 feature names. cpufeatures rejects
+# The pcoc Rust SDK (sdk-rust-v2.3.0) probes SHA-NI with x86 feature names. cpufeatures rejects
 # those names on aarch64. Copy the locked crate and treat an unknown name as
 # absent, so the probe is false and hashing stays in the sha2 crate.
 # The SDK tag is unchanged.

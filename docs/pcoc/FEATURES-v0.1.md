@@ -2,7 +2,7 @@
 
 Product SPEC for the Account → PCOC doors. Cut points stay in [CUT-POINTS.md](CUT-POINTS.md). Phase order stays in [DEV-PLAN.md](DEV-PLAN.md).
 
-Terms, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. The phone bridge links the pcoc Rust SDK (tag `sdk-rust-v2.2.0`, one-line move to `sdk-rust-v2.3.0`). That SDK is the step and the fill. A live header source is not in this SDK build, so Create fails closed and writes no object. The tip interrupts the drive when a header source is present. Live profile only. TEST is paused.
+Terms, unchanged: **leg**, **leg result**, **STAGES 18**. A leg is 2,000,000 steps (the SDK 2.3 line, `STEPS_PER_LEG`). The 1,000,000 figure is withdrawn. Every step reads a full 16 KiB slot of a 256 MiB terrain. The phone bridge links the pcoc Rust SDK (tag `sdk-rust-v2.3.0`). That SDK is the step and the fill. A live header source is not in this SDK build, so Create fails closed and writes no object. The tip interrupts the drive when a header source is present. Live profile only. TEST is paused.
 
 This SPEC is the 2026-10-05 Account doors lock. For these doors it supersedes the earlier phone→gate POST (`https://admission.pcoc.app/v1/sign-in`) and the bare-hash QR. The admission gate, the website, Cloudflare, and R2 are not changed here. A conformant HTTPS site is a later Public Site/Infra change.
 

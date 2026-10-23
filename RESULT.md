@@ -1,6 +1,6 @@
 # Android v2 produce and verify
 
-The sections below are the history of the ref-rust 2.0 pin. The bridge now uses the pcoc Rust SDK (the 2.3 line, pinned at `sdk-rust-v2.2.0` until the one-line tag move in `pcoc-bridge/bridge/Cargo.toml`).
+The sections below are the history of the ref-rust 2.0 pin. The bridge now uses the pcoc Rust SDK (tag `sdk-rust-v2.3.0`, set in `pcoc-bridge/bridge/Cargo.toml`).
 
 ## PR
 
