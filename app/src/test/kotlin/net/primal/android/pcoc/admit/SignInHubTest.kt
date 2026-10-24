@@ -134,10 +134,16 @@ class SignInHubTest {
         listOf("verifier_ran", "The service said", "decision:").forEach { xml.contains(it) shouldBe false }
 
         val admit = File(moduleDir(), "src/main/kotlin/net/primal/android/pcoc/admit")
-        val sources = admit.listFiles().orEmpty().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
+        val files = admit.listFiles().orEmpty().filter { it.extension == "kt" }
+        val signing = files.filter { it.name != "GateDecisionLog.kt" }.joinToString("\n") { it.readText() }
         listOf("ConfirmActionAlertDialog", "verifier_ran", "\"decision\"", "latest.json", "/log/", "provisional")
-            .forEach { sources.contains(it) shouldBe false }
+            .forEach { signing.contains(it) shouldBe false }
+        val sources = files.joinToString("\n") { it.readText() }
         sources.contains("delay(") shouldBe false
+        val decisions = files.single { it.name == "GateDecisionLog.kt" }.readText()
+        decisions.contains("latest.json") shouldBe true
+        decisions.contains("/log/") shouldBe true
+        decisions.contains("nsec") shouldBe false
         val notices = sourceFile("src/main/kotlin/net/primal/android/pcoc/admit/SignInNotices.kt")
         listOf(
             "Link recognised.",
@@ -178,13 +184,24 @@ class SignInHubTest {
         }
         stringValue(xml, "pcoc_admit_welcome_code") shouldContain "Scan"
         stringValue(xml, "pcoc_admit_welcome_cost") shouldContain "cost-backed credential"
+        stringValue(xml, "pcoc_admit_flush_title") shouldBe "Reset"
+        stringValue(xml, "pcoc_admit_flush_confirm").replace("\\'", "'") shouldBe
+            "This clears this account's saved sign-in on the site."
+        stringValue(xml, "pcoc_admit_signin_confirm") shouldBe "This signs you in with this login."
+        stringValue(xml, "pcoc_admit_flush_submitted_title") shouldBe "Saved sign-in cleared"
+        stringValue(xml, "pcoc_admit_flush_submitted_body").replace("\\'", "'") shouldBe
+            "This account's saved sign-in on the site is cleared. Sign in again."
+        stringValue(xml, "pcoc_admit_problem_not_reset") shouldBe "That is not a Reset link. Nothing was sent."
+        stringValue(xml, "pcoc_admit_previous_title") shouldBe "Previous signings"
+        stringValue(xml, "pcoc_admit_previous_empty") shouldBe "No previous signings yet"
+        stringValue(xml, "pcoc_admit_previous_unavailable") shouldBe "Could not load"
     }
 
     @Test
-    fun `version name is 3_5_46`() {
+    fun `version name is 3_5_50`() {
         val gradle = sourceFile("build.gradle.kts")
-        gradle.contains("val appVersionName = \"3.5.46\"") shouldBe true
-        gradle.contains("val appVersionCode = 2743") shouldBe true
+        gradle.contains("val appVersionName = \"3.5.50\"") shouldBe true
+        gradle.contains("val appVersionCode = 2747") shouldBe true
     }
 
     @Test

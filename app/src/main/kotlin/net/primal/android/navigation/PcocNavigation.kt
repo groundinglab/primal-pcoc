@@ -18,6 +18,7 @@ import net.primal.android.pcoc.PcocDoor
 import net.primal.android.pcoc.PcocScreen
 import net.primal.android.pcoc.admit.RequestAdmissionScreen
 import net.primal.android.pcoc.admit.RequestAdmissionViewModel
+import net.primal.android.pcoc.admit.FLUSH_APP_LINK
 import net.primal.android.pcoc.admit.SIGN_IN_APP_LINK
 import net.primal.android.pcoc.create.CreatePcocScreen
 import net.primal.android.pcoc.create.CreatePcocViewModel
@@ -95,6 +96,7 @@ fun NavGraphBuilder.signInDestination(navController: NavController) {
         route = PCOC_ADMIT,
         deepLinks = listOf(
             navDeepLink { uriPattern = SIGN_IN_APP_LINK },
+            navDeepLink { uriPattern = FLUSH_APP_LINK },
         ),
         enterTransition = { primalSlideInHorizontallyFromEnd },
         exitTransition = { primalScaleOut },

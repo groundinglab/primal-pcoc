@@ -24,4 +24,13 @@ internal fun linkFor(
     return (SignInLinks.parse(text) as SignInLinkParse.Ready).link
 }
 
+/** A canonical flush link. Same query as sign-in. The path is `/flush/`. */
+internal fun flushLinkFor(
+    nonceHex: String = "0123456789abcdef".repeat(4),
+    exp: ULong = 1_893_456_000uL,
+): SignInLink {
+    val text = "https://groundinglab.io/flush/?v=1&nonce=$nonceHex&exp=$exp"
+    return (GateLinks.parse(text) as GateLinkParse.Ready).link
+}
+
 private const val PUBLIC_KEY_LEN = 32

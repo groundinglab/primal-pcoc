@@ -35,13 +35,27 @@ fun Credential.admissionPrivateKeyOrNull(): ByteArray? {
  * Not the link text, not a header hash, and not Nostr `signOrThrow`.
  */
 object AdmissionSigner {
-    fun sign(privateKey: ByteArray, link: SignInLink, objectSha256: ByteArray): String =
-        signMessage(
+    fun sign(privateKey: ByteArray, link: SignInLink, objectSha256: ByteArray): String {
+        require(link.kind == GateLinkKind.SignIn)
+        return signMessage(
             privateKey = privateKey,
             message = SignInChallenge.bip340Message(
                 SignInChallenge.challengeBytes(link, objectSha256),
             ),
         )
+    }
+
+    /** Flush tail is this login's x-only public key. Not an object hash. */
+    fun signFlush(privateKey: ByteArray, link: SignInLink, publicKey: ByteArray): String {
+        require(link.kind == GateLinkKind.Flush)
+        require(publicKey.size == PRODUCER_KEY_SIZE)
+        return signMessage(
+            privateKey = privateKey,
+            message = SignInChallenge.bip340Message(
+                SignInChallenge.challengeBytes(link, publicKey),
+            ),
+        )
+    }
 
     fun signMessage(privateKey: ByteArray, message: ByteArray): String {
         require(privateKey.size == PRODUCER_KEY_SIZE)

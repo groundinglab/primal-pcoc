@@ -34,6 +34,7 @@ import net.primal.android.core.utils.pasteText
 import net.primal.android.pcoc.PcocScaffold
 import net.primal.android.pcoc.admit.RequestAdmissionContract.CouldNotSubmitReason
 import net.primal.android.pcoc.admit.RequestAdmissionContract.LocalStop
+import net.primal.android.pcoc.admit.RequestAdmissionContract.PreviousSigningsState
 import net.primal.android.pcoc.admit.RequestAdmissionContract.ScanProblem
 import net.primal.android.pcoc.admit.RequestAdmissionContract.Sheet
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiEvent
@@ -74,8 +75,13 @@ private fun RequestAdmissionScreen(
     onCloseToMenu: () -> Unit,
     eventPublisher: (UiEvent) -> Unit,
 ) {
+    val title = if (state.action == GateLinkKind.Flush) {
+        stringResource(id = R.string.pcoc_admit_flush_title)
+    } else {
+        stringResource(id = R.string.pcoc_admit_title)
+    }
     PcocScaffold(
-        title = stringResource(id = R.string.pcoc_admit_title),
+        title = title,
         onClose = onClose,
     ) { paddingValues ->
         if (state.showWelcome) {
@@ -97,7 +103,7 @@ private fun RequestAdmissionScreen(
                 SignInCloseTarget.Caller -> onClose
                 SignInCloseTarget.PcocMenu -> onCloseToMenu
             }
-            AdmissionSheet(sheet = sheet, notices = state.notices, onClose = close)
+            AdmissionSheet(sheet = sheet, notices = state.notices, action = state.action, onClose = close)
         }
     }
 }
@@ -109,32 +115,37 @@ private fun AdmissionSignInBody(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        when {
-            !state.hasEnrolledObject && state.scanning -> Text(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                text = stringResource(id = R.string.pcoc_admit_need_pcoc),
-                style = AppTheme.typography.bodyLarge,
-                color = AppTheme.colorScheme.onPrimary,
+        if (state.scanning) {
+            Text(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                text = stringResource(id = R.string.pcoc_admit_hint),
+                style = AppTheme.typography.bodyMedium,
+                color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
             )
-            state.scanning -> {
+            if (!state.hasEnrolledObject) {
                 Text(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    text = stringResource(id = R.string.pcoc_admit_hint),
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    text = stringResource(id = R.string.pcoc_admit_no_pcoc_note),
                     style = AppTheme.typography.bodyMedium,
-                    color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
-                )
-                AdmissionQrScanner(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
-                )
-                AdmissionPasteButton(
-                    enabled = !state.submitting,
-                    onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
+                    color = AppTheme.colorScheme.onPrimary,
                 )
             }
-            else -> AdmissionLinkResult(
+            PreviousSigningsSection(
+                previous = state.previousSignings,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            AdmissionQrScanner(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                onQrText = { eventPublisher(UiEvent.QrCodeDetected(it)) },
+            )
+            AdmissionPasteButton(
+                enabled = !state.submitting,
+                onPaste = { eventPublisher(UiEvent.CodePasted(it)) },
+            )
+        } else {
+            AdmissionLinkResult(
                 modifier = Modifier.weight(1f),
                 state = state,
                 eventPublisher = eventPublisher,
@@ -155,8 +166,18 @@ private fun AdmissionLinkResult(
             .padding(horizontal = 16.dp, vertical = 16.dp),
     ) {
         if (state.origin != null) {
+            val originLabel = if (state.action == GateLinkKind.Flush) {
+                R.string.pcoc_admit_flush_origin_label
+            } else {
+                R.string.pcoc_admit_origin_label
+            }
+            val confirm = if (state.action == GateLinkKind.Flush) {
+                R.string.pcoc_admit_flush_confirm
+            } else {
+                R.string.pcoc_admit_signin_confirm
+            }
             Text(
-                text = stringResource(id = R.string.pcoc_admit_origin_label),
+                text = stringResource(id = originLabel),
                 style = AppTheme.typography.bodyMedium,
                 color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
             )
@@ -164,6 +185,12 @@ private fun AdmissionLinkResult(
                 modifier = Modifier.padding(top = 4.dp),
                 text = state.origin,
                 style = AppTheme.typography.titleLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
+            Text(
+                modifier = Modifier.padding(top = 8.dp),
+                text = stringResource(id = confirm),
+                style = AppTheme.typography.bodyLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
         }
@@ -176,9 +203,9 @@ private fun AdmissionLinkResult(
             )
         }
         val problem = if (state.notices.isEmpty()) {
-            state.scanProblem?.text() ?: state.localStop?.text()
+            state.scanProblem?.text() ?: state.localStop?.text(state.action)
         } else {
-            state.localStop?.text()
+            state.localStop?.text(state.action)
         }
         state.notices.forEach { line ->
             Text(
@@ -204,6 +231,10 @@ private fun AdmissionLinkResult(
                 Text(text = stringResource(id = R.string.pcoc_admit_scan_again))
             }
         }
+        PreviousSigningsSection(
+            previous = state.previousSignings,
+            modifier = Modifier.padding(top = 24.dp),
+        )
     }
 }
 
@@ -212,6 +243,7 @@ private fun AdmissionLinkResult(
 private fun AdmissionSheet(
     sheet: Sheet,
     notices: List<String>,
+    action: GateLinkKind?,
     onClose: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -228,13 +260,13 @@ private fun AdmissionSheet(
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         ) {
             Text(
-                text = sheetHeadline(sheet, notices),
+                text = sheetHeadline(sheet, notices, action),
                 style = AppTheme.typography.titleLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
             Text(
                 modifier = Modifier.padding(top = 8.dp),
-                text = if (notices.isEmpty()) sheet.body() else notices.joinToString("\n"),
+                text = sheetBody(sheet, notices, action),
                 style = AppTheme.typography.bodyLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
@@ -253,8 +285,8 @@ private fun AdmissionSheet(
 }
 
 @Composable
-private fun sheetHeadline(sheet: Sheet, notices: List<String>): String {
-    val fallback = sheet.title()
+private fun sheetHeadline(sheet: Sheet, notices: List<String>, action: GateLinkKind?): String {
+    val fallback = sheet.title(action)
     val last = notices.lastOrNull() ?: return fallback
     val accepted = SignInNotices.gate("accepted")?.userText
     val signingFailed = SignInNotices.sign(ok = false).userText
@@ -267,11 +299,27 @@ private fun sheetHeadline(sheet: Sheet, notices: List<String>): String {
 }
 
 @Composable
-private fun Sheet.title(): String =
+private fun Sheet.title(action: GateLinkKind?): String =
     when (this) {
-        Sheet.Submitted -> stringResource(id = R.string.pcoc_admit_submitted_title)
-        is Sheet.CouldNotSubmit -> stringResource(id = R.string.pcoc_admit_could_not_submit_title)
+        Sheet.Submitted -> if (action == GateLinkKind.Flush) {
+            stringResource(id = R.string.pcoc_admit_flush_submitted_title)
+        } else {
+            stringResource(id = R.string.pcoc_admit_submitted_title)
+        }
+        is Sheet.CouldNotSubmit -> if (action == GateLinkKind.Flush) {
+            stringResource(id = R.string.pcoc_admit_flush_could_not_title)
+        } else {
+            stringResource(id = R.string.pcoc_admit_could_not_submit_title)
+        }
     }
+
+@Composable
+private fun sheetBody(sheet: Sheet, notices: List<String>, action: GateLinkKind?): String {
+    if (action == GateLinkKind.Flush && sheet is Sheet.Submitted) {
+        return stringResource(id = R.string.pcoc_admit_flush_submitted_body)
+    }
+    return if (notices.isEmpty()) sheet.body() else notices.joinToString("\n")
+}
 
 @Composable
 private fun Sheet.body(): String =
@@ -324,6 +372,12 @@ private fun SignInWelcome(
                 style = AppTheme.typography.bodyLarge,
                 color = AppTheme.colorScheme.onPrimary,
             )
+            Text(
+                modifier = Modifier.padding(top = 16.dp),
+                text = stringResource(id = R.string.pcoc_admit_welcome_reset),
+                style = AppTheme.typography.bodyLarge,
+                color = AppTheme.colorScheme.onPrimary,
+            )
         }
         Row(
             modifier = Modifier
@@ -373,17 +427,45 @@ private fun AdmissionPasteButton(enabled: Boolean, onPaste: (String) -> Unit) {
 private fun clipboardText(context: Context): String = runCatching { context.pasteText() }.getOrNull().orEmpty()
 
 @Composable
+private fun PreviousSigningsSection(previous: PreviousSigningsState, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(id = R.string.pcoc_admit_previous_title),
+            style = AppTheme.typography.bodyMedium,
+            color = AppTheme.extraColorScheme.onSurfaceVariantAlt1,
+        )
+        val body = when (previous) {
+            PreviousSigningsState.Loading -> stringResource(id = R.string.pcoc_admit_previous_loading)
+            PreviousSigningsState.Empty -> stringResource(id = R.string.pcoc_admit_previous_empty)
+            PreviousSigningsState.Unavailable -> stringResource(id = R.string.pcoc_admit_previous_unavailable)
+            is PreviousSigningsState.Ready -> previous.lines.joinToString("\n")
+        }
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = body,
+            style = AppTheme.typography.bodyMedium,
+            color = AppTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
+@Composable
 private fun ScanProblem.text(): String =
     when (this) {
         ScanProblem.NotASignInLink -> stringResource(id = R.string.pcoc_admit_problem_not_link)
+        ScanProblem.NotAResetLink -> stringResource(id = R.string.pcoc_admit_problem_not_reset)
         ScanProblem.RetiredCode -> stringResource(id = R.string.pcoc_admit_problem_retired)
     }
 
 @Composable
-private fun LocalStop.text(): String =
+private fun LocalStop.text(action: GateLinkKind?): String =
     when (this) {
         LocalStop.NoObject -> stringResource(id = R.string.pcoc_admit_need_pcoc)
-        LocalStop.WrongLogin -> stringResource(id = R.string.pcoc_admit_wrong_login)
+        LocalStop.WrongLogin -> if (action == GateLinkKind.Flush) {
+            stringResource(id = R.string.pcoc_admit_flush_wrong_login)
+        } else {
+            stringResource(id = R.string.pcoc_admit_wrong_login)
+        }
         is LocalStop.KeyMismatch -> mismatchCopy(loginPrefix = loginPrefix, filePrefix = filePrefix)
         LocalStop.ObjectKeyUnreadable -> stringResource(id = R.string.pcoc_admit_key_unreadable)
         LocalStop.ObjectUnreadable -> stringResource(id = R.string.pcoc_admit_object_unreadable)
