@@ -56,7 +56,7 @@ If the artifact is not published, or the call site is still unnamed, this phase 
 
 ### 7. Later — local verify
 
-The Account door **Verify any PCOC** runs the Java port of section 14 and shows the measurement record: Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. It does not apply section 15 and it does not show valid or invalid. VivoBook bare metal is the timing host. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
+The Account door **Verify any PCOC** runs the Java port of section 14 and shows the measurement record: Profile, Shape, Checkpoints, Waypoints, Leg rate, and Six leg. It does not apply section 15 and it does not show valid or invalid. Bare metal on the reference desktop is the timing host. See [FEATURES-v0.1.md](FEATURES-v0.1.md).
 
 The door reads the live index. It does not keep a header archive and it does not GET a tip. The Option B admit gate does not own a second verifier and does not call verify.
 
