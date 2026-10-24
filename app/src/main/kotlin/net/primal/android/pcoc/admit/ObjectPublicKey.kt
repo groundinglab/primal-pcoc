@@ -12,10 +12,10 @@ import net.primal.domain.nostr.cryptography.utils.bech32ToHexOrThrow
  * A parsed hike object supplies that field. Otherwise the top-level scan does.
  * This is not hike verify and not an enroll gate. Enroll still stores the file as-is.
  */
-internal fun enrolledObjectPublicKey(bytes: ByteArray): ByteArray? = chooseObjectKey(
-    parsed = hikeObjectPublicKey(bytes),
-    scanned = scanTopPublicKey(bytes),
-)
+internal fun enrolledObjectPublicKey(bytes: ByteArray): ByteArray? {
+    val scanned = scanTopPublicKey(bytes)
+    return chooseObjectKey(parsed = topLevelYieldedKey(bytes, scanned), scanned = scanned)
+}
 
 internal fun chooseObjectKey(parsed: ByteArray?, scanned: ByteArray?): ByteArray? {
     val parsedKey = parsed?.takeIf { it.size == PUBLIC_KEY_LEN }
@@ -41,8 +41,8 @@ internal fun objectKeyReport(
     signingKey: ByteArray?,
     objectBytes: ByteArray,
 ): ObjectKeyReport {
-    val parsed = hikeObjectPublicKey(objectBytes)
     val scanned = scanTopPublicKey(objectBytes)
+    val parsed = topLevelYieldedKey(objectBytes, scanned)
     val objectKey = chooseObjectKey(parsed = parsed, scanned = scanned)
     val accountKey = accountPublicKey(accountHex)
     val signerKey = signingKey?.takeIf { it.size == PUBLIC_KEY_LEN }
@@ -98,6 +98,13 @@ internal fun shownKeyPrefix(prefix: String?): String {
     val text = prefix?.trim()?.lowercase() ?: return NONE
     return if (KEY_PREFIX.matches(text)) text else NONE
 }
+
+/**
+ * The native reader also walks nested maps. A nested `public_key` is not this object's key,
+ * so the native hit counts only when the top-level scan found one.
+ */
+private fun topLevelYieldedKey(bytes: ByteArray, scanned: ByteArray?): ByteArray? =
+    if (scanned == null) null else hikeObjectPublicKey(bytes)
 
 private fun scanTopPublicKey(bytes: ByteArray): ByteArray? {
     if (bytes.isEmpty()) return null

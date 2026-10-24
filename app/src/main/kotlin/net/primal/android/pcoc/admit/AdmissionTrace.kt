@@ -31,6 +31,14 @@ internal object AdmissionTrace {
     fun http(status: Int) {
         Napier.i(tag = TAG) { "admission http status=$status" }
     }
+
+    fun flush(link: SignInLink, publicKey: ByteArray, signatureHex: String) {
+        val keyPrefix = fr.acinq.secp256k1.Hex.encode(publicKey).lowercase().take(TRACE_EDGE)
+        Napier.i(tag = TAG) {
+            "flush post door=$FLUSH_DOOR origin=${link.origin} exp=${link.exp} " +
+                "nonce=${link.nonceHex.take(TRACE_EDGE)}… key=$keyPrefix… sig=${signatureTrace(signatureHex)}"
+        }
+    }
 }
 
 internal fun admissionPostLog(

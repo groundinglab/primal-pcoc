@@ -43,18 +43,21 @@ internal fun classifyLink(raw: String, source: LinkSource): LinkInput {
     val text = raw.trimAsciiWhitespace()
     if (text.isEmpty()) return LinkInput.Ignore
     if (source == LinkSource.AppLink && !isOpenedSignInUrl(text)) return LinkInput.Ignore
-    return when (val parsed = SignInLinks.parse(text)) {
-        is SignInLinkParse.Ready -> LinkInput.Ready(parsed.link)
-        SignInLinkParse.RetiredCode -> LinkInput.Rejected(
+    return when (val parsed = GateLinks.parse(text)) {
+        is GateLinkParse.Ready -> LinkInput.Ready(parsed.link)
+        GateLinkParse.RetiredCode -> LinkInput.Rejected(
             problem = ScanProblem.RetiredCode,
             why = SignInLinks.rejectWhy(text),
         )
-        SignInLinkParse.NotASignInLink -> LinkInput.Rejected(
-            problem = ScanProblem.NotASignInLink,
-            why = SignInLinks.rejectWhy(text),
+        GateLinkParse.NotALink -> LinkInput.Rejected(
+            problem = if (isFlushAttempt(text)) ScanProblem.NotAResetLink else ScanProblem.NotASignInLink,
+            why = signingLinkRejectWhy(text),
         )
     }
 }
+
+/** A delivered sign-in reads the result once. Reset does not. */
+internal fun readsSignInResult(kind: GateLinkKind): Boolean = kind == GateLinkKind.SignIn
 
 /**
  * The first sighting of a camera value is the initial read. The same value already handed
@@ -83,11 +86,13 @@ private fun isOpenedSignInUrl(text: String): Boolean {
     val lower = text.lowercase()
     val http = lower.startsWith("https://") || lower.startsWith("http://")
     if (!http || isBareSignInPage(text)) return false
-    return "/sign-in" in lower || "pcoc.app" in lower
+    return "/sign-in" in lower || "/flush" in lower || "pcoc.app" in lower
 }
 
 private fun isBareSignInPage(text: String): Boolean =
     text == SIGN_IN_APP_LINK ||
         text == "$SIGN_IN_ORIGIN/sign-in" ||
+        text == FLUSH_APP_LINK ||
+        text == "$SIGN_IN_ORIGIN/flush" ||
         text == SIGN_IN_ORIGIN ||
         text == "$SIGN_IN_ORIGIN/"

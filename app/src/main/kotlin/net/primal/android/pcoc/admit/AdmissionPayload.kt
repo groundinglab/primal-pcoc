@@ -21,6 +21,7 @@ object AdmissionPayload {
         objectBytes: ByteArray,
         signatureHex: String,
     ): String {
+        require(link.kind == GateLinkKind.SignIn)
         val signature = signatureHex.lowercase()
         require(SIGNATURE.matches(signature))
         return CommonJson.encodeToString(
@@ -31,6 +32,33 @@ object AdmissionPayload {
                 exp = link.exp,
                 objectSha256 = Hex.encode(sha256(objectBytes)),
                 objectB64 = Base64.getEncoder().encodeToString(objectBytes),
+                signature = signature,
+            ),
+        )
+    }
+
+    /**
+     * Flush POST body: `origin`, `nonce`, `exp`, `public_key`, `signature`.
+     * No object and no object_b64. `public_key` is the login's x-only key, lowercase hex.
+     */
+    fun encodeFlush(
+        link: SignInLink,
+        publicKey: ByteArray,
+        signatureHex: String,
+    ): String {
+        require(link.kind == GateLinkKind.Flush)
+        require(publicKey.size == PUBLIC_KEY_BYTES)
+        val signature = signatureHex.lowercase()
+        require(SIGNATURE.matches(signature))
+        val key = Hex.encode(publicKey).lowercase()
+        require(PUBLIC_KEY_HEX.matches(key))
+        return CommonJson.encodeToString(
+            FlushRequestBody.serializer(),
+            FlushRequestBody(
+                origin = link.origin,
+                nonce = link.nonceHex,
+                exp = link.exp,
+                publicKey = key,
                 signature = signature,
             ),
         )
@@ -59,7 +87,9 @@ object AdmissionPayload {
 
     private const val ERROR = "error"
     private const val CODE = "code"
+    private const val PUBLIC_KEY_BYTES = 32
     private val SIGNATURE = Regex("""^[0-9a-f]{128}$""")
+    private val PUBLIC_KEY_HEX = Regex("""^[0-9a-f]{64}$""")
 
     @Serializable
     private data class SignInRequestBody(
@@ -68,6 +98,15 @@ object AdmissionPayload {
         val exp: ULong,
         @SerialName("object") val objectSha256: String,
         @SerialName("object_b64") val objectB64: String,
+        val signature: String,
+    )
+
+    @Serializable
+    private data class FlushRequestBody(
+        val origin: String,
+        val nonce: String,
+        val exp: ULong,
+        @SerialName("public_key") val publicKey: String,
         val signature: String,
     )
 }

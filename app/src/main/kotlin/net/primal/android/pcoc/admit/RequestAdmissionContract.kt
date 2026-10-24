@@ -13,10 +13,24 @@ interface RequestAdmissionContract {
         val notices: List<String> = emptyList(),
         val showWelcome: Boolean = true,
         val dontShowAgain: Boolean = false,
+        val action: GateLinkKind? = null,
+        val previousSignings: PreviousSigningsState = PreviousSigningsState.Loading,
     )
+
+    /** Previous signings for this login, from the public gate log. */
+    sealed interface PreviousSigningsState {
+        data object Loading : PreviousSigningsState
+
+        data object Empty : PreviousSigningsState
+
+        data object Unavailable : PreviousSigningsState
+
+        data class Ready(val lines: List<String>) : PreviousSigningsState
+    }
 
     enum class ScanProblem {
         NotASignInLink,
+        NotAResetLink,
         RetiredCode,
     }
 

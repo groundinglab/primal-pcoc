@@ -1,8 +1,8 @@
 package net.primal.android.scanner.domain
 
 import net.primal.android.nostrconnect.utils.isNostrConnectUrl
-import net.primal.android.pcoc.admit.SignInLinkParse
-import net.primal.android.pcoc.admit.SignInLinks
+import net.primal.android.pcoc.admit.GateLinkParse
+import net.primal.android.pcoc.admit.GateLinks
 import net.primal.android.scan.utils.isPromoCodeUrl
 import net.primal.domain.nostr.utils.isNAddr
 import net.primal.domain.nostr.utils.isNAddrUri
@@ -51,5 +51,8 @@ enum class QrCodeDataType(val validator: (String) -> Boolean) {
     }
 }
 
-/** A PCOC sign-in link, or the retired `?h=` code, so other scanners leave it alone. */
-internal fun String.isPcocServiceQr(): Boolean = SignInLinks.parse(this) != SignInLinkParse.NotASignInLink
+/** A sign-in link, a Reset link, or the retired `?h=` code, so other scanners leave it alone. */
+internal fun String.isPcocServiceQr(): Boolean {
+    val parsed = GateLinks.parse(this)
+    return parsed is GateLinkParse.Ready || parsed is GateLinkParse.RetiredCode
+}
