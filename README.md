@@ -166,7 +166,7 @@ mkdir -p pcoc-bridge/target
 
 `:app:assembleGoogleDebug` is the Google flavor. The baseline is `aospDebug`. You can also run that variant in Android Studio once the SDK and NDK are installed.
 
-To sideload that APK from pepebook onto a phone on the same network, serve the APK folder and open the computer's LAN address in the phone browser. This does not use Cloudflare:
+To sideload that APK from the computer that built it onto a phone on the same network, serve the APK folder and open the computer's LAN address in the phone browser. This does not use Cloudflare:
 
 ```bash
 mkdir -p pcoc-bridge/target
