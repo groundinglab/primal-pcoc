@@ -24,6 +24,14 @@ fun interface AdmissionPoster {
     ): AdmissionPostResult
 }
 
+fun interface FlushPoster {
+    fun postFlush(
+        link: SignInLink,
+        publicKey: ByteArray,
+        signatureHex: String,
+    ): AdmissionPostResult
+}
+
 enum class DeliveryFailure {
     NoConnection,
     TimedOut,
@@ -53,7 +61,11 @@ sealed class AdmissionPostResult {
  */
 class AdmissionDoorClient(
     private val http: Call.Factory,
-) : AdmissionPoster {
+    private val flushDoor: String = FLUSH_DOOR,
+) : AdmissionPoster, FlushPoster {
+
+    /** Public decision log for this login. Not a sign-in result poll. */
+    val decisions: GateDecisionLog = GateDecisionLog(http)
 
     override fun post(
         link: SignInLink,
@@ -79,13 +91,46 @@ class AdmissionDoorClient(
         return try {
             http.newCall(request).execute().use(::interpretAdmissionResponse)
         } catch (error: InterruptedIOException) {
-            failed(error, DeliveryFailure.TimedOut)
+            failed(error, DeliveryFailure.TimedOut, what = "Sign-in POST")
         } catch (error: IOException) {
-            failed(error, DeliveryFailure.NoConnection)
+            failed(error, DeliveryFailure.NoConnection, what = "Sign-in POST")
         } catch (error: IllegalArgumentException) {
-            failed(error, DeliveryFailure.NoConnection)
+            failed(error, DeliveryFailure.NoConnection, what = "Sign-in POST")
         } catch (error: IllegalStateException) {
-            failed(error, DeliveryFailure.NoConnection)
+            failed(error, DeliveryFailure.NoConnection, what = "Sign-in POST")
+        }
+    }
+
+    /**
+     * POSTs the five-field flush body once to [flushDoor]. Does not follow a redirect,
+     * does not retry, and does not read a result. Success is HTTP 200 `{"flushed":true}`.
+     */
+    override fun postFlush(
+        link: SignInLink,
+        publicKey: ByteArray,
+        signatureHex: String,
+    ): AdmissionPostResult {
+        val encoded = try {
+            AdmissionPayload.encodeFlush(link = link, publicKey = publicKey, signatureHex = signatureHex)
+        } catch (error: IllegalArgumentException) {
+            Napier.w(error) { "Reset body was not encoded." }
+            return AdmissionPostResult.DeliveryFailed(DeliveryFailure.NotSent)
+        }
+        AdmissionTrace.flush(link = link, publicKey = publicKey, signatureHex = signatureHex)
+        val request = Request.Builder()
+            .url(flushDoor)
+            .post(encoded.toByteArray(Charsets.UTF_8).toRequestBody(JSON))
+            .build()
+        return try {
+            http.newCall(request).execute().use(::interpretFlushResponse)
+        } catch (error: InterruptedIOException) {
+            failed(error, DeliveryFailure.TimedOut, what = "Reset POST")
+        } catch (error: IOException) {
+            failed(error, DeliveryFailure.NoConnection, what = "Reset POST")
+        } catch (error: IllegalArgumentException) {
+            failed(error, DeliveryFailure.NoConnection, what = "Reset POST")
+        } catch (error: IllegalStateException) {
+            failed(error, DeliveryFailure.NoConnection, what = "Reset POST")
         }
     }
 
@@ -111,8 +156,8 @@ class AdmissionDoorClient(
         }
     }
 
-    private fun failed(error: Exception, failure: DeliveryFailure): AdmissionPostResult {
-        Napier.w(error) { "Sign-in POST was not delivered." }
+    private fun failed(error: Exception, failure: DeliveryFailure, what: String): AdmissionPostResult {
+        Napier.w(error) { "$what was not delivered." }
         return AdmissionPostResult.DeliveryFailed(failure)
     }
 }
@@ -140,6 +185,43 @@ internal fun interpretAdmissionResponse(response: Response): AdmissionPostResult
         }
         else -> AdmissionPostResult.Submitted
     }
+}
+
+/**
+ * Flush success is only HTTP 200 `{"flushed":true}`.
+ * HTTP 400 `bad_signature` and `malformed` are the two refusals. Anything else is not a delivery.
+ * There is no result read.
+ */
+internal fun interpretFlushResponse(response: Response): AdmissionPostResult {
+    val body = response.body?.string().orEmpty()
+    AdmissionTrace.http(status = response.code)
+    val redirected = response.priorResponse != null || response.code in REDIRECT_START..REDIRECT_END
+    return when {
+        redirected -> AdmissionPostResult.DeliveryFailed(
+            failure = DeliveryFailure.Redirected,
+            httpCode = redirectCode(response),
+        )
+        response.code == HTTP_BAD_REQUEST -> when (AdmissionPayload.errorCode(body)) {
+            BAD_SIGNATURE -> AdmissionPostResult.BadSignature
+            MALFORMED -> AdmissionPostResult.Malformed
+            else -> AdmissionPostResult.DeliveryFailed(
+                failure = DeliveryFailure.UnexpectedResponse,
+                httpCode = response.code,
+            )
+        }
+        response.code == HTTP_OK && flushedTrue(body) -> AdmissionPostResult.Submitted
+        else -> AdmissionPostResult.DeliveryFailed(
+            failure = DeliveryFailure.UnexpectedResponse,
+            httpCode = response.code,
+        )
+    }
+}
+
+internal fun flushedTrue(body: String): Boolean {
+    val element = runCatching { CommonJson.parseToJsonElement(body) }.getOrNull() ?: return false
+    val obj = runCatching { element.jsonObject }.getOrNull() ?: return false
+    val primitive = obj[FLUSHED]?.let { value -> runCatching { value.jsonPrimitive }.getOrNull() } ?: return false
+    return !primitive.isString && primitive.content == "true"
 }
 
 /** Outcome token from a result GET. Anything other than HTTP 200 with a string field is unsettled. */
@@ -174,10 +256,12 @@ internal fun newAdmissionHttpClient(): OkHttpClient =
 
 const val SIGN_IN_DOOR = "https://admission.groundinglab.io/v1/sign-in"
 const val SIGN_IN_RESULT = "https://admission.groundinglab.io/v1/sign-in/result/"
+const val FLUSH_DOOR = "https://admission.groundinglab.io/v1/flush"
 
 private const val BAD_SIGNATURE = "bad_signature"
 private const val MALFORMED = "malformed"
 private const val OUTCOME = "outcome"
+private const val FLUSHED = "flushed"
 private const val HTTP_OK = 200
 private const val HTTP_BAD_REQUEST = 400
 private val NONCE_HEX = Regex("^[0-9a-f]{64}$")

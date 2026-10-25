@@ -6,6 +6,7 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.primal.core.utils.serialization.CommonJson
 import okhttp3.Call
 import okhttp3.Callback
@@ -120,6 +121,61 @@ class AdmissionDoorClientTest {
     }
 
     @Test
+    fun `flush posts the five fields once to the flush door and never to sign-in`() {
+        val factory = scripted(body = """{"flushed":true}""")
+        val link = flushLinkFor()
+        val publicKey = ByteArray(32) { 7 }
+
+        AdmissionDoorClient(factory).postFlush(link, publicKey, "CD".repeat(64)) shouldBe AdmissionPostResult.Submitted
+
+        val recorded = factory.requests.single()
+        recorded.method shouldBe "POST"
+        recorded.url.toString() shouldBe FLUSH_DOOR
+        recorded.url.encodedPath shouldBe "/v1/flush"
+        recorded.url.encodedPath.contains("sign-in") shouldBe false
+        val body = Buffer().also { recorded.body!!.writeTo(it) }.readUtf8()
+        val fields = CommonJson.parseToJsonElement(body).jsonObject
+        fields.keys.toList() shouldBe listOf("origin", "nonce", "exp", "public_key", "signature")
+        fields.getValue("origin").jsonPrimitive.content shouldBe "https://groundinglab.io"
+        fields.getValue("nonce").jsonPrimitive.content shouldBe link.nonceHex
+        fields.getValue("exp").jsonPrimitive.isString shouldBe false
+        fields.getValue("exp").jsonPrimitive.content shouldBe "1893456000"
+        fields.getValue("public_key").jsonPrimitive.content shouldBe "07".repeat(32)
+        fields.getValue("signature").jsonPrimitive.content shouldBe "cd".repeat(64)
+        body.contains("nsec") shouldBe false
+        body.contains("object_b64") shouldBe false
+        body.contains("yielded_public_key") shouldBe false
+        body.contains("\"object\"") shouldBe false
+    }
+
+    @Test
+    fun `flush success is only HTTP 200 flushed true`() {
+        postFlush(code = 200, body = """{"flushed":true}""") shouldBe AdmissionPostResult.Submitted
+        listOf(
+            """{"flushed":false}""",
+            """{"flushed":"true"}""",
+            """{"delivery":"ok"}""",
+            "",
+        ).forEach { body ->
+            postFlush(code = 200, body = body) shouldBe AdmissionPostResult.DeliveryFailed(
+                failure = DeliveryFailure.UnexpectedResponse,
+                httpCode = 200,
+            )
+        }
+        postFlush(code = 201, body = """{"flushed":true}""") shouldBe AdmissionPostResult.DeliveryFailed(
+            failure = DeliveryFailure.UnexpectedResponse,
+            httpCode = 201,
+        )
+        postFlush(code = 400, body = """{"error":{"code":"bad_signature"}}""") shouldBe
+            AdmissionPostResult.BadSignature
+        postFlush(code = 400, body = """{"error":{"code":"malformed"}}""") shouldBe AdmissionPostResult.Malformed
+        postFlush(code = 500, body = """{"flushed":true}""") shouldBe AdmissionPostResult.DeliveryFailed(
+            failure = DeliveryFailure.UnexpectedResponse,
+            httpCode = 500,
+        )
+    }
+
+    @Test
     fun `a signature that is not 128 lowercase hex is not sent`() {
         val client = AdmissionDoorClient(Call.Factory { error("posted") })
         val notSent = AdmissionPostResult.DeliveryFailed(DeliveryFailure.NotSent)
@@ -166,6 +222,14 @@ class AdmissionDoorClientTest {
         val factory = scripted(body = body, code = code)
         val result = AdmissionDoorClient(factory).post(link, objectBytes, signature)
         factory.requests.size shouldBe 1
+        return result
+    }
+
+    private fun postFlush(code: Int, body: String): AdmissionPostResult {
+        val factory = scripted(body = body, code = code)
+        val result = AdmissionDoorClient(factory).postFlush(flushLinkFor(), ByteArray(32) { 7 }, signature)
+        factory.requests.size shouldBe 1
+        factory.requests.single().url.encodedPath shouldBe "/v1/flush"
         return result
     }
 

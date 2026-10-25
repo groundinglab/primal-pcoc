@@ -158,6 +158,7 @@
     <string name="pcoc_admit_welcome_need">You need a PCOC first. Produce one, or import one you already have.</string>
     <string name="pcoc_admit_welcome_code">Scan the code on the website, or paste it.</string>
     <string name="pcoc_admit_welcome_cost">A PCOC is a cost-backed credential. It costs real resources to make, and a service checks that cost.</string>
+    <string name="pcoc_admit_welcome_reset">Reset on the site uses this same sign-in. It clears this account\'s saved sign-in on the site.</string>
     <string name="pcoc_admit_welcome_skip">Don\'t show again</string>
     <string name="pcoc_admit_welcome_cta">Sign in</string>
     <string name="pcoc_enroll_choose_file">Choose a file</string>
@@ -230,7 +231,7 @@
     <string name="pcoc_create_again">New hike</string>
     <string name="pcoc_create_notification_title">PCOC hike is running</string>
     <string name="pcoc_create_notification_body">This stays running until the hike returns or you stop it.</string>
-    <string name="pcoc_admit_hint">Scan the QR code on the site you\'re signing in to. If the camera cannot scan, paste the sign-in link.</string>
+    <string name="pcoc_admit_hint">Scan the code on the site, or paste it. A sign-in code signs this login in. A Reset code clears this account\'s saved sign-in on the site.</string>
     <string name="pcoc_admit_paste">Paste code</string>
     <string name="pcoc_admit_problem_not_link">That is not a sign-in link. Nothing was sent.</string>
     <string name="pcoc_admit_problem_retired">This is the older sign-in code. This app signs only the new sign-in link from the website. Nothing was sent.</string>
@@ -254,6 +255,20 @@
     <string name="pcoc_admit_key_mismatch">This saved PCOC is for a different login. It was not sent.</string>
     <string name="pcoc_admit_key_mismatch_detail">This login starts with %1$s. The saved file starts with %2$s.</string>
     <string name="pcoc_admit_key_unreadable">This saved PCOC has no key the service can check. It was not sent.</string>
+    <string name="pcoc_admit_flush_title">Reset</string>
+    <string name="pcoc_admit_flush_origin_label">Clearing the saved sign-in on</string>
+    <string name="pcoc_admit_signin_confirm">This signs you in with this login.</string>
+    <string name="pcoc_admit_flush_confirm">This clears this account\'s saved sign-in on the site.</string>
+    <string name="pcoc_admit_flush_submitted_title">Saved sign-in cleared</string>
+    <string name="pcoc_admit_flush_submitted_body">This account\'s saved sign-in on the site is cleared. Sign in again.</string>
+    <string name="pcoc_admit_flush_could_not_title">Couldn\'t clear the saved sign-in</string>
+    <string name="pcoc_admit_problem_not_reset">That is not a Reset link. Nothing was sent.</string>
+    <string name="pcoc_admit_no_pcoc_note">Sign-in needs a PCOC on this phone. Reset only needs this login.</string>
+    <string name="pcoc_admit_flush_wrong_login">This login cannot clear the saved sign-in. Signing needs this account\'s private key. Nothing was sent.</string>
+    <string name="pcoc_admit_previous_title">Previous signings</string>
+    <string name="pcoc_admit_previous_empty">No previous signings yet</string>
+    <string name="pcoc_admit_previous_unavailable">Could not load</string>
+    <string name="pcoc_admit_previous_loading">Loading previous signings</string>
     <string name="drawer_followers_suffix">Followers</string>
     <string name="drawer_following_suffix">Following</string>
     <string name="overlay_action_close">Close</string>

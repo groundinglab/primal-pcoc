@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.aakira.napier.Napier
 import java.io.IOException
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.primal.android.pcoc.admit.RequestAdmissionContract.CouldNotSubmitReason
 import net.primal.android.pcoc.admit.RequestAdmissionContract.LocalStop
+import net.primal.android.pcoc.admit.RequestAdmissionContract.PreviousSigningsState
 import net.primal.android.pcoc.admit.RequestAdmissionContract.ScanProblem
 import net.primal.android.pcoc.admit.RequestAdmissionContract.Sheet
 import net.primal.android.pcoc.admit.RequestAdmissionContract.UiEvent
@@ -34,8 +36,9 @@ class RequestAdmissionViewModel @Inject constructor(
     private val welcomeStore: SignInWelcomeStore,
 ) : ViewModel() {
 
-    private val request = RequestServiceAdmission(store = store, poster = poster)
+    private val request = RequestServiceAdmission(store = store, poster = poster, flushPoster = poster)
     private val welcome = SignInWelcomeGate(skipWelcome = welcomeStore.skipWelcome())
+    private var signingsGeneration = 0
 
     private val _state = MutableStateFlow(
         UiState(
@@ -89,6 +92,18 @@ class RequestAdmissionViewModel @Inject constructor(
         val key = withContext(dispatchers.io()) { producerPrivateKey(credentialsStore, userId) }
         key?.fill(0)
         setState { copy(hasEnrolledObject = stored, canSign = key != null) }
+        loadPreviousSignings(userId)
+    }
+
+    private fun loadPreviousSignings(userId: String) {
+        val hex = canonicalAccountHex(userId) ?: return
+        val generation = ++signingsGeneration
+        viewModelScope.launch {
+            setState { copy(previousSignings = PreviousSigningsState.Loading) }
+            val loaded = withContext(dispatchers.io()) { poster.decisions.load(hex) }
+            if (generation != signingsGeneration) return@launch
+            setState { copy(previousSignings = loaded.toUi()) }
+        }
     }
 
     private fun observeEvents() {
@@ -109,7 +124,16 @@ class RequestAdmissionViewModel @Inject constructor(
     private fun onScanAgain() {
         val current = _state.value
         if (current.submitting || current.sheet != null) return
-        setState { copy(scanning = true, origin = null, scanProblem = null, localStop = null, notices = emptyList()) }
+        setState {
+            copy(
+                scanning = true,
+                origin = null,
+                scanProblem = null,
+                localStop = null,
+                notices = emptyList(),
+                action = null,
+            )
+        }
     }
 
     private fun onDontShowAgain(checked: Boolean) {
@@ -132,8 +156,15 @@ class RequestAdmissionViewModel @Inject constructor(
     }
 
     private fun stopScan(problem: ScanProblem, why: String) {
-        publish(SignInNotices.scan(ready = false, why = why)) {
-            copy(scanning = false, origin = null, scanProblem = problem, localStop = null, notices = emptyList())
+        publish(SignInNotices.scan(ready = false, why = why, flush = problem == ScanProblem.NotAResetLink)) {
+            copy(
+                scanning = false,
+                origin = null,
+                scanProblem = problem,
+                localStop = null,
+                notices = emptyList(),
+                action = null,
+            )
         }
     }
 
@@ -147,12 +178,20 @@ class RequestAdmissionViewModel @Inject constructor(
                     submitting = false,
                     scanProblem = null,
                     localStop = null,
+                    action = link.kind,
                 )
             }
             return
         }
         setState {
-            copy(scanning = false, origin = link.origin, submitting = true, scanProblem = null, localStop = null)
+            copy(
+                scanning = false,
+                origin = link.origin,
+                submitting = true,
+                scanProblem = null,
+                localStop = null,
+                action = link.kind,
+            )
         }
         viewModelScope.launch {
             val userId = activeAccountStore.activeUserId()
@@ -166,10 +205,10 @@ class RequestAdmissionViewModel @Inject constructor(
     }
 
     private suspend fun finishSubmit(link: SignInLink, outcome: AdmissionSubmitOutcome) {
-        publishAll(SignInNotices.trail(outcome)) {
-            withOutcome(outcome).copy(submitting = false)
+        publishAll(SignInNotices.trail(outcome, kind = link.kind)) {
+            withOutcome(outcome).copy(submitting = false, action = link.kind)
         }
-        if (outcome !is AdmissionSubmitOutcome.Submitted) return
+        if (outcome !is AdmissionSubmitOutcome.Submitted || !readsSignInResult(link.kind)) return
         val token = withContext(dispatchers.io()) { poster.readResult(link.nonceHex) }
         val gateNotice = token?.let(SignInNotices::gate) ?: return
         publish(gateNotice)
@@ -227,6 +266,15 @@ private fun UiState.withOutcome(outcome: AdmissionSubmitOutcome): UiState =
     }
 
 private fun UiState.couldNotSubmit(reason: CouldNotSubmitReason): UiState = copy(sheet = Sheet.CouldNotSubmit(reason))
+
+private fun PreviousSigningsLoad.toUi(): PreviousSigningsState {
+    val zone = ZoneId.systemDefault()
+    return when (this) {
+        PreviousSigningsLoad.Empty -> PreviousSigningsState.Empty
+        PreviousSigningsLoad.Unavailable -> PreviousSigningsState.Unavailable
+        is PreviousSigningsLoad.Ready -> PreviousSigningsState.Ready(rows.map { formatPreviousSigning(it, zone) })
+    }
+}
 
 private fun DeliveryFailure.toReason(): CouldNotSubmitReason =
     when (this) {

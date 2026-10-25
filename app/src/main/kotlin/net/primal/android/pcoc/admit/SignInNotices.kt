@@ -24,17 +24,29 @@ internal object SignInLog {
  * Plain words. No nsec, no signature, no raw response body.
  */
 internal object SignInNotices {
-    fun scan(ready: Boolean, why: String = ""): SignInNotice =
-        if (ready) notice("Link recognised.") else notice("Not a sign-in link. $why")
+    fun scan(ready: Boolean, why: String = "", flush: Boolean = false): SignInNotice =
+        when {
+            ready -> notice("Link recognised.")
+            flush -> notice("Not a Reset link. $why")
+            else -> notice("Not a sign-in link. $why")
+        }
 
     fun sign(ok: Boolean): SignInNotice = notice(if (ok) "Signed." else "Signing failed.")
 
-    fun submit(failure: DeliveryFailure? = null, httpCode: Int? = null): SignInNotice {
+    fun submit(
+        failure: DeliveryFailure? = null,
+        httpCode: Int? = null,
+        kind: GateLinkKind = GateLinkKind.SignIn,
+    ): SignInNotice {
         if (failure == null) return notice("Sent to admission.groundinglab.io.")
         val text = when (failure) {
             DeliveryFailure.NoConnection -> "Could not reach admission.groundinglab.io."
             DeliveryFailure.TimedOut -> "Timed out reaching admission.groundinglab.io."
-            DeliveryFailure.NotSent -> "The sign-in was not sent."
+            DeliveryFailure.NotSent -> if (kind == GateLinkKind.Flush) {
+                "The reset was not sent."
+            } else {
+                "The sign-in was not sent."
+            }
             DeliveryFailure.Redirected,
             DeliveryFailure.UnexpectedResponse,
             -> httpText(httpCode)
@@ -54,14 +66,17 @@ internal object SignInNotices {
         notice(if (parsed) "PCOC .cbor DM received." else "Failed to parse the PCOC .cbor DM.")
 
     /** Sentences after a link was recognised. Local stops before signing add none. */
-    fun trail(outcome: AdmissionSubmitOutcome): List<SignInNotice> = when (outcome) {
-        AdmissionSubmitOutcome.Submitted -> listOf(sign(ok = true), submit())
+    fun trail(
+        outcome: AdmissionSubmitOutcome,
+        kind: GateLinkKind = GateLinkKind.SignIn,
+    ): List<SignInNotice> = when (outcome) {
+        AdmissionSubmitOutcome.Submitted -> listOf(sign(ok = true), submit(kind = kind))
         AdmissionSubmitOutcome.SigningFailed -> listOf(sign(ok = false))
-        AdmissionSubmitOutcome.BadSignature -> sentThen(gate("bad_signature"))
-        AdmissionSubmitOutcome.Malformed -> sentThen(gate("malformed"))
+        AdmissionSubmitOutcome.BadSignature -> sentThen(gate("bad_signature"), kind)
+        AdmissionSubmitOutcome.Malformed -> sentThen(gate("malformed"), kind)
         is AdmissionSubmitOutcome.DeliveryFailed -> listOf(
             sign(ok = true),
-            submit(failure = outcome.failure, httpCode = outcome.httpCode),
+            submit(failure = outcome.failure, httpCode = outcome.httpCode, kind = kind),
         )
         AdmissionSubmitOutcome.NoObject,
         AdmissionSubmitOutcome.WrongLogin,
@@ -70,8 +85,8 @@ internal object SignInNotices {
         -> emptyList()
     }
 
-    private fun sentThen(gateNotice: SignInNotice?): List<SignInNotice> {
-        val sent = listOf(sign(ok = true), submit())
+    private fun sentThen(gateNotice: SignInNotice?, kind: GateLinkKind): List<SignInNotice> {
+        val sent = listOf(sign(ok = true), submit(kind = kind))
         return if (gateNotice == null) sent else sent + gateNotice
     }
 
