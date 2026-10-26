@@ -29,6 +29,7 @@ patch_cpufeatures() {
         exit 1
     fi
     dest="$ROOT/target/cpufeatures-android"
+    mkdir -p "$ROOT/target"
     rm -rf "$dest"
     cp -a "$src" "$dest"
     python3 - "$dest/src/aarch64.rs" <<'PY'
