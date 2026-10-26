@@ -157,10 +157,9 @@ build types — giving variants such as `aospDebug`, `aospAltRelease`, and `goog
 
 ## Building
 ### Debug
-A debug assemble does not read `config.properties`. It does need the JDK, SDK, NDK, and Rust toolchain above. On a clean checkout, create the bridge build directory first. `pcoc-bridge/build-android.sh` copies a crate into `pcoc-bridge/target/` and does not create that directory, so the task fails with `cp: cannot create directory` until it exists.
+A debug assemble does not read `config.properties`. It does need the JDK, SDK, NDK, and Rust toolchain above. `pcoc-bridge/build-android.sh` creates `pcoc-bridge/target` before it copies a crate there.
 
 ```bash
-mkdir -p pcoc-bridge/target
 ./gradlew :app:assembleAospDebug
 ```
 
@@ -169,7 +168,6 @@ mkdir -p pcoc-bridge/target
 To sideload that APK from the computer that built it onto a phone on the same network, serve the APK folder and open the computer's LAN address in the phone browser. This does not use Cloudflare:
 
 ```bash
-mkdir -p pcoc-bridge/target
 ./gradlew :app:assembleAospDebug
 python3 -m http.server 8000 --directory app/build/outputs/apk/aosp/debug
 ```
