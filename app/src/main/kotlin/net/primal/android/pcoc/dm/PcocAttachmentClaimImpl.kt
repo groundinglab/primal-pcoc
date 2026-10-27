@@ -24,8 +24,10 @@ class PcocAttachmentClaimImpl @Inject constructor(
         val plaintext = try {
             plaintextFor(userId, event)
         } catch (error: IllegalArgumentException) {
+            inbox.decryptFailed()
             null
         } catch (error: RuntimeException) {
+            inbox.decryptFailed()
             null
         }
         return inbox.consider(
@@ -48,6 +50,9 @@ class PcocAttachmentClaimImpl @Inject constructor(
             privateKey = privateKey,
             senderPubKey = sender,
             content = event.content,
-        )
+        ) ?: run {
+            inbox.decryptFailed()
+            null
+        }
     }
 }

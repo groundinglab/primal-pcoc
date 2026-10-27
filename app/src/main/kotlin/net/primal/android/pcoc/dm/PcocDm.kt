@@ -85,6 +85,12 @@ class PcocDmInbox(
         return true
     }
 
+    /** A kind-4 addressed to this account has a local key but did not decrypt. */
+    @Synchronized
+    fun decryptFailed() {
+        show(SignInNotices.dm(parsed = false))
+    }
+
     @Synchronized
     fun clearProblem() {
         problemFlow.value = null

@@ -2,6 +2,7 @@ package net.primal.android.pcoc.dm
 
 import fr.acinq.secp256k1.Hex
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.io.File
 import net.primal.android.pcoc.enroll.EnrollOutcome
@@ -103,6 +104,29 @@ class PcocDmTest {
             inbox.pending.value.shouldBeNull()
             notifier.shown shouldBe 0
             isCborMap("hello".encodeToByteArray()) shouldBe false
+        }
+    }
+
+    @Test
+    fun `a self DM with a PCOC plaintext is offered`() {
+        withInbox { _, inbox, notifier ->
+            inbox.consider(
+                accountHex = ACCOUNT,
+                eventId = "self",
+                kind = PCOC_DM_KIND,
+                recipientHex = ACCOUNT.uppercase(),
+                plaintext = objectBytes(),
+            ) shouldBe true
+            inbox.pending.value.shouldNotBeNull()
+            notifier.shown shouldBe 1
+        }
+    }
+
+    @Test
+    fun `a decrypt failure is visible`() {
+        withInbox { _, inbox, _ ->
+            inbox.decryptFailed()
+            inbox.problem.value shouldBe "Failed to parse the PCOC .cbor DM."
         }
     }
 
