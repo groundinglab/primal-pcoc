@@ -1,4 +1,8 @@
+import java.io.FileInputStream
+import java.security.KeyStore
+import java.security.cert.X509Certificate
 import java.util.*
+import org.gradle.api.GradleException
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.testing.Test
 
@@ -13,9 +17,11 @@ plugins {
 }
 
 val configProperties by lazy {
-    val configFile = File("config.properties")
-    if (configFile.exists()) {
-        Properties().apply { load(configFile.reader()) }
+    val configFile = rootProject.file("config.properties")
+    if (configFile.isFile) {
+        Properties().apply {
+            configFile.reader().use { reader -> load(reader) }
+        }
     } else {
         null
     }
@@ -29,19 +35,31 @@ data class SigningConfigProperties(
     val keyAliasPassword: String,
 )
 
+fun resolveStoreFile(storeFilePath: String): File? {
+    val absoluteStoreFile = File(storeFilePath)
+    val moduleStoreFile = File(projectDir, storeFilePath)
+    return when {
+        absoluteStoreFile.isFile -> absoluteStoreFile
+        moduleStoreFile.isFile -> moduleStoreFile
+        else -> null
+    }
+}
+
 fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? {
     val properties = configProperties
     val storeFilePath = properties?.getProperty("$storeName.storeFile")
-    if (properties == null || storeFilePath == null) return null
+    if (properties == null || storeFilePath.isNullOrBlank()) return null
 
     val absoluteStoreFile = File(storeFilePath)
-    val projectStoreFile = File(projectDir, storeFilePath)
-    val storeFile = when {
-        absoluteStoreFile.exists() -> absoluteStoreFile
-        projectStoreFile.exists() -> projectStoreFile
-        else -> throw IllegalArgumentException(
+    val moduleStoreFile = File(projectDir, storeFilePath)
+    // alternative is checked after R8 by verifyAltReleaseSigning. A missing store
+    // must not fail configuration, or minify never runs. playStore still fails here.
+    val storeFile = resolveStoreFile(storeFilePath) ?: if (storeName == "alternative") {
+        return null
+    } else {
+        throw IllegalArgumentException(
             "storeFile for $storeName can not be found " +
-                "at $absoluteStoreFile or $projectStoreFile",
+                "at $absoluteStoreFile or $moduleStoreFile",
         )
     }
 
@@ -54,8 +72,8 @@ fun extractSigningConfigProperties(storeName: String): SigningConfigProperties? 
     )
 }
 
-val appVersionCode = 2747
-val appVersionName = "3.5.50"
+val appVersionCode = 2748
+val appVersionName = "3.5.51-gl"
 
 tasks.register("generateReleaseProperties") {
     doLast {
@@ -165,10 +183,12 @@ android {
 
         create("altRelease") {
             initWith(getByName("release"))
-            signingConfig = try {
-                signingConfigs.getByName("alternative")
-            } catch (_: UnknownDomainObjectException) {
-                signingConfigs.getByName("debug")
+            // Only the alternative release key. Null (unsigned) when it is absent.
+            // Never the debug keystore. verifyAltReleaseSigning rejects the package.
+            signingConfig = signingConfigs.findByName("alternative")
+            ndk {
+                abiFilters.clear()
+                abiFilters += "arm64-v8a"
             }
         }
         create("benchmark") {
@@ -331,6 +351,113 @@ tasks.configureEach {
     val packsNativeLibs = name.endsWith("NativeLibs") || name.endsWith("JniLibFolders")
     if (packsNativeLibs) {
         dependsOn(pcocBridgeAndroid)
+    }
+}
+
+// Runs after R8 minify and resource shrinking, before package*AltRelease signs.
+// SigningConfig is null when "alternative" is absent, so skipping this task
+// ( -x verifyAltReleaseSigning ) produces an unsigned APK. It must not fall back
+// to the debug key.
+val verifyAltReleaseSigning = tasks.register("verifyAltReleaseSigning") {
+    group = "verification"
+    description = "Reject altRelease unless config.properties names a non-debug alternative key and localStorage.keyAlias."
+    doLast {
+        val configFile = rootProject.file("config.properties")
+        if (!configFile.isFile) {
+            throw GradleException(
+                "altRelease signing guard: ${configFile.absolutePath} is missing. " +
+                    "altRelease uses only signingConfigs \"alternative\" and does not fall back to the debug key. " +
+                    "Expected alternative.storeFile, alternative.storePassword, alternative.keyAlias, " +
+                    "alternative.keyPassword, and localStorage.keyAlias.",
+            )
+        }
+        val properties = Properties().apply {
+            configFile.reader().use { reader -> load(reader) }
+        }
+        val required = listOf(
+            "alternative.storeFile",
+            "alternative.storePassword",
+            "alternative.keyAlias",
+            "alternative.keyPassword",
+        )
+        val missing = required.filter { properties.getProperty(it).isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "altRelease signing guard: ${configFile.absolutePath} is missing ${missing.joinToString()}. " +
+                    "altRelease does not fall back to the debug key.",
+            )
+        }
+        if (properties.getProperty("localStorage.keyAlias").isNullOrBlank()) {
+            throw GradleException(
+                "altRelease signing guard: localStorage.keyAlias is missing or blank in ${configFile.absolutePath}. " +
+                    "Christian must choose it once and never change it. " +
+                    "Release builds bake it into BuildConfig.LOCAL_STORAGE_KEY_ALIAS for AESEncryption.",
+            )
+        }
+        val storeFilePath = properties.getProperty("alternative.storeFile")
+        val storeFile = resolveStoreFile(storeFilePath)
+        if (storeFile == null) {
+            throw GradleException(
+                "altRelease signing guard: alternative.storeFile does not exist " +
+                    "(${File(storeFilePath).absolutePath} or ${File(projectDir, storeFilePath).absolutePath}).",
+            )
+        }
+        val storePassword = properties.getProperty("alternative.storePassword").toCharArray()
+        val keyAlias = properties.getProperty("alternative.keyAlias")
+        val keyStore = openReleaseKeyStore(storeFile, storePassword)
+        if (!keyStore.containsAlias(keyAlias)) {
+            throw GradleException(
+                "altRelease signing guard: ${storeFile.absolutePath} has no alias \"$keyAlias\".",
+            )
+        }
+        val certificate = keyStore.getCertificate(keyAlias)
+            ?: throw GradleException(
+                "altRelease signing guard: alias \"$keyAlias\" in ${storeFile.absolutePath} has no certificate.",
+            )
+        val subject = if (certificate is X509Certificate) {
+            certificate.subjectX500Principal.name
+        } else {
+            certificate.toString()
+        }
+        if (subject.contains("CN=Android Debug")) {
+            throw GradleException(
+                "altRelease signing guard: the key certificate subject contains \"CN=Android Debug\" ($subject). " +
+                    "altRelease refuses the Android debug key.",
+            )
+        }
+    }
+}
+
+fun openReleaseKeyStore(storeFile: File, storePassword: CharArray): KeyStore {
+    val failures = mutableListOf<String>()
+    for (type in listOf("PKCS12", "JKS")) {
+        try {
+            val keyStore = KeyStore.getInstance(type)
+            FileInputStream(storeFile).use { input -> keyStore.load(input, storePassword) }
+            return keyStore
+        } catch (openError: Exception) {
+            failures += "$type: ${openError.javaClass.simpleName}: ${openError.message}"
+        }
+    }
+    throw GradleException(
+        "altRelease signing guard: the keystore cannot be opened as PKCS12 or JKS " +
+            "(${storeFile.absolutePath}). ${failures.joinToString("; ")}",
+    )
+}
+
+gradle.projectsEvaluated {
+    val optimizeBeforeSigningGuard = tasks.matching { task ->
+        val taskName = task.name
+        taskName.contains("AltRelease") &&
+            (taskName.startsWith("minify") || taskName.startsWith("shrink"))
+    }
+    verifyAltReleaseSigning.configure {
+        mustRunAfter(optimizeBeforeSigningGuard)
+    }
+    tasks.matching { task ->
+        task.name.startsWith("package") && task.name.endsWith("AltRelease")
+    }.configureEach {
+        dependsOn(verifyAltReleaseSigning)
     }
 }
 
