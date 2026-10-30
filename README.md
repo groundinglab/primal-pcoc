@@ -9,6 +9,24 @@
 >
 > This fork is **not** an official Primal release. Do not confuse it with builds from Primal Systems Inc.
 
+## Why the download is a debug build
+
+The Primal PCOC app offered on [groundinglab.io](https://groundinglab.io/apps/) is deliberately a **debug build**, not an optimised release build. We chose this so anyone can check exactly what the app does.
+
+**Why this helps**
+
+- The code is not shrunk or scrambled (obfuscated), so decompiled code and crash stack traces line up with the source in this repository.
+- You can connect the phone to a computer over USB, attach a debugger, and step through the app while it runs.
+- You can build the app yourself from this source and compare it with the download.
+
+**What to keep in mind**
+
+- This is an early-stage proof of concept.
+- A debug build is larger and somewhat slower than a release build.
+- It is signed with a development key. If we later move to a release key, you will need to uninstall the app once and reinstall it.
+- A debuggable app can be inspected by anyone with USB access to your unlocked phone, including the Nostr private key stored in the app. Debug builds also store sensitive information without encryption (see [Debug builds](#debug-builds) below). Keep your phone locked, and turn off USB debugging when you are not using it.
+
+
 ---
 
 <!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
