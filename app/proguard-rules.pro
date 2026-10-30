@@ -23,12 +23,46 @@
 # Avoid class/method name obfuscation for your own code
 -keepnames class net.primal.** { *; }
 
+# secp256k1 JNI. libsecp256k1-jni.so exports Java_fr_acinq_secp256k1_NativeSecp256k1_*.
+# NativeSecp256k1 lives in secp256k1-kmp-jni-common (a jar with no consumer rules).
+# secp256k1-kmp-jni-android's consumer proguard already keeps fr.acinq.secp256k1.jni.**
+# (NativeSecp256k1AndroidLoader, loaded by reflection). This rule covers the common
+# JNI class and the loader; the jni.** part overlaps that AAR rule.
 -keep class fr.acinq.secp256k1.** { *; }
 
+# sqlcipher-android 4.9.0. The AAR consumer proguard already keeps net.zetetic.**
+# native methods, public constructors, and mNativeHandle, plus the JNI callback
+# fields on SQLiteCustomFunction and SQLiteDebug$PagerStats. There is no
+# net.sqlcipher.** package in this artifact (that was the older sqlcipher-for-android).
+# The keep below overlaps the AAR rule and also retains every member name, because
+# the native library looks members up by exact name. ReleaseSecurityModule constructs
+# net.zetetic.database.sqlcipher.SupportOpenHelperFactory directly.
 -keep class net.zetetic.** { *; }
 
+# PCOC bridge JNI (pcoc-bridge/bridge/src/jni.rs). The .so looks up
+# Java_net_primal_android_pcoc_bridge_PcocNative_{indexUrl,bariUrl,verify,yieldedPublicKey,startProduce,stopProduce}
+# and calls ProduceListener.onEvent(String) from the produce thread.
+# No data class crosses JNI; payloads are String and byte[].
+# CborScan in net.primal.android.pcoc.admit.ObjectPublicKey is a private Kotlin
+# scanner, not a library and not a JNI type, so it needs no keep.
 -keep class net.primal.android.pcoc.bridge.PcocNative { *; }
 -keep class net.primal.android.pcoc.bridge.ProduceListener { *; }
+
+# JNA subpackages used by breez_sdk_spark uniffi bindings (Cleaner, *ByReference).
+# jna 5.18.1 ships no consumer rules. breez-sdk-spark-kmp 0.23.1 already keeps
+# com.sun.jna.* (one package level) and public members of its subclasses, plus
+# breez_sdk_spark.** and technology.breez.spark.*. Those consumer rules cover the
+# uniffi generated package (callbacks, FfiConverters, vtables). They do not keep
+# com.sun.jna.internal or com.sun.jna.ptr, which JNA reads by reflection.
+-keep class com.sun.jna.internal.** { *; }
+-keep class com.sun.jna.ptr.** { *; }
+
+# kotlinx-serialization 1.11.0 already ships META-INF/proguard rules that keep
+# @Serializable Companion fields, serializer() methods, and $$serializer.descriptor.
+# Hilt 2.59.2 / Dagger consumer rules already keep @EntryPoint types and
+# @dagger.internal.KeepFieldType fields. Room 2.8.4 already keeps every
+# RoomDatabase subclass, including generated *_Impl, and its no-arg constructor
+# (KClassUtil loads <database>_Impl by Class.forName). No extra rules for those.
 
 # BicoinJ-Core
 -dontwarn org.slf4j.impl.StaticLoggerBinder

@@ -152,7 +152,7 @@ The fork still presents as upstream Primal:
 - `R.string.app_name` is `Primal` (`app/src/main/res/values/strings.xml`).
 - `AndroidManifest` `android:label="@string/app_name"`.
 - `applicationId` is `net.primal.android` (`app/build.gradle.kts`). Signer and file-provider authorities are `${applicationId}.*`.
-- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.50`).
+- `SettingsHomeScreen.VersionListItem` shows `state.version` (from `appVersionName`, currently `3.5.51-gl`).
 - `user/domain/Badges.kt` is `unreadNotificationsCount` and `unreadMessagesCount`. `PrimalNavigationBar` paints a badge only for `PrimalTopLevelDestination.Alerts`. `PrimalDrawer`’s `showPremiumBadge` is Primal Premium.
 
 The badge cut is the visible name and the settings version row: `app_name` and `VersionListItem`. `Badges` and the premium drawer badge stay notification and premium UI.
@@ -191,11 +191,11 @@ Variant facts from `app/build.gradle.kts` and `gradle/libs.versions.toml` (the s
 | NDK | `26.3.11579264`. Set `ANDROID_NDK_HOME` or `ANDROID_NDK_ROOT`. `pcoc-bridge/build-android.sh` does not read `ANDROID_HOME`. If neither variable is set it uses `$HOME/Android/Sdk/ndk/26.3.11579264`. |
 | Rust | 1.83 or newer, targets `aarch64-linux-android` and `x86_64-linux-android`. `python3` is required by `pcoc-bridge/build-android.sh`. |
 | SDK packages | `platforms;android-37.0` (there is no `platforms;android-37`), `build-tools;37.0.0`, `platform-tools`. Set `ANDROID_HOME` or `sdk.dir`. |
-| Version | `appVersionName` `3.5.50`, `appVersionCode` `2747` |
+| Version | `appVersionName` `3.5.51-gl`, `appVersionCode` `2748` |
 | `google` extras | Play billing, Firebase messaging, ML Kit barcode — not on the `aosp` classpath |
 | `aosp` extra | ZXing (`aospImplementation`) |
 
-`aospDebug` needs no `config.properties`. `pcoc-bridge/build-android.sh` creates `pcoc-bridge/target` before it copies a crate there. Debug encryption is `NoEncryption`, and Room uses `FrameworkSQLiteOpenHelperFactory`. Release builds require `localStorage.keyAlias` in `config.properties` because `AESEncryption` reads `BuildConfig.LOCAL_STORAGE_KEY_ALIAS`. `googlePlayRelease` and `aospAltRelease` can take signing properties; otherwise they fall back to the debug keystore.
+`aospDebug` needs no `config.properties`. `pcoc-bridge/build-android.sh` creates `pcoc-bridge/target` before it copies a crate there. Debug encryption is `NoEncryption`, and Room uses `FrameworkSQLiteOpenHelperFactory`. Release builds require `localStorage.keyAlias` in `config.properties` because `AESEncryption` reads `BuildConfig.LOCAL_STORAGE_KEY_ALIAS`. `playRelease` can take `playStore` signing properties; otherwise it falls back to the debug keystore. `altRelease` uses only `signingConfigs` `alternative` and does not fall back. `verifyAltReleaseSigning` fails the package when `config.properties`, the alternative keystore, or `localStorage.keyAlias` is missing. Christian chooses `localStorage.keyAlias` once and never changes it.
 
 The Google Services plugin is applied to the whole `:app` module. `app/src/aosp/google-services.json` is present so an `aosp` assemble can configure it. FCM code remains in `src/google`.
 
